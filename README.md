@@ -50,6 +50,14 @@ Build artifacts (`DerivedData/`), Xcode user settings (`xcuserdata/`), and local
 
 Full App Store checklist: [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md).
 
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ios.yml`) builds the **DevotionLock** scheme on `macos-26` for every push/PR to `main`.
+
+- **What it checks:** Swift compiles, SPM packages resolve, app + widget extension link
+- **What it skips:** Unit tests (no test target yet), code signing, Family Controls entitlements (CI uses base entitlements only)
+- **Existing Xcode Cloud hook:** `ci_scripts/ci_post_clone.sh` does the same macro fingerprint skip for Apple-hosted builds
+
 ## Documentation
 
 | Doc | Purpose |

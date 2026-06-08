@@ -58,8 +58,11 @@ devotionlock-mobile/
 │   ├── deploy-supabase.sh
 │   └── apply-migrations-sql-editor.md
 │
+├── .github/workflows/
+│   └── ios.yml                          # GitHub Actions: simulator build on push/PR
+│
 ├── ci_scripts/
-│   └── ci_post_clone.sh               # Xcode Cloud post-clone hook
+│   └── ci_post_clone.sh               # Xcode Cloud post-clone hook (macro skip)
 │
 └── docs/
     ├── PRODUCT_OVERVIEW.md            # Feature + positioning reference
@@ -127,6 +130,7 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 | **Push notification production** | Local reminders exist; APNs production setup TBD |
 | **Analytics / crash reporting** | Not integrated |
 | **Unit / UI tests** | No test target in repo yet |
+| **GitHub Actions CI** | `.github/workflows/ios.yml` on `main` — simulator build, no signing |
 
 ---
 

@@ -66,7 +66,13 @@ git push -u origin feature/my-change
 # When ready to release: open PR develop → main
 ```
 
-`main` is protected: no direct pushes, CI required.
+**Protecting `main`:** On private repos, GitHub requires **Pro** (or a public repo) for enforced branch protection via API. Enable manually under **Settings → Branches → Add rule** for `main`:
+
+- Require a pull request before merging
+- Require status check **Build (iOS Simulator)**
+- Do not allow bypassing (including admins)
+
+Until that is enabled, follow the PR workflow by convention.
 
 ## Continuous integration
 

@@ -50,9 +50,27 @@ Build artifacts (`DerivedData/`), Xcode user settings (`xcuserdata/`), and local
 
 Full App Store checklist: [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md).
 
+## Branching
+
+| Branch | Role |
+|--------|------|
+| **`develop`** (default) | Day-to-day integration — open PRs here |
+| **`main`** | Release-ready code — merge `develop` → `main` when shipping |
+
+```bash
+git checkout develop && git pull
+git checkout -b feature/my-change
+# … commit …
+git push -u origin feature/my-change
+# Open PR → develop (CI must pass)
+# When ready to release: open PR develop → main
+```
+
+`main` is protected: no direct pushes, CI required.
+
 ## Continuous integration
 
-GitHub Actions (`.github/workflows/ios.yml`) builds the **DevotionLock** scheme on `macos-26` for every push/PR to `main`.
+GitHub Actions (`.github/workflows/ios.yml`) builds the **DevotionLock** scheme on `macos-26` for every push/PR to `develop` or `main`.
 
 - **What it checks:** Swift compiles, SPM packages resolve, app + widget extension link
 - **What it skips:** Unit tests (no test target yet), code signing, Family Controls entitlements (CI uses base entitlements only)

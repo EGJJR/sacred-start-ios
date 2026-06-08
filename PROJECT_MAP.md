@@ -130,7 +130,7 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 | **Push notification production** | Local reminders exist; APNs production setup TBD |
 | **Analytics / crash reporting** | Not integrated |
 | **Unit / UI tests** | No test target in repo yet |
-| **GitHub Actions CI** | `.github/workflows/ios.yml` on `main` — simulator build, no signing |
+| **GitHub Actions CI** | `.github/workflows/ios.yml` on `develop` + `main` — simulator build, no signing |
 
 ---
 

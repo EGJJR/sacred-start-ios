@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fonts/InterTight-VariableFont_wght.ttf</string>
+		<string>Fonts/InterTight-SemiBold.ttf</string>
+		<string>Fonts/InterTight-Bold.ttf</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.devotionlock.mobile</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>devotionlock</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Devotion Lock uses the microphone so you can speak with your Chaplain during voice sessions.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Devotion Lock transcribes your voice so your Chaplain can respond to what you share.</string>
+	<key>NSFamilyControlsUsageDescription</key>
+	<string>Devotion Lock uses Screen Time to temporarily shield distracting apps until you finish your morning devotion.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

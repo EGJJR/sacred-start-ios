@@ -1,0 +1,539 @@
+//
+//  PrayerCircleStore.swift
+//  DevotionLock
+//
+
+import Foundation
+import Observation
+
+@Observable
+@MainActor
+final class PrayerCircleStore {
+    static let shared = PrayerCircleStore()
+
+    private enum Keys {
+        static let circles = "prayerCircles"
+        static let members = "prayerCircleMembers"
+        static let posts = "prayerCirclePosts"
+        static let currentMemberId = "prayerCircleCurrentMemberId"
+        static let didSeed = "prayerCircleDidSeed"
+        static let acceptedGuidelines = "prayerCircleAcceptedGuidelines"
+    }
+
+    private(set) var circles: [PrayerCircle] = []
+    private(set) var members: [CircleMember] = []
+    private(set) var posts: [CirclePost] = []
+    private(set) var currentMemberId: UUID?
+    private(set) var isSyncing = false
+
+    var hasAcceptedGuidelines: Bool {
+        get { UserDefaults.standard.bool(forKey: Keys.acceptedGuidelines) }
+        set { UserDefaults.standard.set(newValue, forKey: Keys.acceptedGuidelines) }
+    }
+
+    var currentMember: CircleMember? {
+        guard let currentMemberId else { return nil }
+        return members.first { $0.id == currentMemberId }
+    }
+
+    var totalUnreadPosts: Int {
+        posts.filter { $0.createdAt > lastOpenedAt }.count
+    }
+
+    private var lastOpenedAt: Date {
+        UserDefaults.standard.object(forKey: "prayerCircleLastOpened") as? Date ?? .distantPast
+    }
+
+    init() {
+        load()
+        ensureCurrentMember()
+        seedIfNeeded()
+    }
+
+    func markFeedOpened() {
+        UserDefaults.standard.set(Date(), forKey: "prayerCircleLastOpened")
+    }
+
+    func refreshFromRemote() async {
+        isSyncing = true
+        defer { isSyncing = false }
+        await CircleRepository.shared.pullRemote(into: self)
+    }
+
+    func members(for circle: PrayerCircle) -> [CircleMember] {
+        circle.memberIds.compactMap { id in members.first { $0.id == id } }
+    }
+
+    func member(for id: UUID) -> CircleMember? {
+        members.first { $0.id == id }
+    }
+
+    func posts(for circleId: UUID, sort: CircleFeedSort = .newest) -> [CirclePost] {
+        let filtered = posts.filter { $0.circleId == circleId }
+        switch sort {
+        case .newest:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .testimonies:
+            return filtered.filter { $0.kind == .testimony }.sorted { $0.createdAt > $1.createdAt }
+        }
+    }
+
+    @discardableResult
+    func createCircle(name: String) -> PrayerCircle {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = Self.generateInviteCode()
+        var memberIds: [UUID] = []
+        if let me = currentMember {
+            memberIds.append(me.id)
+        }
+        let circle = PrayerCircle(
+            id: UUID(),
+            name: trimmed.isEmpty ? "Prayer Circle" : trimmed,
+            inviteCode: code,
+            createdAt: Date(),
+            memberIds: memberIds,
+            coverPaletteIndex: circles.count
+        )
+        circles.insert(circle, at: 0)
+        persist()
+
+        if AuthManager.shared.isAuthenticated, let memberId = currentMemberId {
+            CircleRepository.shared.enqueueCreateCircle(circle, memberId: memberId)
+        }
+        return circle
+    }
+
+    @discardableResult
+    func joinCircle(code: String) -> PrayerCircle? {
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard var circle = circles.first(where: { $0.inviteCode.uppercased() == normalized }) else {
+            return nil
+        }
+        guard let me = currentMember, !circle.memberIds.contains(me.id) else {
+            return circle
+        }
+        circle.memberIds.append(me.id)
+        if let index = circles.firstIndex(where: { $0.id == circle.id }) {
+            circles[index] = circle
+        }
+        persist()
+
+        if AuthManager.shared.isAuthenticated, let memberId = currentMemberId {
+            CircleRepository.shared.enqueueJoinCircle(code: normalized, memberId: memberId)
+        }
+        return circle
+    }
+
+    func joinCircleRemote(code: String) async -> PrayerCircle? {
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return nil }
+
+        if let local = circles.first(where: { $0.inviteCode.uppercased() == normalized }) {
+            _ = joinCircle(code: normalized)
+            return local
+        }
+
+        guard AuthManager.shared.isAuthenticated else {
+            return joinCircle(code: normalized)
+        }
+
+        guard let circleId = await CircleRepository.shared.joinCircleRemote(code: normalized) else {
+            return nil
+        }
+
+        await refreshFromRemote()
+        return circles.first { $0.id == circleId }
+    }
+
+    func shareNote(
+        _ note: PrayerWallNote,
+        to circleId: UUID,
+        visibility: CircleShareVisibility,
+        focusTag: String? = nil
+    ) -> CirclePost? {
+        guard let me = currentMember else { return nil }
+        let kind: CirclePostKind = switch note.kind {
+        case .request: .request
+        case .reminder: .reminder
+        case .answered: .testimony
+        }
+        let post = CirclePost(
+            id: UUID(),
+            circleId: circleId,
+            authorId: me.id,
+            authorName: me.displayName,
+            isAnonymous: visibility == .anonymous,
+            kind: kind,
+            text: note.text,
+            createdAt: Date(),
+            focusTag: focusTag ?? TodayFocusStore.tags.first?.rawValue,
+            sourceNoteId: note.id,
+            verseReference: nil,
+            prayingMemberIds: [],
+            encouragements: []
+        )
+        posts.insert(post, at: 0)
+        persist()
+        enqueuePostIfNeeded(post)
+        return post
+    }
+
+    func shareTestimony(
+        text: String,
+        to circleId: UUID,
+        sourceNoteId: UUID?,
+        verseReference: String? = nil,
+        visibility: CircleShareVisibility = .named
+    ) -> CirclePost? {
+        guard let me = currentMember else { return nil }
+        let post = CirclePost(
+            id: UUID(),
+            circleId: circleId,
+            authorId: me.id,
+            authorName: me.displayName,
+            isAnonymous: visibility == .anonymous,
+            kind: .testimony,
+            text: text,
+            createdAt: Date(),
+            focusTag: TodayFocusStore.tags.first?.rawValue,
+            sourceNoteId: sourceNoteId,
+            verseReference: verseReference,
+            prayingMemberIds: [],
+            encouragements: []
+        )
+        posts.insert(post, at: 0)
+        persist()
+        enqueuePostIfNeeded(post)
+        return post
+    }
+
+    func togglePraying(postId: UUID) {
+        guard let me = currentMember,
+              let index = posts.firstIndex(where: { $0.id == postId }) else { return }
+        if posts[index].prayingMemberIds.contains(me.id) {
+            posts[index].prayingMemberIds.removeAll { $0 == me.id }
+        } else {
+            posts[index].prayingMemberIds.append(me.id)
+        }
+        persist()
+
+        if AuthManager.shared.isAuthenticated {
+            CircleRepository.shared.enqueueUpdatePrayers(
+                postId: postId,
+                prayingMemberIds: posts[index].prayingMemberIds
+            )
+        }
+    }
+
+    func isPraying(postId: UUID) -> Bool {
+        guard let me = currentMember,
+              let post = posts.first(where: { $0.id == postId }) else { return false }
+        return post.prayingMemberIds.contains(me.id)
+    }
+
+    func addEncouragement(postId: UUID, text: String) {
+        guard let me = currentMember,
+              let index = posts.firstIndex(where: { $0.id == postId }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let encouragement = CircleEncouragement(
+            id: UUID(),
+            authorName: me.displayName,
+            text: trimmed,
+            createdAt: Date()
+        )
+        posts[index].encouragements.insert(encouragement, at: 0)
+        persist()
+
+        if AuthManager.shared.isAuthenticated {
+            CircleRepository.shared.enqueueEncouragement(
+                postId: postId,
+                encouragement: encouragement,
+                authorMembershipId: me.id
+            )
+        }
+    }
+
+    func addPost(_ post: CirclePost) {
+        posts.insert(post, at: 0)
+        persist()
+        enqueuePostIfNeeded(post)
+    }
+
+    func inviteURL(for circle: PrayerCircle) -> URL? {
+        DevotionDeepLink.url(host: .joinCircle, query: ["code": circle.inviteCode])
+    }
+
+    // MARK: - Remote merge
+
+    func mergeRemoteSnapshot(
+        circles remoteCircles: [DBCircle],
+        memberships: [DBCircleMembership],
+        posts remotePosts: [DBCirclePost],
+        encouragements: [DBCircleEncouragement],
+        currentUserId: UUID
+    ) {
+        var mergedMembers = members
+        for row in memberships {
+            let member = CircleMember(
+                id: row.id,
+                displayName: row.displayName,
+                avatarHue: row.avatarHue,
+                isCurrentUser: row.userId == currentUserId
+            )
+            if let index = mergedMembers.firstIndex(where: { $0.id == row.id }) {
+                mergedMembers[index] = member
+            } else {
+                mergedMembers.append(member)
+            }
+            if row.userId == currentUserId {
+                currentMemberId = row.id
+                UserDefaults.standard.set(row.id.uuidString, forKey: Keys.currentMemberId)
+            }
+        }
+
+        var mergedCircles = circles
+        for row in remoteCircles {
+            let memberIds = memberships.filter { $0.circleId == row.id }.map(\.id)
+            let circle = PrayerCircle(
+                id: row.id,
+                name: row.name,
+                inviteCode: row.inviteCode,
+                createdAt: row.createdAt,
+                memberIds: memberIds,
+                coverPaletteIndex: row.coverPaletteIndex
+            )
+            if let index = mergedCircles.firstIndex(where: { $0.id == row.id }) {
+                mergedCircles[index] = circle
+            } else {
+                mergedCircles.insert(circle, at: 0)
+            }
+        }
+
+        var encouragementByPost = Dictionary(grouping: encouragements, by: \.postId)
+        var mergedPosts = posts
+        for row in remotePosts {
+            let postEncouragements = (encouragementByPost[row.id] ?? []).map {
+                CircleEncouragement(
+                    id: $0.id,
+                    authorName: $0.authorName,
+                    text: $0.text,
+                    createdAt: $0.createdAt
+                )
+            }
+            let kind = CirclePostKind(rawValue: row.kind) ?? .request
+            let post = CirclePost(
+                id: row.id,
+                circleId: row.circleId,
+                authorId: row.authorMembershipId,
+                authorName: row.authorName,
+                isAnonymous: row.isAnonymous,
+                kind: kind,
+                text: row.text,
+                createdAt: row.createdAt,
+                focusTag: row.focusTag,
+                sourceNoteId: row.sourceNoteId,
+                verseReference: row.verseReference,
+                prayingMemberIds: row.prayingMemberIds,
+                encouragements: postEncouragements.sorted { $0.createdAt > $1.createdAt }
+            )
+            if let index = mergedPosts.firstIndex(where: { $0.id == row.id }) {
+                mergedPosts[index] = post
+            } else {
+                mergedPosts.append(post)
+            }
+        }
+
+        members = mergedMembers
+        circles = mergedCircles.sorted { $0.createdAt > $1.createdAt }
+        posts = mergedPosts.sorted { $0.createdAt > $1.createdAt }
+        persist()
+    }
+
+    func mergeRemotePost(_ row: DBCirclePost) {
+        let kind = CirclePostKind(rawValue: row.kind) ?? .request
+        let post = CirclePost(
+            id: row.id,
+            circleId: row.circleId,
+            authorId: row.authorMembershipId,
+            authorName: row.authorName,
+            isAnonymous: row.isAnonymous,
+            kind: kind,
+            text: row.text,
+            createdAt: row.createdAt,
+            focusTag: row.focusTag,
+            sourceNoteId: row.sourceNoteId,
+            verseReference: row.verseReference,
+            prayingMemberIds: row.prayingMemberIds,
+            encouragements: posts.first(where: { $0.id == row.id })?.encouragements ?? []
+        )
+        if let index = posts.firstIndex(where: { $0.id == row.id }) {
+            posts[index] = post
+        } else {
+            posts.insert(post, at: 0)
+        }
+        persist()
+    }
+
+    func mergeRemoteEncouragement(_ row: DBCircleEncouragement) {
+        guard let index = posts.firstIndex(where: { $0.id == row.postId }) else { return }
+        let encouragement = CircleEncouragement(
+            id: row.id,
+            authorName: row.authorName,
+            text: row.text,
+            createdAt: row.createdAt
+        )
+        if !posts[index].encouragements.contains(where: { $0.id == row.id }) {
+            posts[index].encouragements.insert(encouragement, at: 0)
+            persist()
+        }
+    }
+
+    func mergeRemoteMembership(_ row: DBCircleMembership) {
+        let member = CircleMember(
+            id: row.id,
+            displayName: row.displayName,
+            avatarHue: row.avatarHue,
+            isCurrentUser: row.userId == AuthManager.shared.userId
+        )
+        if !members.contains(where: { $0.id == row.id }) {
+            members.append(member)
+        }
+        if let circleIndex = circles.firstIndex(where: { $0.id == row.circleId }),
+           !circles[circleIndex].memberIds.contains(row.id) {
+            circles[circleIndex].memberIds.append(row.id)
+        }
+        persist()
+    }
+
+    private func enqueuePostIfNeeded(_ post: CirclePost) {
+        if AuthManager.shared.isAuthenticated {
+            CircleRepository.shared.enqueueCreatePost(post)
+        }
+    }
+
+    private func ensureCurrentMember() {
+        if let idString = UserDefaults.standard.string(forKey: Keys.currentMemberId),
+           let id = UUID(uuidString: idString),
+           members.contains(where: { $0.id == id }) {
+            currentMemberId = id
+            syncCurrentMemberName()
+            return
+        }
+        let name = AuthManager.shared.displayName
+        let member = CircleMember(
+            id: UUID(),
+            displayName: name,
+            avatarHue: Double.random(in: 0...1),
+            isCurrentUser: true
+        )
+        members.append(member)
+        currentMemberId = member.id
+        UserDefaults.standard.set(member.id.uuidString, forKey: Keys.currentMemberId)
+        persist()
+    }
+
+    private func syncCurrentMemberName() {
+        guard let id = currentMemberId,
+              let index = members.firstIndex(where: { $0.id == id }) else { return }
+        members[index].displayName = AuthManager.shared.displayName
+        persist()
+    }
+
+    private static func generateInviteCode() -> String {
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        return String((0..<6).map { _ in alphabet.randomElement()! })
+    }
+
+    private func load() {
+        if let data = UserDefaults.standard.data(forKey: Keys.circles),
+           let decoded = try? JSONDecoder().decode([PrayerCircle].self, from: data) {
+            circles = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.members),
+           let decoded = try? JSONDecoder().decode([CircleMember].self, from: data) {
+            members = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.posts),
+           let decoded = try? JSONDecoder().decode([CirclePost].self, from: data) {
+            posts = decoded
+        }
+        if let idString = UserDefaults.standard.string(forKey: Keys.currentMemberId) {
+            currentMemberId = UUID(uuidString: idString)
+        }
+    }
+
+    func persist() {
+        if let data = try? JSONEncoder().encode(circles) {
+            UserDefaults.standard.set(data, forKey: Keys.circles)
+        }
+        if let data = try? JSONEncoder().encode(members) {
+            UserDefaults.standard.set(data, forKey: Keys.members)
+        }
+        if let data = try? JSONEncoder().encode(posts) {
+            UserDefaults.standard.set(data, forKey: Keys.posts)
+        }
+    }
+
+    private func seedIfNeeded() {
+        guard !AuthManager.shared.isAuthenticated,
+              !UserDefaults.standard.bool(forKey: Keys.didSeed),
+              circles.isEmpty else { return }
+
+        let circle = createCircle(name: "Family Circle")
+
+        let maria = CircleMember(id: UUID(), displayName: "Maria", avatarHue: 0.08, isCurrentUser: false)
+        let james = CircleMember(id: UUID(), displayName: "James", avatarHue: 0.55, isCurrentUser: false)
+        members.append(contentsOf: [maria, james])
+
+        if let index = circles.firstIndex(where: { $0.id == circle.id }) {
+            circles[index].memberIds.append(contentsOf: [maria.id, james.id])
+        }
+
+        posts = [
+            CirclePost(
+                id: UUID(),
+                circleId: circle.id,
+                authorId: maria.id,
+                authorName: maria.displayName,
+                isAnonymous: false,
+                kind: .request,
+                text: "Praying for peace in our home this week — would love your prayers too.",
+                createdAt: Date().addingTimeInterval(-3600 * 5),
+                focusTag: FocusTag.family.rawValue,
+                sourceNoteId: nil,
+                verseReference: nil,
+                prayingMemberIds: currentMemberId.map { [$0] } ?? [],
+                encouragements: [
+                    CircleEncouragement(id: UUID(), authorName: james.displayName, text: "Holding you in prayer 🤍", createdAt: Date().addingTimeInterval(-3600 * 4))
+                ]
+            ),
+            CirclePost(
+                id: UUID(),
+                circleId: circle.id,
+                authorId: james.id,
+                authorName: james.displayName,
+                isAnonymous: false,
+                kind: .testimony,
+                text: "Doors opened gently on the job decision — grateful for everyone who prayed.",
+                createdAt: Date().addingTimeInterval(-86400 * 2),
+                focusTag: FocusTag.work.rawValue,
+                sourceNoteId: nil,
+                verseReference: "Romans 15:13",
+                prayingMemberIds: [maria.id],
+                encouragements: []
+            ),
+        ]
+
+        UserDefaults.standard.set(true, forKey: Keys.didSeed)
+        persist()
+    }
+
+    func clearDemoData() {
+        guard UserDefaults.standard.bool(forKey: Keys.didSeed) else { return }
+        circles.removeAll()
+        members.removeAll()
+        posts.removeAll()
+        persist()
+    }
+}

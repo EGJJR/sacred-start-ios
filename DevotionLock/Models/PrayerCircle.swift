@@ -10,12 +10,14 @@ enum CirclePostKind: String, Codable, CaseIterable {
     case request
     case testimony
     case reminder
+    case reflection
 
     var label: String {
         switch self {
         case .request: "Prayer request"
         case .testimony: "Testimony"
         case .reminder: "Reminder"
+        case .reflection: "Reflection"
         }
     }
 
@@ -24,6 +26,7 @@ enum CirclePostKind: String, Codable, CaseIterable {
         case .request: "hands.sparkles.fill"
         case .testimony: "checkmark.seal.fill"
         case .reminder: "bell.fill"
+        case .reflection: "text.quote"
         }
     }
 
@@ -32,7 +35,86 @@ enum CirclePostKind: String, Codable, CaseIterable {
         case .request: ABY.Color.pillPurple
         case .testimony: ABY.Color.orbSage
         case .reminder: ABY.Color.pillOrange
+        case .reflection: ABY.Color.pillTeal
         }
+    }
+}
+
+enum CircleChallengeKind: String, Codable, CaseIterable, Identifiable {
+    case gratitude
+    case scripture
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .gratitude: "Gratitude"
+        case .scripture: "Scripture"
+        }
+    }
+}
+
+struct CircleChallengeTemplate: Identifiable {
+    let id: String
+    let kind: CircleChallengeKind
+    let title: String
+    let prompt: String
+    let verseReference: String?
+
+    static let curated: [CircleChallengeTemplate] = [
+        CircleChallengeTemplate(
+            id: "gratitude-week",
+            kind: .gratitude,
+            title: "Gratitude challenge",
+            prompt: "Share one thing you noticed God doing this week.",
+            verseReference: nil
+        ),
+        CircleChallengeTemplate(
+            id: "philippians",
+            kind: .scripture,
+            title: "Peace in anxiety",
+            prompt: "Share one line from this passage that landed for you.",
+            verseReference: "Philippians 4:6-7"
+        ),
+        CircleChallengeTemplate(
+            id: "psalm23",
+            kind: .scripture,
+            title: "The Lord is my shepherd",
+            prompt: "What phrase from Psalm 23 speaks to you right now?",
+            verseReference: "Psalm 23"
+        ),
+        CircleChallengeTemplate(
+            id: "romans828",
+            kind: .scripture,
+            title: "All things work together",
+            prompt: "Share one insight from Romans 8:28 for your circle.",
+            verseReference: "Romans 8:28"
+        ),
+    ]
+}
+
+struct CircleChallenge: Identifiable, Codable, Equatable {
+    let id: UUID
+    let circleId: UUID
+    var title: String
+    var prompt: String
+    var verseReference: String?
+    let kind: CircleChallengeKind
+    let startsAt: Date
+    let endsAt: Date
+    let createdAt: Date
+
+    var isActive: Bool {
+        let now = Date()
+        return now >= startsAt && now <= endsAt
+    }
+
+    var isEnded: Bool {
+        Date() > endsAt
+    }
+
+    var daysRemaining: Int {
+        max(0, Calendar.current.dateComponents([.day], from: Date(), to: endsAt).day ?? 0)
     }
 }
 
@@ -93,6 +175,7 @@ struct CirclePost: Identifiable, Codable, Equatable {
     var focusTag: String?
     var sourceNoteId: UUID?
     var verseReference: String?
+    var challengeId: UUID?
     var prayingMemberIds: [UUID]
     var encouragements: [CircleEncouragement]
 

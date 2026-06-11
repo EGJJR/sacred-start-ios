@@ -33,6 +33,7 @@ struct MainTabView: View {
     @State private var showWidgetOnboarding = false
     @State private var showJourneyTimeline = false
     @State private var pendingCelebration: DevotionFinishResult?
+    @State private var pendingMilestone: MilestonePresentation?
     @State private var selectedConversation: Conversation?
     @State private var streakManager = StreakManager.shared
     @State private var auth = AuthManager.shared
@@ -141,6 +142,18 @@ struct MainTabView: View {
                 weekFlags: streakManager.weekCompletionFlags
             ) {
                 pendingCelebration = nil
+                if streakManager.shouldCelebrateMilestone(days: result.streak) {
+                    pendingMilestone = MilestonePresentation(days: result.streak)
+                }
+            }
+        }
+        .fullScreenCover(item: $pendingMilestone) { presentation in
+            StreakMilestoneCelebrationView(
+                milestoneDays: presentation.days,
+                identity: StreakIdentity.identity(for: presentation.days)
+            ) {
+                streakManager.markMilestoneSeen(presentation.days)
+                pendingMilestone = nil
             }
         }
         .fullScreenCover(isPresented: $showMorningWrapped) {

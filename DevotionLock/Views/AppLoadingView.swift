@@ -58,15 +58,12 @@ struct AppLoadingView: View {
                         .multilineTextAlignment(.center)
                         .lineSpacing(8)
                         .padding(.horizontal, 28)
-                        .blur(radius: quoteRevealed ? 0 : 16)
-                        .opacity(quoteRevealed ? 1 : 0)
-                        .scaleEffect(quoteRevealed ? 1 : 1.03)
+                        .blurReveal(quoteRevealed)
 
                     Text("— \(quote.reference)")
                         .font(ABY.Font.callout)
                         .foregroundStyle(ABY.Color.textSecondary)
-                        .blur(radius: referenceRevealed ? 0 : 10)
-                        .opacity(referenceRevealed ? 1 : 0)
+                        .blurReveal(referenceRevealed, blurRadius: 10, scale: 1.02)
                 }
                 .frame(maxWidth: 340)
 

@@ -20,7 +20,9 @@ devotionlock-mobile/
 │   ├── ContentView.swift              # Auth → onboarding → tabs routing
 │   ├── Components/                    # Reusable UI (nav bar, journal, chaplain, auth…)
 │   ├── Models/                        # Domain types (prayer, journey, rhythm, profile…)
+│   ├── Config/                        # FeatureFlags (bible reader kill switch)
 │   ├── Services/                      # Business logic, sync, shield, speech
+│   │   ├── Bible/                     # bible-api CDN fetch, reference parser, book catalog
 │   │   ├── AuthManager.swift
 │   │   ├── Chaplain/                  # AI chat client + context builder
 │   │   ├── Insight/                   # On-device + remote insights
@@ -30,10 +32,11 @@ devotionlock-mobile/
 │   ├── Store/                         # StoreKit / InAppKit products + PaywallAccess
 │   ├── Theme/                         # Colors, fonts, ABY design system
 │   ├── Views/                         # Screens (home, flows, settings, auth…)
-│   │   └── Auth/                      # Sign up / sign in flow
+│   │   ├── Auth/                      # Sign up / sign in flow
+│   │   └── Bible/                     # SanctuaryBibleView, chapter reader, book browser
 │   ├── Assets.xcassets/
 │   ├── Fonts/
-│   ├── DevotionLock.storekit          # Local StoreKit config (3-day trial on annual)
+│   ├── DevotionLock.storekit          # Local StoreKit config (5-day trial on annual)
 │   ├── DevotionLock.entitlements      # Debug / base entitlements
 │   └── DevotionLock.family-controls.entitlements  # Release (Family Controls)
 │
@@ -84,7 +87,7 @@ DevotionLockApp
 
 AuthManager ──sign-in──► SyncCoordinator ──► Supabase repositories
 Local stores (Journal, Streak, Prayer circles) ◄── offline queues ──► flush on foreground
-PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
+PaywallAccess ◄── InAppKit / StoreKit (weekly + monthly + annual, 5-day trial on annual)
 ```
 
 ---
@@ -95,17 +98,20 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 |------|-----------|--------|
 | **Auth** | `AuthManager.swift`, `Views/Auth/*` | Email sign up/in, session listener, sign out, delete account |
 | **Onboarding** | `OnboardingFlowView.swift` | Mood, Chaplain voice, intention — completes into paywall |
-| **Paywall / IAP** | `DevotionPaywallView.swift`, `DevotionProducts.swift`, `DevotionLock.storekit` | 3-day trial CTA, Apple disclosure, restore, premium gating via `PaywallAccess` |
+| **Paywall / IAP** | `DevotionPaywallView.swift`, `DevotionProducts.swift`, `DevotionLock.storekit` | 5-day trial on annual, weekly/monthly/annual plans, Apple disclosure, restore, premium gating via `PaywallAccess` |
 | **Home** | `HomeView.swift`, `HomeComponents.swift` | Streak strip, rhythm rings, insights, shield card, timeline |
 | **Morning devotion** | `MorningFlowView.swift`, `MorningProfile.swift` | Adaptive card flow, mood, scripture, reflection, voice/text |
 | **Journal** | `ConversationsListView.swift`, `JournalLocalStore.swift` | Unified timeline, entry hub, search (premium-gated) |
 | **Chaplain AI** | `ChaplainChatView.swift`, `ChaplainService.swift`, `supabase/functions/chaplain-chat` | Streaming chat, voice personas, AI disclosure, resume thread |
 | **Prayer wall** | `PrayerWallView.swift`, `PrayerWallRepository.swift` | Pins, filters, answered celebration |
-| **Prayer circles** | `PrayerCircleViews.swift`, `CircleRepository.swift` | Groups, posts, realtime, invite codes |
+| **Prayer circles** | `PrayerCircleViews.swift`, `CircleRepository.swift` | Groups, posts, realtime, invite codes, collective milestones, weekly reflection challenges |
 | **App Shield** | `AppShieldManager.swift`, `ShieldSettingsView.swift` | Screen Time block until devotion done (premium + entitlements) |
-| **Streaks** | `StreakManager.swift`, `StreakScreenView.swift` | Daily completion, celebrations, week strip |
+| **Streaks** | `StreakManager.swift`, `StreakScreenView.swift`, `StreakIdentity.swift`, `SanctuaryGrowthComponents.swift` | Daily completion, sanctuary growth identity (7/30/100), milestone celebrations, week strip |
 | **Journey / Wrapped** | `JourneyTimelineViews.swift`, `MorningWrappedView.swift` | Timeline preview, week in review |
 | **Insights** | `AIInsightsView.swift`, `LocalInsightEngine.swift` | On-device themes + guided prayer entry points |
+| **Scripture search** | `SanctuaryBibleView.swift`, `Services/Bible/*`, `PassageSearchView.swift` | Hybrid: curated catalog (offline) + KJV reference/chapter reader via bible-api CDN; `FeatureFlags.bibleReaderEnabled` kill switch; API paths premium-gated |
+| **Scripture library** | `ScriptureLibraryStore.swift`, `ScriptureLibraryView.swift`, `SavedScripture.swift` | Highlight + save verses from reader; bookmark curated passages; personal library tab (local UserDefaults) |
+| **Scripture browse UI** | `ScriptureBrowseComponents.swift` | Mobbin-informed: Headway tab bar, Goodreads testament tiles, Fable list rows, Medium topic grid |
 | **Widgets** | `DevotionLockWidgets/*`, `SharedDataSync.swift` | Streak, verse, prayer wall; App Group sync |
 | **Deep links** | `DeepLinkRouter.swift` | Widget / URL → tab flows |
 | **Settings / legal** | `AccountSettingsView.swift`, `LegalDocumentViews.swift` | Profile, reminders, widgets, privacy/terms in-app |
@@ -121,7 +127,7 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 | **Sign in with Apple** | Auth is email-only today; `AuthProvider.apple` scaffolded |
 | **Sign in with Google** | UI stub in `AuthSocialView.swift` |
 | **Public privacy / terms URLs** | In-app legal exists; App Store needs hosted URLs (see `../sacred-start-web` or host separately) |
-| **App Store Connect IAP** | Products + 3-day trial must be configured manually — see `docs/LAUNCH_CHECKLIST.md` |
+| **App Store Connect IAP** | Products + 5-day trial on annual must be configured manually — see `docs/LAUNCH_CHECKLIST.md` |
 | **Family Controls entitlement** | Release profile must include capability; test on device |
 | **LiveKit voice AI** | Voice uses on-device transcription + text Chaplain today |
 | **Full night sanctuary theme** | Scaffolded in `SanctuaryAppearanceSettingsView.swift` |
@@ -129,6 +135,7 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 | **Rename bundle / target to Sacred Start** | Marketing rename only so far; code IDs still `DevotionLock` |
 | **Push notification production** | Local reminders exist; APNs production setup TBD |
 | **Analytics / crash reporting** | Not integrated |
+| **Topic-based verse search (full Bible)** | v1: curated `SpiritualPassageCatalog` + `PassageTopic` tags (offline). v2 options: ship topical index JSON (topic → refs), API.Bible search (key + license), or semantic embeddings via edge function |
 | **Unit / UI tests** | No test target in repo yet |
 | **GitHub Actions CI** | `.github/workflows/ios.yml` on `develop` + `main` — simulator build, no signing |
 
@@ -143,6 +150,7 @@ PaywallAccess ◄── InAppKit / StoreKit (weekly + annual, 3-day trial)
 | `20260607031058_prayer_circles_phase2.sql` | Circles, memberships, posts |
 | `20260607040000_profiles_account_management.sql` | Account fields, deletion support |
 | `20260607130000_sync_extensions.sql` | Sync columns / preferences |
+| `20260608120000_circle_challenges.sql` | Circle reflection challenges, `reflection` post kind, `challenge_id` on posts |
 
 | Edge function | Purpose |
 |---------------|---------|
@@ -163,6 +171,7 @@ All feature entry points should use `PaywallAccess.guardPremium` in:
 - `ConversationsListView.swift` — journal add / hub
 - `AIInsightsView.swift` — insights actions
 - `SearchView.swift` — search + tag chips
+- `SanctuaryBibleView.swift` — bible-api reference lookup + book browser (curated catalog browse is free)
 - `ShieldSettingsView.swift` — shield config
 
 Browsing without subscription is allowed; actions route to paywall.

@@ -82,6 +82,10 @@ GitHub Actions (`.github/workflows/ios.yml`) builds the **DevotionLock** scheme 
 - **What it skips:** Unit tests (no test target yet), code signing, Family Controls entitlements (CI uses base entitlements only)
 - **Existing Xcode Cloud hook:** `ci_scripts/ci_post_clone.sh` does the same macro fingerprint skip for Apple-hosted builds
 
+## Scripture reader
+
+Hybrid Bible search: curated passages offline + KJV chapter/reference lookup via [wldeh/bible-api](https://github.com/wldeh/bible-api) (CDN, no API key). Toggle the full reader with `FeatureFlags.bibleReaderEnabled` in `DevotionLock/Config/FeatureFlags.swift` — set `false` to ship curated passages only.
+
 ## Documentation
 
 | Doc | Purpose |

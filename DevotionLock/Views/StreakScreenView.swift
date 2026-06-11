@@ -83,6 +83,16 @@ struct StreakScreenView: View {
             StreakChallengeBar(progress: streakManager.challengeProgress)
                 .padding(.vertical, 20)
 
+            Divider().overlay(palette.divider)
+
+            SanctuaryMilestoneProgressBar(identity: identity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+
+            SanctuaryGrowthBadgeRow(currentStage: identity.stage)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 12))
@@ -99,6 +109,10 @@ struct StreakScreenView: View {
         .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 20, y: 8)
     }
 
+    private var identity: StreakIdentity {
+        streakManager.streakIdentity
+    }
+
     private var streakHero: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
@@ -106,24 +120,15 @@ struct StreakScreenView: View {
                 Text("day streak!")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(StreakPalette.orange)
-                Text("Morning devotion")
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textSecondary)
+                Text(identity.statusName)
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(ABY.Color.pillTeal)
                     .padding(.top, 4)
             }
 
             Spacer(minLength: 8)
 
-            Image(systemName: "flame.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [StreakPalette.orangeLight, StreakPalette.orange],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .shadow(color: StreakPalette.orange.opacity(0.25), radius: 8, y: 3)
+            SanctuaryGrowthArtifact(stage: identity.stage, size: 80)
         }
     }
 

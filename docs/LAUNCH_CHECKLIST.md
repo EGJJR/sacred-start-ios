@@ -23,9 +23,10 @@ npx supabase db push
 
 - [ ] Create subscription group **Devotion Lock Premium**
 - [ ] Add products matching the app:
-  - `com.devotionlock.mobile.premium.weekly`
-  - `com.devotionlock.mobile.premium.annual`
-- [ ] Add **3-day free trial** introductory offer on the annual plan (matches `DevotionLock.storekit`)
+  - `com.devotionlock.mobile.premium.weekly.v2` ($3.99/wk)
+  - `com.devotionlock.mobile.premium.monthly.v2` ($11.99/mo)
+  - `com.devotionlock.mobile.premium.annual.v2` ($49.99/yr)
+- [ ] Add **5-day free trial** introductory offer on the annual plan (matches `DevotionLock.storekit`)
 - [ ] Link IAP to the app record; add localizations and pricing
 - [ ] Sandbox test: start trial → full access → cancel before charge → trial expiry → paywall returns
 - [ ] Test **Restore Purchases** on paywall
@@ -34,8 +35,10 @@ npx supabase db push
 
 - [ ] Paid Apple Developer Program membership active
 - [ ] **Family Controls** capability enabled for the App ID (required for App Shield)
-- [ ] Release build uses `DevotionLock.family-controls.entitlements` (wired in Xcode project)
-- [ ] Test shield authorization on a **physical device** via TestFlight (not Simulator)
+- [ ] **Family Controls Distribution** approved by Apple (required for TestFlight/App Store builds with shield)
+- [ ] Release entitlements: `DevotionLock.entitlements` until FC distribution is approved; then switch Release back to `DevotionLock.family-controls.entitlements`
+- [ ] Debug builds may still use `DevotionLock.family-controls.entitlements` for local shield testing
+- [ ] Test shield authorization on a **physical device** via TestFlight after FC distribution build is uploaded (not Simulator)
 
 ## App Store Connect metadata
 
@@ -49,7 +52,7 @@ npx supabase db push
 
 ## Pre-submit smoke test (device)
 
-- [ ] Fresh install → sign up → onboarding → paywall → start 3-day trial
+- [ ] Fresh install → sign up → onboarding → paywall → start 5-day trial
 - [ ] Morning devotion completes and syncs
 - [ ] Chaplain chat streams a response
 - [ ] Prayer wall + circles create/sync

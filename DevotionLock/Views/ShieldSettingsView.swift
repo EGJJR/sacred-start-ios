@@ -51,7 +51,7 @@ struct ShieldSettingsView: View {
                     Text("Premium feature")
                         .font(ABY.Font.headline)
                         .foregroundStyle(palette.textPrimary)
-                    Text("Start your 3-day free trial to enable Screen Time shields and protect your mornings.")
+                    Text("Start your 5-day free trial to enable Screen Time shields and protect your mornings.")
                         .font(ABY.Font.callout)
                         .foregroundStyle(palette.textSecondary)
                         .multilineTextAlignment(.center)

@@ -74,9 +74,24 @@ struct ProfileView: View {
                     }
                     .buttonStyle(.plain)
                         .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 16)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 8)
+
+                    Button(action: openStreakScreen) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Your rhythm")
+                                .font(ABY.Font.section)
+                                .foregroundStyle(palette.textSecondary)
+                            SanctuaryIdentityCard(identity: streakManager.streakIdentity)
+                            SanctuaryGrowthBadgeRow(currentStage: streakManager.streakIdentity.stage)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 24)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 8)
 
                     DevotionTimelineSection(
                         streakManager: streakManager,
@@ -158,8 +173,8 @@ struct ProfileView: View {
                         ABYSettingsRow(
                             icon: "magnifyingglass",
                             title: "Passages & promises",
-                            detail: "Search by theme",
-                            value: nil
+                            detail: "Search, browse, library",
+                            value: ScriptureLibraryStore.shared.count > 0 ? "\(ScriptureLibraryStore.shared.count) saved" : nil
                         ) {
                             path.append(ProfileDestination.passages)
                         }

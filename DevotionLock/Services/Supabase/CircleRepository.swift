@@ -54,6 +54,7 @@ struct DBCirclePost: Codable {
     let focusTag: String?
     let sourceNoteId: UUID?
     let verseReference: String?
+    let challengeId: UUID?
     let prayingMemberIds: [UUID]
     let createdAt: Date
 
@@ -67,7 +68,31 @@ struct DBCirclePost: Codable {
         case focusTag = "focus_tag"
         case sourceNoteId = "source_note_id"
         case verseReference = "verse_reference"
+        case challengeId = "challenge_id"
         case prayingMemberIds = "praying_member_ids"
+        case createdAt = "created_at"
+    }
+}
+
+struct DBCircleChallenge: Codable {
+    let id: UUID
+    let circleId: UUID
+    let title: String
+    let prompt: String
+    let verseReference: String?
+    let kind: String
+    let startsAt: Date
+    let endsAt: Date
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case circleId = "circle_id"
+        case title, prompt
+        case verseReference = "verse_reference"
+        case kind
+        case startsAt = "starts_at"
+        case endsAt = "ends_at"
         case createdAt = "created_at"
     }
 }
@@ -98,6 +123,7 @@ enum CircleSyncOperationKind: String, Codable {
     case createPost
     case updatePostPrayers
     case addEncouragement
+    case createChallenge
 }
 
 struct CircleSyncOperation: Codable, Identifiable {
@@ -107,6 +133,7 @@ struct CircleSyncOperation: Codable, Identifiable {
     let memberId: UUID?
     let inviteCode: String?
     let post: CirclePost?
+    let challenge: CircleChallenge?
     let encouragement: CircleEncouragement?
     let authorMembershipId: UUID?
     let enqueuedAt: Date
@@ -182,6 +209,7 @@ final class CircleRepository {
                 memberId: memberId,
                 inviteCode: nil,
                 post: nil,
+                challenge: nil,
                 encouragement: nil,
                 authorMembershipId: memberId,
                 enqueuedAt: Date()
@@ -199,6 +227,7 @@ final class CircleRepository {
                 memberId: memberId,
                 inviteCode: code,
                 post: nil,
+                challenge: nil,
                 encouragement: nil,
                 authorMembershipId: memberId,
                 enqueuedAt: Date()
@@ -216,8 +245,27 @@ final class CircleRepository {
                 memberId: nil,
                 inviteCode: nil,
                 post: post,
+                challenge: nil,
                 encouragement: nil,
                 authorMembershipId: post.authorId,
+                enqueuedAt: Date()
+            )
+        )
+        Task { await flushPending() }
+    }
+
+    func enqueueCreateChallenge(_ challenge: CircleChallenge) {
+        CircleOfflineQueue.shared.enqueue(
+            CircleSyncOperation(
+                id: UUID(),
+                kind: .createChallenge,
+                circle: nil,
+                memberId: nil,
+                inviteCode: nil,
+                post: nil,
+                challenge: challenge,
+                encouragement: nil,
+                authorMembershipId: nil,
                 enqueuedAt: Date()
             )
         )
@@ -236,6 +284,7 @@ final class CircleRepository {
                 memberId: nil,
                 inviteCode: nil,
                 post: updated,
+                challenge: nil,
                 encouragement: nil,
                 authorMembershipId: nil,
                 enqueuedAt: Date()
@@ -259,6 +308,7 @@ final class CircleRepository {
                 memberId: nil,
                 inviteCode: nil,
                 post: post,
+                challenge: nil,
                 encouragement: encouragement,
                 authorMembershipId: authorMembershipId,
                 enqueuedAt: Date()
@@ -307,6 +357,9 @@ final class CircleRepository {
                           let post = op.post,
                           let authorId = op.authorMembershipId else { continue }
                     try await insertEncouragement(encouragement, postId: post.id, authorMembershipId: authorId)
+                case .createChallenge:
+                    guard let challenge = op.challenge else { continue }
+                    try await insertChallenge(challenge)
                 }
                 CircleOfflineQueue.shared.remove(op.id)
             } catch {
@@ -366,10 +419,19 @@ final class CircleRepository {
                     .value
             }
 
+            let challenges: [DBCircleChallenge] = try await SupabaseManager.client
+                .from("circle_challenges")
+                .select()
+                .in("circle_id", values: circleIds.map(\.uuidString))
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+
             store.mergeRemoteSnapshot(
                 circles: circles,
                 memberships: allMemberships,
                 posts: posts,
+                challenges: challenges,
                 encouragements: encouragements,
                 currentUserId: userId
             )
@@ -419,6 +481,12 @@ final class CircleRepository {
                 table: "circle_memberships",
                 filter: "circle_id=eq.\(circleId.uuidString)"
             )
+            let challengeInserts = channel.postgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "circle_challenges",
+                filter: filter
+            )
 
             await channel.subscribe()
 
@@ -451,6 +519,16 @@ final class CircleRepository {
                             decoder: Self.realtimeDecoder
                         ) else { continue }
                         await store.mergeRemoteMembership(row)
+                    }
+                }
+                group.addTask {
+                    for await insert in challengeInserts {
+                        guard !Task.isCancelled else { return }
+                        guard let row = try? insert.decodeRecord(
+                            as: DBCircleChallenge.self,
+                            decoder: Self.realtimeDecoder
+                        ) else { continue }
+                        await store.mergeRemoteChallenge(row)
                     }
                 }
             }
@@ -546,6 +624,7 @@ final class CircleRepository {
             let focusTag: String?
             let sourceNoteId: UUID?
             let verseReference: String?
+            let challengeId: UUID?
             let prayingMemberIds: [UUID]
             let createdAt: Date
 
@@ -559,6 +638,7 @@ final class CircleRepository {
                 case focusTag = "focus_tag"
                 case sourceNoteId = "source_note_id"
                 case verseReference = "verse_reference"
+                case challengeId = "challenge_id"
                 case prayingMemberIds = "praying_member_ids"
                 case createdAt = "created_at"
             }
@@ -578,8 +658,57 @@ final class CircleRepository {
                     focusTag: post.focusTag,
                     sourceNoteId: post.sourceNoteId,
                     verseReference: post.verseReference,
+                    challengeId: post.challengeId,
                     prayingMemberIds: post.prayingMemberIds,
                     createdAt: post.createdAt
+                ),
+                onConflict: "id"
+            )
+            .execute()
+    }
+
+    private func insertChallenge(_ challenge: CircleChallenge) async throws {
+        struct ChallengeInsert: Encodable {
+            let id: UUID
+            let circleId: UUID
+            let title: String
+            let prompt: String
+            let verseReference: String?
+            let kind: String
+            let startsAt: Date
+            let endsAt: Date
+            let createdBy: UUID
+            let createdAt: Date
+
+            enum CodingKeys: String, CodingKey {
+                case id
+                case circleId = "circle_id"
+                case title, prompt
+                case verseReference = "verse_reference"
+                case kind
+                case startsAt = "starts_at"
+                case endsAt = "ends_at"
+                case createdBy = "created_by"
+                case createdAt = "created_at"
+            }
+        }
+
+        guard let userId = AuthManager.shared.userId else { return }
+
+        try await SupabaseManager.client
+            .from("circle_challenges")
+            .upsert(
+                ChallengeInsert(
+                    id: challenge.id,
+                    circleId: challenge.circleId,
+                    title: challenge.title,
+                    prompt: challenge.prompt,
+                    verseReference: challenge.verseReference,
+                    kind: challenge.kind.rawValue,
+                    startsAt: challenge.startsAt,
+                    endsAt: challenge.endsAt,
+                    createdBy: userId,
+                    createdAt: challenge.createdAt
                 ),
                 onConflict: "id"
             )

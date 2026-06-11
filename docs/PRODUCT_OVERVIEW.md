@@ -108,6 +108,8 @@ Chaplain extends the morning ritual when users want to go deeper or process some
 
 - Private groups (family, small group, roommates)
 - Posts, “praying” reactions, encouragements
+- Collective milestones (prayers lifted together, testimonies celebrated) with confetti celebrations—no individual leaderboards
+- Weekly reflection challenges (gratitude or scripture prompts) with a compiled wisdom scroll at the end
 - Invite codes and realtime sync when authenticated
 
 Community features stay intimate—closer to a shared prayer room than a public social feed.
@@ -125,6 +127,8 @@ This is rare in faith apps and directly ties product value to the “lock” in 
 ### Streaks, celebrations & widgets
 
 - Streak tracking with born/celebration moments
+- **Sanctuary growth identity**: evolving visual artifact and named status at 7/30/100 days (Morning Anchor, Steady in the Word, Sanctuary Keeper)
+- Milestone celebration modals with share
 - **Home screen widgets**: streak, daily verse, prayer wall snapshot
 - App Group sync between app and widget extension
 - Deep links into prayer wall, journal, Chaplain, streak screen
@@ -158,15 +162,19 @@ Offline queues flush on launch and foreground. Account deletion is supported via
 
 ## Business model
 
-**Premium subscription** with a **3-day free trial** (StoreKit introductory offer on annual plan):
+**Premium subscription** with a **5-day free trial** (StoreKit introductory offer on annual plan):
 
 | Free trial | Full subscription unlocks |
 |------------|---------------------------|
-| 3 days of full app access | Everything after trial ends |
+| 5 days of full app access | Everything after trial ends |
 
 After onboarding, users see the paywall. Without an active trial or subscription, the app is browsable but actions (devotion, Chaplain, journal, prayer wall, circles, shield, search, etc.) route to the paywall.
 
-Plans: weekly and annual (`com.devotionlock.mobile.premium.weekly` / `.annual`).
+| Plan | Price | Product ID |
+|------|-------|------------|
+| Weekly | $3.99/wk | `com.devotionlock.mobile.premium.weekly.v2` |
+| Monthly | $11.99/mo | `com.devotionlock.mobile.premium.monthly.v2` |
+| Annual | $49.99/yr | `com.devotionlock.mobile.premium.annual.v2` |
 
 ---
 

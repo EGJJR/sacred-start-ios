@@ -14,24 +14,33 @@ enum DevotionFeature: String, AppFeature {
 }
 
 enum DevotionProducts {
-    static let weekly = "com.devotionlock.mobile.premium.weekly"
-    static let annual = "com.devotionlock.mobile.premium.annual"
+    static let weekly = "com.devotionlock.mobile.premium.weekly.v2"
+    static let monthly = "com.devotionlock.mobile.premium.monthly.v2"
+    static let annual = "com.devotionlock.mobile.premium.annual.v2"
+
+    static let displayOrder: [String] = [annual, monthly, weekly]
 
     static let all: [ProductDefinition] = [
-        Product(weekly, features: DevotionFeature.allCases)
-            .withBadge("Flexible")
+        Product(annual, features: DevotionFeature.allCases)
+            .withBadge("Best Value", color: .black)
+            .withRelativeDiscount(comparedTo: monthly)
+            .withMarketingFeatures([
+                "Everything in Premium",
+                "5-day free trial",
+                "Spiritual theme insights",
+            ]),
+        Product(monthly, features: DevotionFeature.allCases)
             .withMarketingFeatures([
                 "AI Chaplain voice sessions",
                 "Morning devotion timeline",
-                "App shield",
+                "App shield & prayer circles",
             ]),
-        Product(annual, features: DevotionFeature.allCases)
-            .withBadge("Best Value", color: .black)
-            .withRelativeDiscount(comparedTo: weekly)
+        Product(weekly, features: DevotionFeature.allCases)
+            .withBadge("Flexible")
             .withMarketingFeatures([
-                "Everything in Weekly",
-                "Spiritual theme insights",
-                "Priority Chaplain reflections",
+                "Full premium access",
+                "Cancel anytime",
+                "Try before you commit",
             ]),
     ]
 }
@@ -69,7 +78,7 @@ enum PaywallBypass {
     }
 }
 
-/// Single gate for premium features. v1 is subscription-only (3-day trial via StoreKit intro offer).
+/// Single gate for premium features. v1 is subscription-only (5-day trial via StoreKit intro offer).
 /// Call `guardPremium` from feature entry points; browsing without premium is allowed.
 enum PaywallAccess {
     @MainActor

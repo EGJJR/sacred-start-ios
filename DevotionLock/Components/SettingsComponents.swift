@@ -10,16 +10,26 @@ struct ABYProfileHeader: View {
     let name: String
     let streakDays: Int
     var avatarURL: URL? = nil
-    var subtitle: String = "Morning devotee"
+    var subtitle: String? = nil
+
+    private var identity: StreakIdentity {
+        StreakIdentity.identity(for: streakDays)
+    }
 
     var body: some View {
         HStack(spacing: 14) {
-            ProfileAvatarView(name: name, avatarURL: avatarURL, size: 56)
+            ZStack(alignment: .bottomTrailing) {
+                ProfileAvatarView(name: name, avatarURL: avatarURL, size: 56)
+                if streakDays > 0 {
+                    SanctuaryGrowthArtifact(stage: identity.stage, size: 28)
+                        .offset(x: 6, y: 6)
+                }
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(ABY.Font.headline)
                     .foregroundStyle(palette.textPrimary)
-                Text(subtitle)
+                Text(subtitle ?? identity.statusName)
                     .font(ABY.Font.footnote)
                     .foregroundStyle(palette.textSecondary)
             }

@@ -154,6 +154,8 @@ struct ABYOnboardingMeshBackground: View {
 
 struct ABYBackground: View {
     var style: Style = .app
+    /// Optional mesh intensity overlay (0 = default clean gradient only).
+    var meshOpacity: CGFloat = 0
 
     enum Style { case app, onboarding }
 
@@ -164,6 +166,12 @@ struct ABYBackground: View {
                 ABYCleanGradientBackground()
             case .onboarding:
                 ABYOnboardingMeshBackground()
+            }
+
+            if meshOpacity > 0 {
+                ABYOnboardingMeshBackground()
+                    .opacity(meshOpacity)
+                    .allowsHitTesting(false)
             }
         }
     }

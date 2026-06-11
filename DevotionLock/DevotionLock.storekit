@@ -33,7 +33,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "5.99",
+          "displayPrice" : "3.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "weekly001",
@@ -45,7 +45,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.devotionlock.mobile.premium.weekly",
+          "productID" : "com.devotionlock.mobile.premium.weekly.v2",
           "recurringSubscriptionPeriod" : "P1W",
           "referenceName" : "Weekly",
           "subscriptionGroupID" : "devotion_premium",
@@ -61,23 +61,51 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "39.99",
+          "displayPrice" : "11.99",
           "familyShareable" : false,
           "groupNumber" : 2,
+          "internalID" : "monthly001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly premium access",
+              "displayName" : "Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.devotionlock.mobile.premium.monthly.v2",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly",
+          "subscriptionGroupID" : "devotion_premium",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
           "internalID" : "annual001",
           "introductoryOffer" : {
-            "internalID" : "trial3day",
+            "internalID" : "trial5day",
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
+            "subscriptionPeriod" : "P5D"
           },
           "localizations" : [
             {
-              "description" : "Annual premium with 3-day trial",
+              "description" : "Annual premium with 5-day trial",
               "displayName" : "Annual",
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.devotionlock.mobile.premium.annual",
+          "productID" : "com.devotionlock.mobile.premium.annual.v2",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Annual",
           "subscriptionGroupID" : "devotion_premium",

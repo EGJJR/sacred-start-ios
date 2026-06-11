@@ -15,6 +15,7 @@ final class PrayerCircleStore {
         static let circles = "prayerCircles"
         static let members = "prayerCircleMembers"
         static let posts = "prayerCirclePosts"
+        static let challenges = "prayerCircleChallenges"
         static let currentMemberId = "prayerCircleCurrentMemberId"
         static let didSeed = "prayerCircleDidSeed"
         static let acceptedGuidelines = "prayerCircleAcceptedGuidelines"
@@ -23,6 +24,7 @@ final class PrayerCircleStore {
     private(set) var circles: [PrayerCircle] = []
     private(set) var members: [CircleMember] = []
     private(set) var posts: [CirclePost] = []
+    private(set) var challenges: [CircleChallenge] = []
     private(set) var currentMemberId: UUID?
     private(set) var isSyncing = false
 
@@ -66,6 +68,91 @@ final class PrayerCircleStore {
 
     func member(for id: UUID) -> CircleMember? {
         members.first { $0.id == id }
+    }
+
+    func collectiveStats(for circleId: UUID) -> CircleCollectiveStats {
+        CircleCollectiveStats.compute(from: posts.filter { $0.circleId == circleId })
+    }
+
+    func activeChallenge(for circleId: UUID) -> CircleChallenge? {
+        challenges
+            .filter { $0.circleId == circleId && $0.isActive }
+            .sorted { $0.createdAt > $1.createdAt }
+            .first
+    }
+
+    func latestEndedChallenge(for circleId: UUID) -> CircleChallenge? {
+        challenges
+            .filter { $0.circleId == circleId && $0.isEnded }
+            .sorted { $0.endsAt > $1.endsAt }
+            .first
+    }
+
+    func reflections(for challengeId: UUID) -> [CirclePost] {
+        posts
+            .filter { $0.challengeId == challengeId && $0.kind == .reflection }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    @discardableResult
+    func startChallenge(
+        template: CircleChallengeTemplate,
+        circleId: UUID,
+        durationDays: Int = 7
+    ) -> CircleChallenge? {
+        guard activeChallenge(for: circleId) == nil else { return nil }
+        let now = Date()
+        let endsAt = Calendar.current.date(byAdding: .day, value: durationDays, to: now) ?? now
+        let challenge = CircleChallenge(
+            id: UUID(),
+            circleId: circleId,
+            title: template.title,
+            prompt: template.prompt,
+            verseReference: template.verseReference,
+            kind: template.kind,
+            startsAt: now,
+            endsAt: endsAt,
+            createdAt: now
+        )
+        challenges.insert(challenge, at: 0)
+        persist()
+        if AuthManager.shared.isAuthenticated {
+            CircleRepository.shared.enqueueCreateChallenge(challenge)
+        }
+        return challenge
+    }
+
+    @discardableResult
+    func addReflection(
+        text: String,
+        challengeId: UUID,
+        circleId: UUID,
+        visibility: CircleShareVisibility = .named
+    ) -> CirclePost? {
+        guard let me = currentMember,
+              let challenge = challenges.first(where: { $0.id == challengeId })
+        else { return nil }
+
+        let post = CirclePost(
+            id: UUID(),
+            circleId: circleId,
+            authorId: me.id,
+            authorName: me.displayName,
+            isAnonymous: visibility == .anonymous,
+            kind: .reflection,
+            text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            createdAt: Date(),
+            focusTag: nil,
+            sourceNoteId: nil,
+            verseReference: challenge.verseReference,
+            challengeId: challengeId,
+            prayingMemberIds: [],
+            encouragements: []
+        )
+        posts.insert(post, at: 0)
+        persist()
+        enqueuePostIfNeeded(post)
+        return post
     }
 
     func posts(for circleId: UUID, sort: CircleFeedSort = .newest) -> [CirclePost] {
@@ -270,6 +357,7 @@ final class PrayerCircleStore {
         circles remoteCircles: [DBCircle],
         memberships: [DBCircleMembership],
         posts remotePosts: [DBCirclePost],
+        challenges remoteChallenges: [DBCircleChallenge] = [],
         encouragements: [DBCircleEncouragement],
         currentUserId: UUID
     ) {
@@ -334,6 +422,7 @@ final class PrayerCircleStore {
                 focusTag: row.focusTag,
                 sourceNoteId: row.sourceNoteId,
                 verseReference: row.verseReference,
+                challengeId: row.challengeId,
                 prayingMemberIds: row.prayingMemberIds,
                 encouragements: postEncouragements.sorted { $0.createdAt > $1.createdAt }
             )
@@ -344,9 +433,30 @@ final class PrayerCircleStore {
             }
         }
 
+        var mergedChallenges = challenges
+        for row in remoteChallenges {
+            let challenge = challengeFromRow(row)
+            if let index = mergedChallenges.firstIndex(where: { $0.id == row.id }) {
+                mergedChallenges[index] = challenge
+            } else {
+                mergedChallenges.append(challenge)
+            }
+        }
+
         members = mergedMembers
         circles = mergedCircles.sorted { $0.createdAt > $1.createdAt }
         posts = mergedPosts.sorted { $0.createdAt > $1.createdAt }
+        challenges = mergedChallenges.sorted { $0.createdAt > $1.createdAt }
+        persist()
+    }
+
+    func mergeRemoteChallenge(_ row: DBCircleChallenge) {
+        let challenge = challengeFromRow(row)
+        if let index = challenges.firstIndex(where: { $0.id == row.id }) {
+            challenges[index] = challenge
+        } else {
+            challenges.insert(challenge, at: 0)
+        }
         persist()
     }
 
@@ -364,6 +474,7 @@ final class PrayerCircleStore {
             focusTag: row.focusTag,
             sourceNoteId: row.sourceNoteId,
             verseReference: row.verseReference,
+            challengeId: row.challengeId,
             prayingMemberIds: row.prayingMemberIds,
             encouragements: posts.first(where: { $0.id == row.id })?.encouragements ?? []
         )
@@ -373,6 +484,20 @@ final class PrayerCircleStore {
             posts.insert(post, at: 0)
         }
         persist()
+    }
+
+    private func challengeFromRow(_ row: DBCircleChallenge) -> CircleChallenge {
+        CircleChallenge(
+            id: row.id,
+            circleId: row.circleId,
+            title: row.title,
+            prompt: row.prompt,
+            verseReference: row.verseReference,
+            kind: CircleChallengeKind(rawValue: row.kind) ?? .gratitude,
+            startsAt: row.startsAt,
+            endsAt: row.endsAt,
+            createdAt: row.createdAt
+        )
     }
 
     func mergeRemoteEncouragement(_ row: DBCircleEncouragement) {
@@ -458,6 +583,10 @@ final class PrayerCircleStore {
            let decoded = try? JSONDecoder().decode([CirclePost].self, from: data) {
             posts = decoded
         }
+        if let data = UserDefaults.standard.data(forKey: Keys.challenges),
+           let decoded = try? JSONDecoder().decode([CircleChallenge].self, from: data) {
+            challenges = decoded
+        }
         if let idString = UserDefaults.standard.string(forKey: Keys.currentMemberId) {
             currentMemberId = UUID(uuidString: idString)
         }
@@ -472,6 +601,9 @@ final class PrayerCircleStore {
         }
         if let data = try? JSONEncoder().encode(posts) {
             UserDefaults.standard.set(data, forKey: Keys.posts)
+        }
+        if let data = try? JSONEncoder().encode(challenges) {
+            UserDefaults.standard.set(data, forKey: Keys.challenges)
         }
     }
 

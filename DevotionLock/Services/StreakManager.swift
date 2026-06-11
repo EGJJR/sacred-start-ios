@@ -17,6 +17,7 @@ final class StreakManager {
         static let moodByDate = "devotionMoodByDate"
         static let didSeedDemo = "devotionStreakDidSeedDemo"
         static let daySummaries = "devotionDaySummaries"
+        static let seenMilestoneDays = "devotionSeenMilestoneDays"
     }
 
     private(set) var completionDates: Set<String> = []
@@ -61,6 +62,28 @@ final class StreakManager {
 
     var challengeProgress: Int {
         min(currentStreak, 7)
+    }
+
+    var streakIdentity: StreakIdentity {
+        StreakIdentity.identity(for: currentStreak)
+    }
+
+    func shouldCelebrateMilestone(days: Int) -> Bool {
+        StreakIdentity.milestoneThresholds.contains(days) && !hasSeenMilestone(days)
+    }
+
+    func markMilestoneSeen(_ days: Int) {
+        var seen = seenMilestoneDays
+        seen.insert(days)
+        UserDefaults.standard.set(Array(seen), forKey: Keys.seenMilestoneDays)
+    }
+
+    private var seenMilestoneDays: Set<Int> {
+        Set(UserDefaults.standard.array(forKey: Keys.seenMilestoneDays) as? [Int] ?? [])
+    }
+
+    private func hasSeenMilestone(_ days: Int) -> Bool {
+        seenMilestoneDays.contains(days)
     }
 
     var weekCompletionFlags: [Bool] {

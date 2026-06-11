@@ -30,7 +30,11 @@ struct SanctuaryCirclesHomeView: View {
                                 CircleFeedRow(
                                     circle: circle,
                                     members: circleStore.members(for: circle),
-                                    latestPost: circleStore.posts(for: circle.id).sorted { $0.createdAt > $1.createdAt }.first
+                                    latestPost: circleStore.posts(for: circle.id).sorted { $0.createdAt > $1.createdAt }.first,
+                                    hasNewMilestone: CircleMilestoneStore.shared.hasUncelebratedMilestones(
+                                        circleId: circle.id,
+                                        stats: circleStore.collectiveStats(for: circle.id)
+                                    )
                                 ) {
                                     onSelectCircle(circle)
                                 }
@@ -181,6 +185,7 @@ private struct CircleFeedRow: View {
     let circle: PrayerCircle
     let members: [CircleMember]
     let latestPost: CirclePost?
+    var hasNewMilestone: Bool = false
     var onTap: () -> Void
 
     var body: some View {
@@ -197,9 +202,16 @@ private struct CircleFeedRow: View {
                         }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(circle.name)
-                            .font(ABY.Font.headline)
-                            .foregroundStyle(palette.textPrimary)
+                        HStack(spacing: 6) {
+                            Text(circle.name)
+                                .font(ABY.Font.headline)
+                                .foregroundStyle(palette.textPrimary)
+                            if hasNewMilestone {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(ABY.Color.pillOrange)
+                            }
+                        }
                         Text("\(members.count) members")
                             .font(ABY.Font.caption)
                             .foregroundStyle(palette.textSecondary)
@@ -303,19 +315,40 @@ struct CircleDiscussionView: View {
     @State private var showInvite = false
     @State private var showMembers = false
     @State private var showCompose = false
+    @State private var showStartChallenge = false
+    @State private var showReflectionCompose = false
+    @State private var showChallengeArchive = false
     @State private var selectedPost: CirclePost?
     @State private var appeared = false
+    @State private var pendingMilestone: CircleMilestonePresentation?
+
+    private var activeChallenge: CircleChallenge? {
+        circleStore.activeChallenge(for: circle.id)
+    }
+
+    private var endedChallenge: CircleChallenge? {
+        circleStore.latestEndedChallenge(for: circle.id)
+    }
+
+    private var challengeReflections: [CirclePost] {
+        guard let challenge = activeChallenge ?? endedChallenge else { return [] }
+        return circleStore.reflections(for: challenge.id)
+    }
 
     private var feedPosts: [CirclePost] {
-        circleStore.posts(for: circle.id, sort: sort)
+        let all = circleStore.posts(for: circle.id, sort: sort)
+        if activeChallenge != nil || endedChallenge != nil {
+            return all.filter { $0.kind != .reflection }
+        }
+        return all
     }
 
     private var circleMembers: [CircleMember] {
         circleStore.members(for: circle)
     }
 
-    private var circlePrayingCount: Int {
-        feedPosts.reduce(0) { $0 + $1.prayingCount }
+    private var collectiveStats: CircleCollectiveStats {
+        circleStore.collectiveStats(for: circle.id)
     }
 
     private var momentContext: CircleMomentContext {
@@ -323,7 +356,9 @@ struct CircleDiscussionView: View {
             posts: feedPosts,
             members: circleMembers,
             currentMemberId: circleStore.currentMemberId,
-            isPrayingOnAny: feedPosts.contains { circleStore.isPraying(postId: $0.id) }
+            isPrayingOnAny: feedPosts.contains { circleStore.isPraying(postId: $0.id) },
+            stats: collectiveStats,
+            circleId: circle.id
         )
     }
 
@@ -336,13 +371,32 @@ struct CircleDiscussionView: View {
                     HeadspaceCircleHeader(
                         circle: circle,
                         members: circleStore.members(for: circle),
-                        prayingCount: circlePrayingCount,
+                        stats: collectiveStats,
                         onMembersTap: { showMembers = true },
                         onBack: { dismiss() },
                         onInvite: { showInvite = true }
                     )
 
                     VStack(alignment: .leading, spacing: 16) {
+                        if let challenge = activeChallenge {
+                            CircleChallengeCard(
+                                challenge: challenge,
+                                reflectionCount: challengeReflections.count,
+                                onAddReflection: { showReflectionCompose = true }
+                            )
+                            .padding(.horizontal, ABY.Spacing.screen)
+                            .padding(.top, 8)
+                        } else if let ended = endedChallenge, !challengeReflections.isEmpty {
+                            CircleChallengeCard(
+                                challenge: ended,
+                                reflectionCount: challengeReflections.count,
+                                onAddReflection: {},
+                                onViewArchive: { showChallengeArchive = true }
+                            )
+                            .padding(.horizontal, ABY.Spacing.screen)
+                            .padding(.top, 8)
+                        }
+
                         sortMenu
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.top, 4)
@@ -354,10 +408,15 @@ struct CircleDiscussionView: View {
                             .padding(.horizontal, ABY.Spacing.screen)
                         }
 
-                        if feedPosts.isEmpty {
+                        if !challengeReflections.isEmpty, activeChallenge != nil {
+                            challengeReflectionsSection
+                                .padding(.horizontal, ABY.Spacing.screen)
+                        }
+
+                        if feedPosts.isEmpty, challengeReflections.isEmpty {
                             emptyFeed
                                 .padding(.horizontal, ABY.Spacing.screen)
-                        } else {
+                        } else if !feedPosts.isEmpty {
                             LazyVStack(spacing: 14) {
                                 ForEach(Array(feedPosts.enumerated()), id: \.element.id) { index, post in
                                     CirclePostCard(
@@ -366,8 +425,10 @@ struct CircleDiscussionView: View {
                                         isCurrentUser: post.authorId == circleStore.currentMemberId,
                                         isPraying: circleStore.isPraying(postId: post.id)
                                     ) {
+                                        let previous = collectiveStats
                                         circleStore.togglePraying(postId: post.id)
                                         DevotionHaptics.light()
+                                        checkForNewMilestones(previous: previous)
                                     } onOpen: {
                                         selectedPost = post
                                     } onQuickEncourage: { text in
@@ -393,10 +454,20 @@ struct CircleDiscussionView: View {
         .abyScreen()
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .fullScreenCover(item: $pendingMilestone) { presentation in
+            CircleMilestoneCelebrationView(
+                circleName: circle.name,
+                milestone: presentation.kind
+            ) {
+                CircleMilestoneStore.shared.markCelebrated(presentation.kind, circleId: circle.id)
+                pendingMilestone = nil
+            }
+        }
         .onAppear {
             circleStore.markFeedOpened()
             withAnimation(AppTheme.springGentle) { appeared = true }
             CircleRepository.shared.subscribeToCircle(circle.id, store: circleStore)
+            presentUncelebratedMilestones()
         }
         .onDisappear {
             CircleRepository.shared.unsubscribeFromCircle(circle.id)
@@ -408,6 +479,13 @@ struct CircleDiscussionView: View {
             CircleMembersSheet(
                 circle: circle,
                 members: circleMembers,
+                canStartChallenge: activeChallenge == nil,
+                onStartChallenge: {
+                    showMembers = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showStartChallenge = true
+                    }
+                },
                 onInvite: {
                     showMembers = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -415,6 +493,33 @@ struct CircleDiscussionView: View {
                     }
                 }
             )
+        }
+        .sheet(isPresented: $showStartChallenge) {
+            CircleChallengeStartSheet(circleName: circle.name) { template in
+                _ = circleStore.startChallenge(template: template, circleId: circle.id)
+                DevotionHaptics.success()
+            }
+        }
+        .sheet(isPresented: $showReflectionCompose) {
+            if let challenge = activeChallenge {
+                CircleReflectionComposeSheet(challenge: challenge) { text, visibility in
+                    _ = circleStore.addReflection(
+                        text: text,
+                        challengeId: challenge.id,
+                        circleId: circle.id,
+                        visibility: visibility
+                    )
+                    DevotionHaptics.success()
+                }
+            }
+        }
+        .sheet(isPresented: $showChallengeArchive) {
+            if let challenge = endedChallenge {
+                CircleChallengeArchiveView(
+                    challenge: challenge,
+                    reflections: circleStore.reflections(for: challenge.id)
+                )
+            }
         }
         .sheet(isPresented: $showCompose) {
             CircleComposeSheet(circle: circle, circleStore: circleStore)
@@ -468,6 +573,52 @@ struct CircleDiscussionView: View {
         }
     }
 
+    private func checkForNewMilestones(previous: CircleCollectiveStats) {
+        let current = circleStore.collectiveStats(for: circle.id)
+        let reached = CircleMilestoneStore.shared.newlyReached(
+            circleId: circle.id,
+            stats: current,
+            previousStats: previous
+        )
+        if let first = reached.first {
+            pendingMilestone = CircleMilestonePresentation(kind: first)
+        }
+    }
+
+    private func presentUncelebratedMilestones() {
+        let uncelebrated = CircleMilestoneStore.shared.uncelebratedReached(
+            circleId: circle.id,
+            stats: collectiveStats
+        )
+        if let first = uncelebrated.first, pendingMilestone == nil {
+            pendingMilestone = CircleMilestonePresentation(kind: first)
+        }
+    }
+
+    private var challengeReflectionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("This week's reflections")
+                .font(ABY.Font.section)
+                .foregroundStyle(palette.textSecondary)
+
+            ForEach(challengeReflections.prefix(5)) { reflection in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(reflection.displayAuthor)
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(palette.textTertiary)
+                    Text(reflection.text)
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineSpacing(4)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(palette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
+            }
+        }
+    }
+
     private var bottomActionBar: some View {
         VStack(spacing: 0) {
             SanctuaryGradientBottomFade()
@@ -475,9 +626,13 @@ struct CircleDiscussionView: View {
 
             if circleStore.hasAcceptedGuidelines {
                 Button {
-                    showCompose = true
+                    if activeChallenge != nil {
+                        showReflectionCompose = true
+                    } else {
+                        showCompose = true
+                    }
                 } label: {
-                    Text("Add your thoughts")
+                    Text(activeChallenge != nil ? "Add reflection" : "Add your thoughts")
                         .font(ABY.Font.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -519,7 +674,7 @@ struct CircleDiscussionView: View {
 private struct HeadspaceCircleHeader: View {
     let circle: PrayerCircle
     let members: [CircleMember]
-    let prayingCount: Int
+    let stats: CircleCollectiveStats
     var onMembersTap: () -> Void
     var onBack: () -> Void
     var onInvite: () -> Void
@@ -560,22 +715,17 @@ private struct HeadspaceCircleHeader: View {
                             VStack(spacing: 6) {
                                 CircleMemberAvatarStack(members: members, size: 36, maxVisible: 5)
 
-                                HStack(spacing: 6) {
-                                    Text(memberSummary)
-                                        .font(ABY.Font.captionMedium)
-                                        .foregroundStyle(.white.opacity(0.9))
-
-                                    if prayingCount > 0 {
-                                        Text("·")
-                                            .foregroundStyle(.white.opacity(0.45))
-                                        Label("\(prayingCount) praying", systemImage: "hands.sparkles.fill")
-                                            .font(ABY.Font.captionMedium)
-                                            .foregroundStyle(.white.opacity(0.9))
-                                    }
-                                }
+                                Text(memberSummary)
+                                    .font(ABY.Font.captionMedium)
+                                    .foregroundStyle(.white.opacity(0.9))
                             }
                         }
                         .buttonStyle(.plain)
+
+                        if stats.prayersLifted > 0 || stats.testimoniesCelebrated > 0 {
+                            CircleCollectiveStatsRow(stats: stats)
+                                .padding(.top, 4)
+                        }
                     }
                     .padding(.bottom, 28)
                 }
@@ -876,11 +1026,113 @@ private struct CircleMemberAvatarStack: View {
     }
 }
 
+private struct CircleCollectiveStatsRow: View {
+    let stats: CircleCollectiveStats
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if stats.prayersLifted > 0 {
+                statChip(
+                    icon: "hands.sparkles.fill",
+                    label: "\(stats.prayersLifted) prayers lifted together"
+                )
+            }
+            if stats.testimoniesCelebrated > 0 {
+                statChip(
+                    icon: "checkmark.seal.fill",
+                    label: "\(stats.testimoniesCelebrated) testimonies celebrated"
+                )
+            }
+        }
+    }
+
+    private func statChip(icon: String, label: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(.white.opacity(0.92))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.white.opacity(0.18))
+        .clipShape(Capsule())
+    }
+}
+
+struct CircleMilestonePresentation: Identifiable {
+    let kind: CircleMilestoneKind
+    var id: String { kind.rawValue }
+}
+
+struct CircleMilestoneCelebrationView: View {
+    let circleName: String
+    let milestone: CircleMilestoneKind
+    var onContinue: () -> Void
+
+    @State private var appeared = false
+
+    var body: some View {
+        ZStack {
+            ABYCleanGradientBackground()
+            ConfettiView(isActive: appeared)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(ABY.Color.pillPurple.opacity(0.15))
+                        .frame(width: 120, height: 120)
+                    Image(systemName: milestone.isPrayerMilestone ? "hands.sparkles.fill" : "checkmark.seal.fill")
+                        .font(.system(size: 44, weight: .semibold))
+                        .foregroundStyle(ABY.Color.pillPurple)
+                }
+                .scaleEffect(appeared ? 1 : 0.5)
+
+                VStack(spacing: 10) {
+                    Text("Circle milestone")
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(ABY.Color.textTertiary)
+                    Text(milestone.celebrationMessage(circleName: circleName))
+                        .font(ABY.Font.title2)
+                        .foregroundStyle(ABY.Color.textPrimary)
+                        .multilineTextAlignment(.center)
+                    Text("Celebrate what God is doing together — no rankings, just gratitude.")
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(ABY.Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+
+                ABYPrimaryButton(title: "Celebrate with your circle", icon: "heart.fill") {
+                    DevotionHaptics.success()
+                    onContinue()
+                }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 32)
+            }
+            .opacity(appeared ? 1 : 0)
+        }
+        .abyScreen()
+        .onAppear {
+            DevotionHaptics.success()
+            withAnimation(AppTheme.springGentle) { appeared = true }
+        }
+    }
+}
+
 private struct CircleMomentContext {
     let posts: [CirclePost]
     let members: [CircleMember]
     let currentMemberId: UUID?
     let isPrayingOnAny: Bool
+    let stats: CircleCollectiveStats
+    let circleId: UUID
 
     var banner: CircleMoment? {
         guard !posts.isEmpty else { return nil }
@@ -894,6 +1146,17 @@ private struct CircleMomentContext {
             )
         }
 
+        for kind in CircleMilestoneKind.allCases {
+            if let proximity = kind.proximityMessage(stats: stats),
+               !CircleMilestoneStore.shared.hasCelebrated(kind, circleId: circleId) {
+                return CircleMoment(
+                    icon: kind.isPrayerMilestone ? "hands.sparkles.fill" : "checkmark.seal.fill",
+                    message: proximity,
+                    actionLabel: "Keep going"
+                )
+            }
+        }
+
         if !isPrayingOnAny, posts.contains(where: { $0.authorId != currentMemberId }) {
             return CircleMoment(
                 icon: "heart.fill",
@@ -902,7 +1165,7 @@ private struct CircleMomentContext {
             )
         }
 
-        let testimonyCount = posts.filter { $0.kind == .testimony }.count
+        let testimonyCount = stats.testimoniesCelebrated
         if testimonyCount > 0 {
             return CircleMoment(
                 icon: "checkmark.seal.fill",
@@ -1288,6 +1551,8 @@ struct JoinCircleSheet: View {
 private struct CircleMembersSheet: View {
     let circle: PrayerCircle
     let members: [CircleMember]
+    var canStartChallenge: Bool = true
+    var onStartChallenge: (() -> Void)?
     var onInvite: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -1333,6 +1598,20 @@ private struct CircleMembersSheet: View {
                                     .stroke(palette.divider, lineWidth: 1)
                             }
                         }
+                    }
+
+                    if canStartChallenge, let onStartChallenge {
+                        Button(action: onStartChallenge) {
+                            Label("Start a challenge", systemImage: "sparkles")
+                                .font(ABY.Font.headline)
+                                .foregroundStyle(ABY.Color.pillTeal)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(ABY.Color.pillTeal.opacity(0.12))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(ABY.Color.pillTeal.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(ScaleButtonStyle())
                     }
 
                     Button(action: onInvite) {

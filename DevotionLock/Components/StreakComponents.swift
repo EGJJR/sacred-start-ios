@@ -61,6 +61,20 @@ struct ABYFlameBadge: View {
 
     @State private var pulse = false
 
+    private var identity: StreakIdentity {
+        StreakIdentity.identity(for: streak)
+    }
+
+    private var tierRingColor: Color? {
+        guard streak >= 7 else { return nil }
+        switch identity.stage {
+        case .sprout: return ABY.Color.pillTeal
+        case .bloom: return ABY.Color.pillPurple
+        case .sanctuary: return StreakPalette.orange
+        default: return nil
+        }
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
@@ -76,6 +90,11 @@ struct ABYFlameBadge: View {
             .padding(.vertical, 6)
             .background(palette.surface)
             .clipShape(Capsule())
+            .overlay {
+                if let ring = tierRingColor {
+                    Capsule().stroke(ring.opacity(0.5), lineWidth: 1.5)
+                }
+            }
             .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
         }
         .buttonStyle(ScaleButtonStyle())

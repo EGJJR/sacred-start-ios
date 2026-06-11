@@ -206,12 +206,13 @@ enum LocalInsightEngine {
         let morningsThisWeek = streak.weekCompletionFlags.filter { $0 }.count
         let hour = Calendar.current.component(.hour, from: Date())
 
-        if completedToday, [7, 14, 21, 30, 60, 100].contains(streakDays) {
+        if completedToday, StreakIdentity.milestoneThresholds.contains(streakDays) {
+            let identity = StreakIdentity.identity(for: streakDays)
             insights.append(PersonalInsight(
                 id: "milestone-\(streakDays)",
                 kind: .streakMilestone,
-                title: "\(streakDays)-day streak",
-                body: milestoneCopy(days: streakDays),
+                title: identity.statusName,
+                body: StreakIdentity.milestoneCelebrationCopy(days: streakDays),
                 priority: 100
             ))
         }

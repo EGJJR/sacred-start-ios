@@ -184,6 +184,88 @@ struct StreakCelebrationView: View {
     }
 }
 
+struct MilestonePresentation: Identifiable {
+    let days: Int
+    var id: Int { days }
+}
+
+struct StreakMilestoneCelebrationView: View {
+    let milestoneDays: Int
+    let identity: StreakIdentity
+    var onContinue: () -> Void
+
+    @State private var appeared = false
+    @State private var sharePresented = false
+
+    var body: some View {
+        ZStack {
+            ABYCleanGradientBackground()
+            ConfettiView(isActive: appeared)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                SanctuaryGrowthArtifact(stage: identity.stage, size: 110)
+                    .scaleEffect(appeared ? 1 : 0.5)
+
+                VStack(spacing: 10) {
+                    Text(identity.statusName)
+                        .font(ABY.Font.title)
+                        .foregroundStyle(ABY.Color.textPrimary)
+                    Text("\(milestoneDays)-day milestone")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(ABY.Color.pillTeal)
+                    Text(StreakIdentity.milestoneCelebrationCopy(days: milestoneDays))
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(ABY.Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button {
+                        sharePresented = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Share")
+                                .font(ABY.Font.button)
+                        }
+                        .foregroundStyle(ABY.Color.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(ABY.Color.surface)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(ABY.Color.divider, lineWidth: 1))
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+
+                    ABYPrimaryButton(title: "Continue", icon: "arrow.right") {
+                        DevotionHaptics.light()
+                        onContinue()
+                    }
+                }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 32)
+            }
+            .opacity(appeared ? 1 : 0)
+        }
+        .abyScreen()
+        .onAppear {
+            DevotionHaptics.success()
+            withAnimation(AppTheme.springGentle) { appeared = true }
+        }
+        .sheet(isPresented: $sharePresented) {
+            ShareSheet(items: [
+                "I just reached \(milestoneDays) days in the Word — \(identity.statusName) with Devotion Lock",
+            ])
+        }
+    }
+}
+
 private struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 

@@ -2,18 +2,32 @@
 //  PassageSearchView.swift
 //  DevotionLock
 //
-//  A calm, topical way to search Scripture, promises, and wisdom by theme
-//  or keyword. Reusable as a sheet (pick a passage) or a standalone browser.
+//  Entry point for Scripture browse. Routes to SanctuaryBibleView when the
+//  bible reader feature flag is on; otherwise shows curated passages only.
 //
 
 import SwiftUI
 
 struct PassageSearchView: View {
+    var initialTopics: Set<PassageTopic> = []
+    var onSelect: ((SpiritualPassage) -> Void)? = nil
+
+    var body: some View {
+        if FeatureFlags.bibleReaderEnabled {
+            SanctuaryBibleView(initialTopics: initialTopics, onSelect: onSelect)
+        } else {
+            LegacyPassageSearchView(initialTopics: initialTopics, onSelect: onSelect)
+        }
+    }
+}
+
+// MARK: - Legacy curated-only browser (feature flag off)
+
+private struct LegacyPassageSearchView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
 
     var initialTopics: Set<PassageTopic> = []
-    /// When provided, the view acts as a picker and calls back on selection.
     var onSelect: ((SpiritualPassage) -> Void)? = nil
 
     @State private var query = ""
@@ -50,12 +64,18 @@ struct PassageSearchView: View {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(spacing: 12) {
                                 ForEach(results) { passage in
-                                    PassageResultCard(passage: passage, isPickable: onSelect != nil) {
-                                        if let onSelect {
-                                            DevotionHaptics.light()
-                                            onSelect(passage)
+                                    ScripturePassageCard(
+                                        passage: passage,
+                                        isPickable: onSelect != nil,
+                                        isSaved: ScriptureLibraryStore.shared.isSaved(passage: passage),
+                                        onSave: { ScriptureLibraryStore.shared.toggleCurated(passage) },
+                                        action: {
+                                            if let onSelect {
+                                                DevotionHaptics.light()
+                                                onSelect(passage)
+                                            }
                                         }
-                                    }
+                                    )
                                 }
                             }
                             .padding(.horizontal, ABY.Spacing.screen)
@@ -109,11 +129,11 @@ struct PassageSearchView: View {
     private var topicRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                TopicPill(label: "All", icon: "square.grid.2x2", tint: palette.textSecondary, isSelected: selectedTopic == nil) {
+                LegacyTopicPill(label: "All", icon: "square.grid.2x2", tint: palette.textSecondary, isSelected: selectedTopic == nil) {
                     withAnimation(AppTheme.springSnappy) { selectedTopic = nil }
                 }
                 ForEach(SpiritualPassageCatalog.browsableTopics) { topic in
-                    TopicPill(label: topic.label, icon: topic.icon, tint: topic.tint, isSelected: selectedTopic == topic) {
+                    LegacyTopicPill(label: topic.label, icon: topic.icon, tint: topic.tint, isSelected: selectedTopic == topic) {
                         withAnimation(AppTheme.springSnappy) {
                             selectedTopic = (selectedTopic == topic) ? nil : topic
                         }
@@ -144,7 +164,7 @@ struct PassageSearchView: View {
     }
 }
 
-private struct TopicPill: View {
+private struct LegacyTopicPill: View {
     @Environment(\.sanctuaryPalette) private var palette
     let label: String
     let icon: String
@@ -168,68 +188,6 @@ private struct TopicPill: View {
             .overlay(Capsule().stroke(isSelected ? Color.clear : palette.divider, lineWidth: 1))
         }
         .buttonStyle(ScaleButtonStyle())
-    }
-}
-
-private struct PassageResultCard: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    let passage: SpiritualPassage
-    let isPickable: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Text(passage.source.label.uppercased())
-                        .font(ABY.Font.section)
-                        .tracking(0.6)
-                        .foregroundStyle(passage.topics.first?.tint ?? palette.textSecondary)
-                    Spacer()
-                    if let topic = passage.topics.first {
-                        HStack(spacing: 4) {
-                            Image(systemName: topic.icon)
-                                .font(.system(size: 10, weight: .semibold))
-                            Text(topic.label)
-                                .font(ABY.Font.caption)
-                        }
-                        .foregroundStyle(palette.textSecondary)
-                    }
-                }
-
-                Text(passage.text)
-                    .font(.system(size: 18, weight: .regular, design: .serif))
-                    .foregroundStyle(palette.textPrimary)
-                    .lineSpacing(5)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack {
-                    Text(passage.attribution)
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    if isPickable {
-                        HStack(spacing: 4) {
-                            Text("Use this")
-                            Image(systemName: "arrow.right")
-                        }
-                        .font(ABY.Font.caption.weight(.semibold))
-                        .foregroundStyle(palette.textPrimary)
-                    }
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(palette.divider, lineWidth: 1)
-            }
-        }
-        .buttonStyle(ScaleButtonStyle())
-        .allowsHitTesting(isPickable)
     }
 }
 

@@ -88,6 +88,9 @@ enum ChaplainContextBuilder {
         if intent.localizedCaseInsensitiveContains("reflect on today's verse") {
             return "verse_reflection"
         }
+        if intent.localizedCaseInsensitiveContains("bible") || intent.localizedCaseInsensitiveContains("scripture") {
+            return "bible_question"
+        }
         if intent.localizedCaseInsensitiveContains("voice") {
             return "voice_handoff"
         }

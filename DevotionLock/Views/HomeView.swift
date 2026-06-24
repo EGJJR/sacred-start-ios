@@ -5,45 +5,62 @@
 
 import SwiftUI
 
+private enum HomeRhythmSheet: Identifiable {
+    case dailyVerse
+    case eveningReflection
+
+    var id: String {
+        switch self {
+        case .dailyVerse: "daily-verse"
+        case .eveningReflection: "evening-reflection"
+        }
+    }
+}
+
+private enum HomeScriptureSheet: Identifiable {
+    case bible
+    case promises
+
+    var id: String {
+        switch self {
+        case .bible: "bible"
+        case .promises: "promises"
+        }
+    }
+}
+
 struct HomeView: View {
-    @Environment(\.openConversation) private var openConversation
     @Environment(\.openGuidedJournal) private var openGuidedJournal
     @Environment(\.openStreakScreen) private var openStreakScreen
     @Environment(\.openMorningWrapped) private var openMorningWrapped
     @Environment(\.openPrayerWall) private var openPrayerWall
-    @Environment(\.openJourneyTimeline) private var openJourneyTimeline
     @Environment(\.openChaplainChat) private var openChaplainChat
     @Environment(\.presentDevotionPaywall) private var presentPaywall
+    @Environment(\.selectTab) private var selectTab
     @Environment(\.streakManager) private var streakManager
 
     @AppStorage("intentionMood") private var intentionMood = "Peaceful"
     @AppStorage("shieldEnabled") private var shieldEnabled = true
-    @State private var shieldManager = AppShieldManager.shared
-
-    @State private var rhythmStore = DailyRhythmStore.shared
-    @State private var journeyStore = JourneyTimelineStore.shared
-    @State private var insightStore = PersonalInsightStore.shared
-    @State private var conversationRepository = ConversationRepository.shared
-    @State private var journalStore = JournalLocalStore.shared
+    private let shieldManager = AppShieldManager.shared
+    private let rhythmStore = DailyRhythmStore.shared
+    private let journeyStore = JourneyTimelineStore.shared
+    private let insightStore = PersonalInsightStore.shared
+    private let prayerWallStore = PrayerWallStore.shared
     @State private var appeared = false
     @State private var refreshProgress: CGFloat = 0
     @State private var isRefreshing = false
-    @State private var showDailyVerse = false
-    @State private var showEveningReflection = false
+    @State private var rhythmSheet: HomeRhythmSheet?
+    @State private var scriptureSheet: HomeScriptureSheet?
 
     private var dailyFocus: DailyFocus { DailyFocus.today }
     private var dailyPassage: SpiritualPassage { SpiritualPassageCatalog.todayScripture }
 
-    private var mergedEntries: [Conversation] {
-        ConversationMerger.mergedTimeline()
+    private var journalEntryCount: Int {
+        ConversationMerger.mergedTimeline().count
     }
 
-    private var todayEntries: [Conversation] {
-        mergedEntries.filter(\.isToday)
-    }
-
-    private var earlierEntries: [Conversation] {
-        mergedEntries.filter { !$0.isToday }
+    private var latestJournalPreview: String? {
+        ConversationMerger.mergedTimeline().first?.timelinePreview
     }
 
     var body: some View {
@@ -78,6 +95,24 @@ struct HomeView: View {
                     .staggeredAppear(appeared, delay: 0.06)
                     .id(rhythmStore.revision)
 
+                HomeScriptureShortcutsRow(
+                    onBible: { scriptureSheet = .bible },
+                    onPromises: { scriptureSheet = .promises }
+                )
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 16)
+                .staggeredAppear(appeared, delay: 0.07)
+
+                ChaplainPrayerWallSection(
+                    store: prayerWallStore,
+                    suggestion: FocusTag.prayerWallSuggestion(for: TodayFocusStore.tags)
+                ) {
+                    requirePremium { openPrayerWall(nil) }
+                }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 20)
+                .staggeredAppear(appeared, delay: 0.08)
+
                 if shieldEnabled {
                     ShieldStatusCard(
                         isLocked: !streakManager.isCompletedToday,
@@ -87,7 +122,7 @@ struct HomeView: View {
                     )
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 20)
-                    .staggeredAppear(appeared, delay: 0.08)
+                    .staggeredAppear(appeared, delay: 0.09)
                 }
 
                 ABYSectionHeader(title: "Today")
@@ -99,15 +134,15 @@ struct HomeView: View {
                     HomeDaySummaryCard(summary: summary)
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.bottom, 16)
-                        .staggeredAppear(appeared, delay: 0.12)
+                        .staggeredAppear(appeared, delay: 0.11)
                 }
 
                 if !streakManager.isCompletedToday {
-                    if mergedEntries.isEmpty {
+                    if journalEntryCount == 0 {
                         HomeFirstDevotionNudge(onBegin: openGuidedJournal)
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.bottom, 20)
-                            .staggeredAppear(appeared, delay: 0.14)
+                            .staggeredAppear(appeared, delay: 0.12)
                     } else {
                         HomeTodayCard(
                             focus: dailyFocus,
@@ -116,19 +151,20 @@ struct HomeView: View {
                         )
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.bottom, 20)
-                        .staggeredAppear(appeared, delay: 0.14)
+                        .staggeredAppear(appeared, delay: 0.12)
                     }
                 }
 
-                todaySection
-                earlierSection
-
-                JourneyTimelinePreviewSection(store: journeyStore, onSeeAll: openJourneyTimeline)
+                if journalEntryCount > 0 {
+                    HomeJournalPreviewLink(
+                        entryCount: journalEntryCount,
+                        latestPreview: latestJournalPreview,
+                        onSeeAll: { selectTab(.conversations) }
+                    )
                     .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-                    .staggeredAppear(appeared, delay: 0.18)
-                    .id(journeyStore.revision)
+                    .padding(.bottom, 20)
+                    .staggeredAppear(appeared, delay: 0.14)
+                }
 
                 if streakManager.daysJournaled > 0 {
                     Button(action: openMorningWrapped) {
@@ -148,7 +184,7 @@ struct HomeView: View {
                     .buttonStyle(ScaleButtonStyle())
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.top, 8)
-                    .staggeredAppear(appeared, delay: 0.2)
+                    .staggeredAppear(appeared, delay: 0.18)
                 }
             }
             .padding(.bottom, 120)
@@ -164,58 +200,67 @@ struct HomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .devotionRhythmDidUpdate)) { _ in
             refreshHomeState()
         }
-        .onChange(of: showDailyVerse) { _, isShowing in
-            if !isShowing { refreshHomeState() }
+        .onChange(of: rhythmSheet) { _, sheet in
+            if sheet == nil { refreshHomeState() }
         }
-        .onChange(of: showEveningReflection) { _, isShowing in
-            if !isShowing { refreshHomeState() }
+        .sheet(item: $scriptureSheet) { sheet in
+            switch sheet {
+            case .bible:
+                PassageSearchView(
+                    initialTab: FeatureFlags.bibleReaderEnabled ? .books : .discover
+                )
+            case .promises:
+                PassageSearchView(initialTopics: [.promises], initialTab: .discover)
+            }
         }
-        .sheet(isPresented: $showDailyVerse) {
-            DailyVerseSheet(
-                passage: dailyPassage,
-                onReflect: {
-                    openChaplainChat(
-                        "Help me reflect on today's passage: \"\(dailyPassage.text)\" — \(dailyPassage.attribution)",
-                        []
-                    )
-                },
-                onComplete: {
-                    rhythmStore.markComplete(.dailyVerse)
-                    journeyStore.logVerseViewed(reference: dailyPassage.reference, text: dailyPassage.text)
-                }
-            )
-        }
-        .sheet(isPresented: $showEveningReflection) {
-            EveningReflectionSheet(
-                onComplete: { highlight in
-                    rhythmStore.markComplete(.eveningReflection)
-                    journeyStore.logEvening(highlight: highlight)
-                },
-                onVoiceHandoff: { transcript in
-                    let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let saved = text.isEmpty ? "Quiet gratitude for today." : text
-                    rhythmStore.markComplete(.eveningReflection)
-                    journeyStore.logEvening(highlight: saved)
-                    showEveningReflection = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        .sheet(item: $rhythmSheet) { sheet in
+            switch sheet {
+            case .dailyVerse:
+                DailyVerseSheet(
+                    passage: dailyPassage,
+                    onReflect: {
                         openChaplainChat(
-                            VoiceChatHandoff.starter(from: saved, context: "my evening reflection"),
-                            VoiceChatHandoff.seedMessages(for: saved)
+                            "Help me reflect on today's passage: \"\(dailyPassage.text)\" — \(dailyPassage.attribution)",
+                            []
                         )
+                    },
+                    onComplete: {
+                        rhythmStore.markComplete(.dailyVerse)
+                        journeyStore.logVerseViewed(reference: dailyPassage.reference, text: dailyPassage.text)
                     }
-                }
-            )
+                )
+            case .eveningReflection:
+                EveningReflectionSheet(
+                    onComplete: { highlight in
+                        rhythmStore.markComplete(.eveningReflection)
+                        journeyStore.logEvening(highlight: highlight)
+                    },
+                    onVoiceHandoff: { transcript in
+                        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let saved = text.isEmpty ? "Quiet gratitude for today." : text
+                        rhythmStore.markComplete(.eveningReflection)
+                        journeyStore.logEvening(highlight: saved)
+                        rhythmSheet = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            openChaplainChat(
+                                VoiceChatHandoff.starter(from: saved, context: "my evening reflection"),
+                                VoiceChatHandoff.seedMessages(for: saved)
+                            )
+                        }
+                    }
+                )
+            }
         }
     }
 
     private func handleRingTap(_ ring: DailyRhythmRing) {
         switch ring {
         case .dailyVerse:
-            requirePremium { showDailyVerse = true }
+            requirePremium { rhythmSheet = .dailyVerse }
         case .morningDevotion:
             openGuidedJournal()
         case .eveningReflection:
-            requirePremium { showEveningReflection = true }
+            requirePremium { rhythmSheet = .eveningReflection }
         case .prayerWall:
             openPrayerWall(nil)
         }
@@ -226,9 +271,7 @@ struct HomeView: View {
     }
 
     private var timelineHeader: some View {
-        HStack(alignment: .top) {
-            ABYScreenHeader(title: "Home", showDot: false, subtitle: greeting)
-            Spacer()
+        ABYScreenHeader(title: "Home", showDot: false, subtitle: greeting) {
             if streakManager.currentStreak > 0 {
                 ABYFlameBadge(streak: streakManager.currentStreak, action: openStreakScreen)
             }
@@ -240,46 +283,6 @@ struct HomeView: View {
         if hour < 12 { return "Good morning" }
         if hour < 17 { return "Good afternoon" }
         return "Good evening"
-    }
-
-    @ViewBuilder
-    private var todaySection: some View {
-        if streakManager.isCompletedToday, !todayEntries.isEmpty {
-            VStack(spacing: 12) {
-                ForEach(Array(todayEntries.enumerated()), id: \.element.id) { index, conversation in
-                    TimelineEntryRow(
-                        time: conversation.timelineTime,
-                        conversation: conversation
-                    ) {
-                        openConversation(conversation)
-                    }
-                    .staggeredAppear(appeared, delay: 0.16 + Double(index) * 0.04)
-                }
-            }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.bottom, 24)
-        }
-    }
-
-    @ViewBuilder
-    private var earlierSection: some View {
-        if !earlierEntries.isEmpty {
-            ABYSectionHeader(title: "Earlier")
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 10)
-
-            VStack(spacing: 12) {
-                ForEach(earlierEntries) { conversation in
-                    TimelineEntryRow(
-                        time: conversation.timelineTime,
-                        conversation: conversation
-                    ) {
-                        openConversation(conversation)
-                    }
-                }
-            }
-            .padding(.horizontal, ABY.Spacing.screen)
-        }
     }
 
     @MainActor
@@ -358,9 +361,9 @@ struct RecordingDot: View {
         .environment(\.openGuidedJournal) {}
         .environment(\.openStreakScreen) {}
         .environment(\.openMorningWrapped) {}
-        .environment(\.openConversation) { _ in }
         .environment(\.openPrayerWall) { _ in }
         .environment(\.openJourneyTimeline) {}
         .environment(\.openChaplainChat) { _, _ in }
+        .environment(\.selectTab) { _ in }
         .environment(\.streakManager, .shared)
 }

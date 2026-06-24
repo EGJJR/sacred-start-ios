@@ -23,6 +23,15 @@ enum AppTheme {
     static let springSnappy = Animation.spring(response: 0.38, dampingFraction: 0.82)
     static let springGentle = Animation.spring(response: 0.55, dampingFraction: 0.86)
     static let easeOut = Animation.easeOut(duration: 0.35)
+
+    /// Content fade-out before onboarding step changes.
+    static let onboardingStepOut = Animation.easeOut(duration: 0.16)
+    /// Content fade-in after the next step mounts.
+    static let onboardingStepIn = Animation.easeOut(duration: 0.26)
+    /// Gradient background crossfade between surfaces.
+    static let onboardingBackgroundFade = Animation.easeInOut(duration: 0.55)
+    static let onboardingBackgroundFadeDuration: TimeInterval = 0.55
+    static let onboardingStepTransitionDelay: TimeInterval = 0.14
 }
 
 enum DevotionTheme {
@@ -92,14 +101,14 @@ struct StatusTopBar: View {
                     .fill(DevotionTheme.sage)
                     .frame(width: 7, height: 7)
                 Text(batteryLevel)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(ABY.Font.calloutMedium)
                     .foregroundStyle(AppTheme.textPrimary.opacity(0.9))
             }
 
             Spacer()
 
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
+                .font(ABY.Font.bodySemibold)
                 .foregroundStyle(AppTheme.textPrimary.opacity(0.85))
                 .rotationEffect(.degrees(90))
         }

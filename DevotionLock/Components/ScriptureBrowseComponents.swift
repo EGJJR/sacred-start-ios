@@ -40,10 +40,10 @@ struct ScriptureTabBar: View {
                     VStack(spacing: 4) {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 17, weight: selection == tab ? .semibold : .regular))
+                                .font(AppFont.font(size: 17, weight: selection == tab ? AppFont.Weight.semibold : AppFont.Weight.regular))
                             if tab == .library, libraryCount > 0 {
                                 Text("\(min(libraryCount, 99))")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(ABY.Font.microBold)
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 2)
@@ -53,7 +53,7 @@ struct ScriptureTabBar: View {
                             }
                         }
                         Text(tab.rawValue)
-                            .font(.system(size: 10, weight: selection == tab ? .semibold : .medium))
+                            .font(AppFont.font(size: 10, weight: selection == tab ? AppFont.Weight.semibold : AppFont.Weight.medium))
                     }
                     .foregroundStyle(selection == tab ? palette.textPrimary : palette.textTertiary)
                     .frame(maxWidth: .infinity)
@@ -87,7 +87,7 @@ struct ScriptureSearchField: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .font(ABY.Font.bodyMedium)
                 .foregroundStyle(palette.textSecondary)
             TextField(placeholder, text: $text)
                 .focused(focus)
@@ -123,7 +123,7 @@ struct ScriptureReferenceBanner: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: "text.book.closed.fill")
-                    .font(.system(size: 18))
+                    .font(ABY.Font.headline)
                     .foregroundStyle(ABY.Color.pillTeal)
                     .frame(width: 36, height: 36)
                     .background(ABY.Color.pillTeal.opacity(0.12))
@@ -134,12 +134,12 @@ struct ScriptureReferenceBanner: View {
                         .font(ABY.Font.caption)
                         .foregroundStyle(ABY.Color.textSecondary)
                     Text(reference)
-                        .font(ABY.Font.body.weight(.semibold))
+                        .font(ABY.Font.bodySemibold)
                         .foregroundStyle(ABY.Color.textPrimary)
                 }
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(paletteMuted)
             }
             .padding(14)
@@ -199,9 +199,9 @@ private struct ScriptureTopicTile: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                 Text(label)
-                    .font(ABY.Font.callout.weight(.medium))
+                    .font(ABY.Font.calloutMedium)
                 Spacer(minLength: 0)
             }
             .foregroundStyle(isSelected ? .white : palette.textPrimary)
@@ -301,7 +301,7 @@ struct ScriptureListRow: View {
     private var rowContent: some View {
         HStack(spacing: 14) {
             Text(badge)
-                .font(.system(size: 13, weight: .bold, design: .serif))
+                .font(ABY.Font.editorialFootnote)
                 .foregroundStyle(badgeTint)
                 .frame(width: 40, height: 40)
                 .background(badgeTint.opacity(0.1))
@@ -309,7 +309,7 @@ struct ScriptureListRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(ABY.Font.body.weight(.semibold))
+                    .font(ABY.Font.bodySemibold)
                     .foregroundStyle(palette.textPrimary)
                     .lineLimit(1)
                 Text(subtitle)
@@ -321,7 +321,7 @@ struct ScriptureListRow: View {
             Spacer(minLength: 8)
 
             Image(systemName: trailingIcon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(ABY.Font.captionSemibold)
                 .foregroundStyle(palette.textTertiary)
         }
         .padding(.horizontal, ABY.Spacing.screen)
@@ -390,7 +390,7 @@ struct ScripturePassageCard: View {
                 if let onSave {
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(ABY.Font.bodyMedium)
                             .foregroundStyle(isSaved ? ABY.Color.pillTeal : palette.textTertiary)
                     }
                     .buttonStyle(.plain)
@@ -399,7 +399,7 @@ struct ScripturePassageCard: View {
             .padding(.bottom, 12)
 
             Text(passage.text)
-                .font(.system(size: 19, weight: .regular, design: .serif))
+                .font(ABY.Font.editorialSubhead)
                 .foregroundStyle(palette.textPrimary)
                 .lineSpacing(6)
                 .multilineTextAlignment(.leading)
@@ -412,7 +412,7 @@ struct ScripturePassageCard: View {
                 Spacer()
                 if isPickable {
                     Text("Use this →")
-                        .font(ABY.Font.caption.weight(.semibold))
+                        .font(ABY.Font.captionSemibold)
                         .foregroundStyle(palette.textPrimary)
                 }
             }

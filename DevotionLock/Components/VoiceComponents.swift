@@ -125,6 +125,201 @@ struct VoiceOrb: View {
     }
 }
 
+// MARK: - ABY voice entry (Mobbin ref)
+
+struct ABYVoiceWaveformBars: View {
+    var active: Bool = true
+    var barCount: Int = 38
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 3) {
+                ForEach(0..<barCount, id: \.self) { index in
+                    let normalized = CGFloat(index) / CGFloat(max(barCount - 1, 1))
+                    let envelope = sin(normalized * .pi)
+                    let wave = abs(sin(t * 4.2 + Double(index) * 0.34))
+                    let height: CGFloat = active
+                        ? 8 + envelope * (6 + wave * 24)
+                        : 6 + envelope * 5
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .fill(ABY.Color.textSecondary.opacity(active ? 0.82 : 0.42))
+                        .frame(width: 3, height: height)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+        }
+    }
+}
+
+struct ABYVoiceEntryTopBar: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let sessionTime: String
+    let onDismiss: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: onDismiss) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.down")
+                        .font(ABY.Font.footnoteSemibold)
+                    Text(sessionTime)
+                        .font(ABY.Font.calloutMedium)
+                }
+                .foregroundStyle(palette.textSecondary)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Button("Done", action: onDone)
+                .font(ABY.Font.calloutMedium)
+                .foregroundStyle(palette.textPrimary)
+                .buttonStyle(.plain)
+        }
+    }
+}
+
+struct ABYVoiceCaptureCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let timerText: String
+    var isListening: Bool
+    let onCancel: () -> Void
+    let onSubmit: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text(timerText)
+                .font(ABY.Font.captionMedium)
+                .foregroundStyle(palette.textSecondary)
+
+            HStack(spacing: 14) {
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(ABY.Font.bodySemibold)
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                ABYVoiceWaveformBars(active: isListening)
+
+                Button(action: onSubmit) {
+                    Image(systemName: "arrow.up")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(ScaleButtonStyle())
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(palette.isNight ? palette.surfaceElevated : Color(red: 0.97, green: 0.97, blue: 0.99))
+        }
+        .shadow(color: .black.opacity(palette.isNight ? 0.24 : 0.08), radius: 20, y: 8)
+    }
+}
+
+// MARK: - Inline dictation (assisted journal + AI chat)
+
+struct ABYInlineDictationCapture: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    @Binding var text: String
+    @Binding var isActive: Bool
+
+    @State private var transcription = SpeechTranscriptionService()
+    @State private var elapsed: TimeInterval = 0
+    @State private var speechStarted = false
+    @State private var tickTask: Task<Void, Never>?
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if !transcription.transcript.isEmpty {
+                Text(transcription.transcript)
+                    .font(ABY.Font.callout)
+                    .foregroundStyle(palette.textPrimary)
+                    .lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4)
+                    .animation(AppTheme.springGentle, value: transcription.transcript)
+            }
+
+            ABYVoiceCaptureCard(
+                timerText: timerText,
+                isListening: transcription.isListening,
+                onCancel: cancelDictation,
+                onSubmit: finishDictation
+            )
+        }
+        .onAppear {
+            Task { await beginDictation() }
+            startElapsedTimer()
+        }
+        .onDisappear {
+            tickTask?.cancel()
+            tickTask = nil
+            _ = transcription.stop()
+        }
+    }
+
+    private func startElapsedTimer() {
+        tickTask?.cancel()
+        tickTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, isActive, transcription.isListening else { continue }
+                await MainActor.run { elapsed += 1 }
+            }
+        }
+    }
+
+    private var timerText: String {
+        let seconds = Int(elapsed)
+        if seconds < 60 { return String(format: "0:%02d", seconds) }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func beginDictation() async {
+        guard !speechStarted else { return }
+        let authorized = await transcription.requestAuthorization()
+        guard authorized else {
+            isActive = false
+            return
+        }
+        speechStarted = true
+        try? transcription.start()
+    }
+
+    private func cancelDictation() {
+        _ = transcription.stop()
+        isActive = false
+    }
+
+    private func finishDictation() {
+        let spoken = transcription.stop().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !spoken.isEmpty {
+            if text.isEmpty {
+                text = spoken
+            } else if !text.hasSuffix(" ") {
+                text += " " + spoken
+            } else {
+                text += spoken
+            }
+        }
+        isActive = false
+        DevotionHaptics.light()
+    }
+}
+
 struct VoiceWaveformIcon: View {
     var active: Bool = false
 
@@ -153,7 +348,7 @@ struct VoiceControlButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: prominent ? 18 : 16, weight: .medium))
+                .font(AppFont.font(size: prominent ? 18 : 16, weight: .medium))
                 .foregroundStyle(prominent ? Color.black : AppTheme.textPrimary)
                 .frame(width: prominent ? 56 : 48, height: prominent ? 56 : 48)
                 .background(prominent ? Color.white : Color.white.opacity(0.10))

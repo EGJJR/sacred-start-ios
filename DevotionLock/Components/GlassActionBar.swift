@@ -22,7 +22,7 @@ struct GlassActionBar: View {
                 Button(action: item.action) {
                     VStack(spacing: 4) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 18, weight: .medium))
+                            .font(ABY.Font.headline)
                         Text(item.title)
                             .font(ABY.Font.caption)
                     }

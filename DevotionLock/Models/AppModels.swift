@@ -48,10 +48,10 @@ enum AppTab: Int, CaseIterable, Identifiable {
 
     var activeTint: Color {
         switch self {
-        case .home: ABY.Color.pillTeal
-        case .conversations: ABY.Color.pillPurple
-        case .insights: ABY.Color.pillPink
-        case .profile: ABY.Color.pillOrange
+        case .home: ABY.Color.pillOrange
+        case .conversations: ABY.Color.pillPink
+        case .insights: ABY.Color.meshAmber
+        case .profile: ABY.Color.meshGold
         }
     }
 }
@@ -104,72 +104,82 @@ struct Conversation: Identifiable, Hashable {
         self.recordedAt = recordedAt
     }
 
-    static let samples: [Conversation] = [
-        Conversation(
-            tag: "Scripture",
-            timeAgo: "23 min ago",
-            timelineTime: "7:18 AM",
-            emoji: "🙏",
-            moodEmoji: "😊",
-            moodLabel: "Grateful",
-            title: "Morning Devotion — Cast Your Cares",
-            preview: "There's something grounded about how you're moving through this moment — noticing what feels good and reflecting on what matters.",
-            duration: "7m 22s",
-            isToday: true,
-            transcript: [
-                TranscriptSegment(speaker: "You", text: "I'm feeling overwhelmed about the week ahead.", timestamp: "0:04"),
-                TranscriptSegment(speaker: "Chaplain", text: "Cast all your anxiety on him because he cares for you. Let's sit with that together.", timestamp: "0:18"),
-                TranscriptSegment(speaker: "You", text: "I want to trust that more deeply today.", timestamp: "0:42"),
-            ]
-        ),
-        Conversation(
-            tag: "Gratitude",
-            timeAgo: "Yesterday",
-            timelineTime: "6:42 AM",
-            emoji: "🍃",
-            moodEmoji: "🍃",
-            moodLabel: "Peaceful",
-            title: "Voice Journal — Grateful Heart",
-            preview: "Morning voice journaling on family, health, and quiet moments of grace before the day began.",
-            duration: "12m 08s",
-            isToday: false,
-            transcript: [
-                TranscriptSegment(speaker: "You", text: "Today I'm grateful for the stillness before everyone wakes up.", timestamp: "0:02"),
-                TranscriptSegment(speaker: "Chaplain", text: "Gratitude opens the heart. What else is stirring in you this morning?", timestamp: "0:15"),
-            ]
-        ),
-        Conversation(
-            tag: "Reflection",
-            timeAgo: "Yesterday",
-            timelineTime: "7:05 AM",
-            emoji: "✨",
-            moodEmoji: "🌅",
-            moodLabel: "Hopeful",
-            title: "Morning Intentions & Gratitude",
-            preview: "A quiet moment of reflection on priorities, presence, and what matters most today.",
-            duration: "4m 51s",
-            isToday: false,
-            transcript: [
-                TranscriptSegment(speaker: "You", text: "Today I want to be fully present in every conversation.", timestamp: "0:00"),
-                TranscriptSegment(speaker: "Chaplain", text: "That's a beautiful intention. Presence is a practice, not a destination.", timestamp: "0:12"),
-            ]
-        ),
-        Conversation(
-            tag: "Prayer",
-            timeAgo: "2 days ago",
-            timelineTime: "6:30 PM",
-            emoji: "🕯️",
-            moodEmoji: "🙏",
-            moodLabel: "Reflective",
-            title: "Evening Examen & Prayer",
-            preview: "Reviewing the day with gentle awareness and closing prayer.",
-            duration: "8m 12s",
-            isToday: false,
-            transcript: [
-                TranscriptSegment(speaker: "You", text: "Where did I feel closest to God today?", timestamp: "0:00"),
-            ]
-        ),
-    ]
+    static let samples: [Conversation] = designTourSamples
+
+    static var designTourSamples: [Conversation] {
+        let calendar = Calendar.current
+        let now = Date()
+        return [
+            Conversation(
+                tag: "Scripture",
+                timeAgo: "23 min ago",
+                timelineTime: "7:18 AM",
+                emoji: "🙏",
+                moodEmoji: "😊",
+                moodLabel: "Grateful",
+                title: "Morning Devotion — Cast Your Cares",
+                preview: "There's something grounded about how you're moving through this moment — noticing what feels good and reflecting on what matters.",
+                duration: "7m 22s",
+                isToday: true,
+                transcript: [
+                    TranscriptSegment(speaker: "You", text: "I'm feeling overwhelmed about the week ahead.", timestamp: "0:04"),
+                    TranscriptSegment(speaker: "Chaplain", text: "Cast all your anxiety on him because he cares for you. Let's sit with that together.", timestamp: "0:18"),
+                    TranscriptSegment(speaker: "You", text: "I want to trust that more deeply today.", timestamp: "0:42"),
+                ],
+                recordedAt: calendar.date(byAdding: .minute, value: -23, to: now)
+            ),
+            Conversation(
+                tag: "Voice",
+                timeAgo: "Yesterday",
+                timelineTime: "6:42 AM",
+                emoji: "🍃",
+                moodEmoji: "🍃",
+                moodLabel: "Peaceful",
+                title: "Voice Journal — Grateful Heart",
+                preview: "Morning voice journaling on family, health, and quiet moments of grace before the day began.",
+                duration: "12m 08s",
+                isToday: false,
+                transcript: [
+                    TranscriptSegment(speaker: "You", text: "Today I'm grateful for the stillness before everyone wakes up.", timestamp: "0:02"),
+                    TranscriptSegment(speaker: "Chaplain", text: "Gratitude opens the heart. What else is stirring in you this morning?", timestamp: "0:15"),
+                ],
+                recordedAt: calendar.date(byAdding: .day, value: -1, to: now)
+            ),
+            Conversation(
+                tag: "Reflection",
+                timeAgo: "Yesterday",
+                timelineTime: "7:05 AM",
+                emoji: "✨",
+                moodEmoji: "🌅",
+                moodLabel: "Hopeful",
+                title: "Morning Intentions & Gratitude",
+                preview: "A quiet moment of reflection on priorities, presence, and what matters most today.",
+                duration: "4m 51s",
+                isToday: false,
+                transcript: [
+                    TranscriptSegment(speaker: "You", text: "Today I want to be fully present in every conversation.", timestamp: "0:00"),
+                    TranscriptSegment(speaker: "Chaplain", text: "That's a beautiful intention. Presence is a practice, not a destination.", timestamp: "0:12"),
+                ],
+                recordedAt: calendar.date(byAdding: .hour, value: -30, to: now)
+            ),
+            Conversation(
+                tag: "Prayer",
+                timeAgo: "2 days ago",
+                timelineTime: "6:30 PM",
+                emoji: "🕯️",
+                moodEmoji: "🙏",
+                moodLabel: "Reflective",
+                title: "Evening Examen & Prayer",
+                preview: "Reviewing the day with gentle awareness and closing prayer.",
+                duration: "8m 12s",
+                isToday: false,
+                transcript: [
+                    TranscriptSegment(speaker: "You", text: "Where did I feel closest to God today?", timestamp: "0:00"),
+                ],
+                recordedAt: calendar.date(byAdding: .day, value: -2, to: now)
+            ),
+        ]
+    }
 }
 
 struct TranscriptSegment: Identifiable, Hashable {

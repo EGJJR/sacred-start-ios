@@ -11,11 +11,12 @@ struct SanctuaryBibleView: View {
     @Environment(\.presentDevotionPaywall) private var presentPaywall
 
     var initialTopics: Set<PassageTopic> = []
+    var initialTab: ScriptureTab = .discover
     var onSelect: ((SpiritualPassage) -> Void)? = nil
 
     @State private var query = ""
     @State private var selectedTopic: PassageTopic?
-    @State private var tab: ScriptureTab = .discover
+    @State private var tab: ScriptureTab
     @State private var meshOpacity: CGFloat = 0.12
 
     @State private var isLoadingChapter = false
@@ -46,6 +47,17 @@ struct SanctuaryBibleView: View {
 
     private var libraryCount: Int {
         ScriptureLibraryStore.shared.count
+    }
+
+    init(
+        initialTopics: Set<PassageTopic> = [],
+        initialTab: ScriptureTab = .discover,
+        onSelect: ((SpiritualPassage) -> Void)? = nil
+    ) {
+        self.initialTopics = initialTopics
+        self.initialTab = initialTab
+        self.onSelect = onSelect
+        _tab = State(initialValue: initialTab)
     }
 
     var body: some View {
@@ -213,7 +225,7 @@ struct SanctuaryBibleView: View {
     private var emptyResults: some View {
         VStack(spacing: 10) {
             Image(systemName: "text.magnifyingglass")
-                .font(.system(size: 32, weight: .light))
+                .font(ABY.Font.title)
                 .foregroundStyle(palette.textTertiary)
             Text("No passages found")
                 .font(ABY.Font.headline)

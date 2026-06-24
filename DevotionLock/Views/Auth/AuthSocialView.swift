@@ -2,6 +2,8 @@
 //  AuthSocialView.swift
 //  DevotionLock
 //
+//  Fabric-inspired sign-in / sign-up: white surface, social providers, gray fields.
+//
 
 import SwiftUI
 
@@ -9,11 +11,10 @@ struct AuthSocialView: View {
     @State var intent: AuthIntent
     var onBack: () -> Void
 
-    @State private var auth = AuthManager.shared
+    @Environment(\.authManager) private var auth
     @State private var username = ""
     @State private var email = ""
     @State private var password = ""
-    @State private var appeared = false
     @State private var usernameStatus: UsernameAvailability = .idle
     @State private var availabilityTask: Task<Void, Never>?
     @FocusState private var focusedField: Field?
@@ -33,49 +34,48 @@ struct AuthSocialView: View {
     }
 
     var body: some View {
-        AuthMeshScreen {
+        AuthScreen(style: .credentials) {
             VStack(spacing: 0) {
-                AuthCredentialsHeader(intent: intent, onBack: onBack)
+                authNavigationBar
+
+                AuthIntentToggle(intent: $intent)
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 4)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        AuthFormCard {
-                            formFields
+                    VStack(alignment: .leading, spacing: 24) {
+                        AuthFormHeadline(intent: intent)
+                            .padding(.top, 4)
 
-                            if let error = auth.errorMessage {
-                                AuthInlineBanner(message: error)
-                            }
+                        credentialFieldsSection
 
-                            AuthPrimaryCapsuleButton(
-                                title: intent == .signUp ? "Create account" : "Log in",
-                                isLoading: auth.isLoading,
-                                isEnabled: canSubmit
-                            ) {
-                                submit()
-                            }
+                        if let error = auth.errorMessage {
+                            AuthInlineBanner(message: error)
                         }
 
-                        AuthSwitchIntentLink(intent: intent) {
-                            switchIntent()
+                        AuthPrimaryCapsuleButton(
+                            title: intent == .signUp ? "Sign up" : "Sign in",
+                            isLoading: auth.isLoading,
+                            isEnabled: canSubmit
+                        ) {
+                            submit()
                         }
+                        .padding(.top, 4)
+
+                        footerLinksSection
+
+                        AuthTermsFooter()
+                            .padding(.top, 8)
+                            .padding(.bottom, 28)
                     }
                     .animation(AppTheme.springSnappy, value: intent)
                     .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 4)
-                    .padding(.bottom, 16)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 10)
                 }
                 .scrollDismissesKeyboard(.interactively)
-
-                AuthTermsFooter()
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.bottom, 20)
             }
         }
         .onAppear {
             auth.clearMessages()
-            withAnimation(AppTheme.springGentle) { appeared = true }
             focusInitialField()
         }
         .onChange(of: intent) { _, newIntent in
@@ -85,66 +85,71 @@ struct AuthSocialView: View {
         }
     }
 
-    // MARK: - Form
+    private var authNavigationBar: some View {
+        HStack {
+            AuthBackButton(action: onBack)
+            Spacer()
+        }
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.top, 8)
+    }
 
     @ViewBuilder
-    private var formFields: some View {
-        VStack(spacing: 14) {
+    private var credentialFieldsSection: some View {
+        VStack(spacing: 12) {
             if intent == .signUp {
-                AuthLabeledField(label: "Username", hint: "Public") {
-                    AuthGlassTextField(
-                        placeholder: "How should we greet you?",
-                        text: $username
-                    )
+                AuthPlainTextField(placeholder: "Username", text: $username)
                     .focused($focusedField, equals: .username)
                     .textContentType(.username)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                     .submitLabel(.next)
                     .onSubmit { focusedField = .email }
-                    .onChange(of: username) { _, _ in
-                        scheduleUsernameCheck()
-                    }
-                }
+                    .onChange(of: username) { _, _ in scheduleUsernameCheck() }
 
                 if usernameStatus != .idle {
-                    AuthFieldStatus(
-                        message: usernameStatusMessage,
-                        tone: usernameStatusTone
-                    )
+                    AuthFieldStatus(message: usernameStatusMessage, tone: usernameStatusTone)
                 }
             }
 
-            AuthLabeledField(label: "Email") {
-                AuthGlassTextField(
-                    placeholder: "you@example.com",
-                    text: $email,
-                    keyboardType: .emailAddress
-                )
-                .focused($focusedField, equals: .email)
-                .textContentType(.emailAddress)
-                .submitLabel(.next)
-                .onSubmit { focusedField = .password }
-            }
+            AuthPlainTextField(
+                placeholder: "Email",
+                text: $email,
+                keyboardType: .emailAddress
+            )
+            .focused($focusedField, equals: .email)
+            .textContentType(.emailAddress)
+            .submitLabel(.next)
+            .onSubmit { focusedField = .password }
 
-            AuthLabeledField(
-                label: "Password",
-                hint: intent == .signUp ? "8+ characters" : nil
-            ) {
-                AuthSecureTextField(
-                    placeholder: intent == .signUp ? "Create a password" : "Your password",
-                    text: $password
-                )
+            AuthPlainSecureField(placeholder: "Password", text: $password)
                 .focused($focusedField, equals: .password)
                 .textContentType(intent == .signUp ? .newPassword : .password)
                 .submitLabel(.done)
                 .onSubmit { submitIfReady() }
-            }
 
+            if intent == .signUp {
+                AuthFieldStatus(
+                    message: "Password must be at least 8 characters.",
+                    tone: .neutral
+                )
+            }
         }
     }
 
-    // MARK: - Validation
+    @ViewBuilder
+    private var footerLinksSection: some View {
+        VStack(spacing: 16) {
+            if intent == .signIn {
+                AuthTextLink(title: "Forgot password?") {
+                    auth.errorMessage = "Password reset is coming soon — use email sign-in for now."
+                }
+            }
+
+            AuthSwitchIntentLink(intent: intent) {
+                switchIntent()
+            }
+        }
+        .padding(.top, 4)
+    }
 
     private var canSubmit: Bool {
         let hasEmail = !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -160,16 +165,11 @@ struct AuthSocialView: View {
 
     private var usernameStatusMessage: String {
         switch usernameStatus {
-        case .idle:
-            ""
-        case .checking:
-            "Checking availability…"
-        case .available:
-            "Username is available."
-        case .taken:
-            "That username is already taken."
-        case .invalid:
-            "Use 2–30 characters: letters, numbers, dots, dashes, or underscores."
+        case .idle: ""
+        case .checking: "Checking availability…"
+        case .available: "Username is available."
+        case .taken: "That username is already taken."
+        case .invalid: "Use 2–30 characters: letters, numbers, dots, dashes, or underscores."
         }
     }
 
@@ -181,8 +181,6 @@ struct AuthSocialView: View {
         case .taken, .invalid: .error
         }
     }
-
-    // MARK: - Actions
 
     private func switchIntent() {
         withAnimation(AppTheme.springSnappy) {
@@ -253,9 +251,10 @@ struct AuthSocialView: View {
 
 #Preview("Sign up") {
     AuthSocialView(intent: .signUp, onBack: {})
+        .environment(\.authManager, AuthManager.shared)
 }
 
 #Preview("Log in") {
     AuthSocialView(intent: .signIn, onBack: {})
+        .environment(\.authManager, AuthManager.shared)
 }
-

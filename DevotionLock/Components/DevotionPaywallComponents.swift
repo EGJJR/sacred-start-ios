@@ -2,246 +2,396 @@
 //  DevotionPaywallComponents.swift
 //  DevotionLock
 //
-//  Mobbin refs: Tide trial timeline, Open plan cards, Calm trial badge, Ten Percent Happier sheet.
+//  Dark premium paywall — Beside / Grok / FocusFlight synthesis.
 //
 
 import StoreKit
 import SwiftUI
 
-// MARK: - Trial timeline (Tide-inspired)
+// MARK: - Brand & hero
 
-struct PaywallTrialTimeline: View {
-    let trialDays: Int
-
-    private var chargeDate: Date {
-        Calendar.current.date(byAdding: .day, value: trialDays, to: Date()) ?? Date()
-    }
-
-    private var chargeDateText: String {
-        chargeDate.formatted(.dateTime.month(.abbreviated).day())
-    }
-
-    private var reminderDay: Int {
-        max(1, trialDays - 2)
-    }
-
+struct PaywallBrandMark: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            timelineRow(
-                icon: "lock.open.fill",
-                iconColor: ABY.Color.pillTeal,
-                title: "Today",
-                detail: "Unlock AI Chaplain, morning devotion, app shield, and your full journal."
-            )
-            timelineConnector
-            timelineRow(
-                icon: "bell.fill",
-                iconColor: ABY.Color.pillOrange,
-                title: "In \(reminderDay) days",
-                detail: "We'll send a reminder before your trial ends."
-            )
-            timelineConnector
-            timelineRow(
-                icon: "checkmark.seal.fill",
-                iconColor: ABY.Color.pillPurple,
-                title: "In \(trialDays) days",
-                detail: "You'll be charged on \(chargeDateText). Cancel anytime before."
-            )
-        }
-        .padding(16)
-        .background {
-            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                .fill(ABY.Color.surface)
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-        }
-    }
+        HStack(spacing: 8) {
+            Text("Sacred Start")
+                .font(ABY.Font.paywallBrand)
+                .foregroundStyle(ABY.Color.paywallTextPrimary)
 
-    private var timelineConnector: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(ABY.Color.divider)
-                .frame(width: 2, height: 20)
-                .padding(.leading, 19)
-            Spacer()
+            Text("PLUS")
+                .font(ABY.Font.paywallBadge)
+                .tracking(0.8)
+                .foregroundStyle(ABY.Color.textPrimary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(ABY.Color.paywallTextPrimary)
+                .clipShape(Capsule())
         }
-    }
-
-    private func timelineRow(icon: String, iconColor: Color, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon)
-                .font(ABY.Font.iconMedium)
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(iconColor.gradient)
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(ABY.Font.headline)
-                    .foregroundStyle(ABY.Color.textPrimary)
-                Text(detail)
-                    .font(ABY.Font.footnote)
-                    .foregroundStyle(ABY.Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+        .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: - Feature checklist (Ten Percent Happier–inspired)
+struct PaywallHeroBlock: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("Unlock your full\nmorning sanctuary")
+                .font(ABY.Font.paywallHeadline)
+                .foregroundStyle(ABY.Color.paywallTextPrimary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
 
-struct PaywallFeatureChecklist: View {
-    private let items = [
-        "AI Chaplain voice & text companion",
-        "Guided morning devotion & journaling",
-        "App shield & prayer circles",
+            HStack(spacing: 4) {
+                ForEach(0..<5, id: \.self) { _ in
+                    Image(systemName: "star.fill")
+                        .font(ABY.Font.emojiSmall)
+                        .foregroundStyle(ABY.Color.accentDot)
+                }
+                Text("(1,000+ mornings)")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(ABY.Color.paywallTextSecondary)
+            }
+
+            Text("Worth every peaceful morning")
+                .font(ABY.Font.footnote)
+                .foregroundStyle(ABY.Color.paywallTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Benefits
+
+struct PaywallBenefit: Identifiable {
+    let id: String
+    let icon: String
+    let tint: Color
+    let title: String
+    let detail: String
+
+    static let premium: [PaywallBenefit] = [
+        PaywallBenefit(
+            id: "chaplain",
+            icon: "mic.fill",
+            tint: ABY.Color.pillPurple,
+            title: "Unlimited AI Chaplain",
+            detail: "Voice and text sessions that meet you in prayer."
+        ),
+        PaywallBenefit(
+            id: "devotion",
+            icon: "book.closed.fill",
+            tint: ABY.Color.pillTeal,
+            title: "Morning devotion & shield",
+            detail: "Scripture, journaling, and app protection in one flow."
+        ),
+        PaywallBenefit(
+            id: "journal",
+            icon: "sparkles",
+            tint: ABY.Color.meshPeriwinkle,
+            title: "Advanced guided journaling",
+            detail: "Mad-libs prompts, gratitude, and AI reflections."
+        ),
+        PaywallBenefit(
+            id: "insights",
+            icon: "chart.line.uptrend.xyaxis",
+            tint: ABY.Color.pillOrange,
+            title: "Spiritual theme insights",
+            detail: "See patterns in your devotion and mood over time."
+        ),
     ]
+}
+
+struct PaywallBenefitsCard: View {
+    let benefits: [PaywallBenefit]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(items, id: \.self) { item in
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(ABY.Color.accentDot)
-                    Text(item)
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(ABY.Color.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Everything in Plus")
+                .font(ABY.Font.caption)
+                .foregroundStyle(ABY.Color.paywallTextTertiary)
+                .textCase(.uppercase)
+                .tracking(0.6)
+
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(benefits) { benefit in
+                    PaywallBenefitRow(benefit: benefit)
                 }
             }
         }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(ABY.Color.paywallGlassFill)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(ABY.Color.paywallGlassStroke, lineWidth: 1)
+                }
+        }
     }
 }
 
-// MARK: - Plan card (Open / Calm–inspired)
+struct PaywallBenefitRow: View {
+    let benefit: PaywallBenefit
 
-struct SacredPaywallPlanCard: View {
-    let product: Product
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: benefit.icon)
+                .font(ABY.Font.iconMedium)
+                .foregroundStyle(ABY.Color.paywallTextPrimary)
+                .frame(width: 22, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(benefit.title)
+                    .font(ABY.Font.paywallFeature)
+                    .foregroundStyle(ABY.Color.paywallTextPrimary)
+                Text(benefit.detail)
+                    .font(ABY.Font.footnote)
+                    .foregroundStyle(ABY.Color.paywallTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
+            }
+        }
+    }
+}
+
+// MARK: - Plans
+
+struct PaywallPlanOption: Identifiable {
+    let id: String
+    let periodLabel: String
+    let priceLabel: String
+    let billingNote: String
+    let promoBadge: String?
+    let isRecommended: Bool
+
+    static func from(product: Product, promo: String?) -> PaywallPlanOption? {
+        guard let subscription = product.subscription else { return nil }
+        let periodLabel: String
+        let priceLabel: String
+        var billingNote: String
+        let isRecommended = product.id == DevotionProducts.annual
+
+        switch subscription.subscriptionPeriod.unit {
+        case .month:
+            periodLabel = "Monthly"
+            priceLabel = product.displayPrice
+            billingNote = "Billed monthly"
+        case .year:
+            periodLabel = "Yearly"
+            let monthly = product.price / 12
+            let formatted = monthly.formatted(product.priceFormatStyle)
+            priceLabel = formatted
+            billingNote = "\(product.displayPrice) billed yearly"
+        case .week:
+            periodLabel = "Weekly"
+            priceLabel = product.displayPrice
+            billingNote = "Billed weekly"
+        default:
+            periodLabel = product.displayName
+            priceLabel = product.displayPrice
+            billingNote = product.displayPrice
+        }
+
+        if subscription.introductoryOffer?.paymentMode == .freeTrial {
+            billingNote = "5-day free trial · \(billingNote.lowercased())"
+        }
+
+        return PaywallPlanOption(
+            id: product.id,
+            periodLabel: periodLabel,
+            priceLabel: priceLabel,
+            billingNote: billingNote,
+            promoBadge: promo,
+            isRecommended: isRecommended
+        )
+    }
+
+    static var mockPair: [PaywallPlanOption] {
+        [
+            PaywallPlanOption(
+                id: DevotionProducts.monthly,
+                periodLabel: "Monthly",
+                priceLabel: "$9.99",
+                billingNote: "Billed monthly",
+                promoBadge: nil,
+                isRecommended: false
+            ),
+            PaywallPlanOption(
+                id: DevotionProducts.annual,
+                periodLabel: "Yearly",
+                priceLabel: "$3.33",
+                billingNote: "5-day free trial · $39.99 billed yearly",
+                promoBadge: "Best value",
+                isRecommended: true
+            ),
+        ]
+    }
+}
+
+struct PaywallPlanCard: View {
+    let option: PaywallPlanOption
     let isSelected: Bool
-    let badge: String?
-    let badgeColor: Color?
-    let promoText: String?
     let onSelect: () -> Void
 
-    private var planLabel: String {
-        guard let subscription = product.subscription else { return product.displayName }
-        switch subscription.subscriptionPeriod.unit {
-        case .week: return "Weekly"
-        case .month: return "Monthly"
-        case .year: return "Annual"
-        default: return product.displayName
-        }
+    private var labelColor: Color {
+        isSelected ? ABY.Color.textSecondary : ABY.Color.paywallTextSecondary
     }
 
-    private var periodSuffix: String {
-        guard let subscription = product.subscription else { return "" }
-        switch subscription.subscriptionPeriod.unit {
-        case .week: return "/wk"
-        case .month: return "/mo"
-        case .year: return "/yr"
-        default: return ""
-        }
+    private var priceColor: Color {
+        isSelected ? ABY.Color.textPrimary : ABY.Color.paywallTextPrimary
     }
 
-    private var monthlyEquivalent: String? {
-        guard let subscription = product.subscription,
-              subscription.subscriptionPeriod.unit == .year else { return nil }
-        let monthly = product.price / 12
-        let formatted = monthly.formatted(product.priceFormatStyle)
-        return "\(formatted)/mo"
-    }
-
-    private var hasFreeTrial: Bool {
-        product.subscription?.introductoryOffer?.paymentMode == .freeTrial
+    private var noteColor: Color {
+        isSelected ? ABY.Color.textTertiary : ABY.Color.paywallTextTertiary
     }
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(alignment: .center, spacing: 12) {
-                selectionRing
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(planLabel)
-                            .font(ABY.Font.headline)
-                            .foregroundStyle(isSelected ? ABY.Color.textPrimary : ABY.Color.textSecondary)
-                        if hasFreeTrial {
-                            trialBadge
-                        }
-                    }
-
-                    if let promoText, !promoText.isEmpty {
-                        Text(promoText)
-                            .font(ABY.Font.captionMedium)
-                            .foregroundStyle(ABY.Color.pillTeal)
-                    }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(option.periodLabel.uppercased())
+                        .font(ABY.Font.paywallPlanLabel)
+                        .foregroundStyle(labelColor)
+                        .tracking(0.4)
+                    Spacer(minLength: 0)
                 }
 
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(product.displayPrice + periodSuffix)
-                        .font(ABY.Font.title2)
-                        .foregroundStyle(ABY.Color.textPrimary)
-                        .minimumScaleFactor(0.85)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(option.priceLabel)
+                        .font(ABY.Font.paywallPrice)
+                        .foregroundStyle(priceColor)
+                        .minimumScaleFactor(0.8)
                         .lineLimit(1)
-                    if let monthlyEquivalent {
-                        Text(monthlyEquivalent)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(ABY.Color.textSecondary)
+                    if option.id != DevotionProducts.weekly {
+                        Text("/mo")
+                            .font(ABY.Font.footnoteMedium)
+                            .foregroundStyle(labelColor)
                     }
                 }
+
+                Text(option.billingNote)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(noteColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(1)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .fill(isSelected ? ABY.Color.textPrimary.opacity(0.04) : ABY.Color.surface)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(isSelected ? Color.white : ABY.Color.paywallPlanFill)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .strokeBorder(
-                        isSelected ? ABY.Color.textPrimary : ABY.Color.divider,
-                        lineWidth: isSelected ? 2 : 1
+                        isSelected ? Color.clear : ABY.Color.paywallPlanBorder,
+                        lineWidth: 1
                     )
             }
-            .overlay(alignment: .topTrailing) {
-                if let badge {
+            .overlay(alignment: .top) {
+                if let badge = option.promoBadge, isSelected {
                     Text(badge.uppercased())
-                        .font(.system(size: 9, weight: .bold))
+                        .font(ABY.Font.paywallPromoBadge)
+                        .tracking(0.3)
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(badgeColor ?? ABY.Color.textPrimary))
-                        .offset(y: -10)
-                        .padding(.trailing, 12)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(ABY.Color.paywallOrbPurple)
+                        .clipShape(Capsule())
+                        .offset(y: -11)
                 }
             }
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
+}
 
-    private var selectionRing: some View {
-        ZStack {
-            Circle()
-                .stroke(isSelected ? ABY.Color.textPrimary : ABY.Color.textTertiary, lineWidth: 2)
-                .frame(width: 22, height: 22)
-            if isSelected {
-                Circle()
-                    .fill(ABY.Color.textPrimary)
-                    .frame(width: 12, height: 12)
-            }
+struct PaywallWeeklyOptionLink: View {
+    let isWeeklySelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(isWeeklySelected ? "Weekly plan selected" : "Prefer weekly billing?")
+                .font(ABY.Font.captionMedium)
+                .foregroundStyle(ABY.Color.paywallTextSecondary)
+                .underline(isWeeklySelected)
         }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
     }
+}
 
-    private var trialBadge: some View {
-        Text("5-day trial")
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(ABY.Color.pillTeal)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(ABY.Color.pillTeal.opacity(0.12))
-            .clipShape(Capsule())
+// MARK: - Purchase footer
+
+struct PaywallPurchaseFooter: View {
+    let ctaTitle: String
+    let pricingNote: String?
+    let isPurchasing: Bool
+    let isDisabled: Bool
+    let isRestoring: Bool
+    let purchase: () -> Void
+    let restore: () -> Void
+    let showTerms: () -> Void
+    let showPrivacy: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Button(action: purchase) {
+                Text(ctaTitle)
+                    .font(ABY.Font.paywallCTA)
+                    .foregroundStyle(ABY.Color.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 17)
+                    .background(Color.white.opacity(isPurchasing || isDisabled ? 0.55 : 1))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(isDisabled)
+
+            if let pricingNote {
+                Text(pricingNote)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(ABY.Color.paywallTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: restore) {
+                Text(isRestoring ? "Restoring…" : "Restore Purchase")
+                    .font(ABY.Font.footnoteMedium)
+                    .foregroundStyle(ABY.Color.paywallTextSecondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(isRestoring)
+
+            Text("Cancel anytime via the App Store")
+                .font(ABY.Font.caption)
+                .foregroundStyle(ABY.Color.paywallTextTertiary)
+
+            HStack(spacing: 6) {
+                Button("Terms", action: showTerms)
+                Text("·").foregroundStyle(ABY.Color.paywallTextTertiary)
+                Button("Privacy", action: showPrivacy)
+            }
+            .font(ABY.Font.captionMedium)
+            .foregroundStyle(ABY.Color.paywallTextSecondary)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.top, 12)
+        .padding(.bottom, 24)
+        .background {
+            LinearGradient(
+                colors: [
+                    ABY.Color.nightGradientBottom.opacity(0),
+                    ABY.Color.nightGradientBottom.opacity(0.92),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 }

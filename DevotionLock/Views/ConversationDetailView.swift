@@ -1,6 +1,8 @@
 //
 //  ConversationDetailView.swift
-//  test1
+//  DevotionLock
+//
+//  Mobbin refs: Pi chat read (aa1c3adb), pillowtalk transcript (67acccfc), ABY read-only (bd815cf1)
 //
 
 import SwiftUI
@@ -16,36 +18,35 @@ struct ConversationDetailView: View {
         loadedConversation ?? conversation
     }
 
+    private var isSimpleReflection: Bool {
+        let transcript = displayConversation.transcript
+        return transcript.count <= 1 && transcript.allSatisfy { $0.speaker == "You" }
+    }
+
     var body: some View {
         ZStack {
-            ABYBackground()
+            ABYCleanGradientBackground()
 
             VStack(spacing: 0) {
                 detailHeader
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        JournalDetailHero(conversation: displayConversation)
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 8)
+                    VStack(alignment: .leading, spacing: 20) {
+                        entryHeader
+                            .blurReveal(appeared, blurRadius: 6, scale: 1.004)
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(displayConversation.title)
-                                .font(ABY.Font.title2)
-                                .foregroundStyle(palette.textPrimary)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            Text("\(displayConversation.transcript.count) messages · \(displayConversation.tag)")
-                                .font(ABY.Font.caption)
-                                .foregroundStyle(palette.textTertiary)
+                        if isSimpleReflection {
+                            simpleReflectionBody
+                                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
+                        } else {
+                            transcriptThread
                         }
-                        .opacity(appeared ? 1 : 0)
-
-                        transcriptSection
                     }
                     .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.top, 8)
                     .padding(.bottom, 40)
                 }
+                .abyScrollEdgeFades(top: false)
             }
         }
         .abyScreen()
@@ -55,39 +56,84 @@ struct ConversationDetailView: View {
             }
         }
         .onAppear {
-            withAnimation(AppTheme.springGentle) { appeared = true }
+            withAnimation(AppTheme.springGentle.delay(0.04)) { appeared = true }
         }
     }
 
     private var detailHeader: some View {
         HStack {
-            ABYIconButton(icon: "chevron.down") { dismiss() }
-            Spacer()
-            Text("Entry")
-                .font(ABY.Font.captionMedium)
-                .foregroundStyle(palette.textSecondary)
-            Spacer()
-            ABYIconButton(icon: "square.and.arrow.up") {}
+            Button(action: { dismiss() }) {
+                Image(systemName: "chevron.down")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
+
+            Button(action: {}) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(ABY.Font.calloutMedium)
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
     }
 
-    private var transcriptSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ABYSectionHeader(title: "Conversation")
+    private var entryHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(displayConversation.title)
+                .font(ABY.Font.title2)
+                .foregroundStyle(palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            ForEach(Array(displayConversation.transcript.enumerated()), id: \.element.id) { index, segment in
-                JournalTranscriptRow(segment: segment)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 8)
-                    .animation(
-                        AppTheme.springGentle.delay(0.06 + Double(index) * 0.04),
-                        value: appeared
-                    )
+            HStack(spacing: 8) {
+                Text(entryDateLabel)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+
+                if !displayConversation.moodLabel.isEmpty {
+                    Text("·")
+                        .foregroundStyle(palette.textTertiary)
+                    Text("\(displayConversation.moodEmoji) \(displayConversation.moodLabel)")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private var simpleReflectionBody: some View {
+        let text = displayConversation.transcript.first?.text ?? displayConversation.preview
+        Text(text)
+            .font(ABY.Font.editorialBody)
+            .foregroundStyle(palette.textPrimary)
+            .lineSpacing(6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var transcriptThread: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Array(displayConversation.transcript.enumerated()), id: \.element.id) { index, segment in
+                ABYEntryMessageView(segment: segment)
+                    .blurRevealOnAppear(index: index, stagger: 0.04, delay: 0.03)
+            }
+        }
+    }
+
+    private var entryDateLabel: String {
+        if let recordedAt = displayConversation.recordedAt {
+            let day = recordedAt.formatted(date: .abbreviated, time: .omitted)
+            let time = displayConversation.timelineTime
+            return "\(day) · \(time)"
+        }
+        return "\(displayConversation.timelineTime) · \(displayConversation.timeAgo)"
     }
 }
 

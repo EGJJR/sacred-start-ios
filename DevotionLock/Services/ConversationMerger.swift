@@ -7,6 +7,19 @@ import Foundation
 
 enum ConversationMerger {
     @MainActor
+    static func chaplainChats(limit: Int? = nil) -> [Conversation] {
+        let chats = mergedTimeline().filter(isChaplainChat)
+        if let limit { return Array(chats.prefix(limit)) }
+        return chats
+    }
+
+    static func isChaplainChat(_ conversation: Conversation) -> Bool {
+        if conversation.tag == "Chaplain" { return true }
+        if conversation.remoteID != nil { return true }
+        return conversation.transcript.contains { $0.speaker == "Chaplain" }
+    }
+
+    @MainActor
     static func mergedTimeline(limit: Int? = nil) -> [Conversation] {
         let combined = JournalLocalStore.shared.conversations + ConversationRepository.shared.conversations
         let merged = dedupe(combined)

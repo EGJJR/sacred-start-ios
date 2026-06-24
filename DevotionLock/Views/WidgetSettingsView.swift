@@ -114,18 +114,18 @@ struct WidgetSettingsView: View {
                                     .overlay {
                                         VStack(spacing: 0) {
                                             Text("3")
-                                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                                .font(ABY.Font.title2)
                                             Text("days")
-                                                .font(.system(size: 9, weight: .semibold))
+                                                .font(ABY.Font.microBold)
                                         }
                                         .foregroundStyle(.white)
                                     }
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text("LOOK AT YOU GO!")
-                                        .font(.system(size: 9, weight: .semibold))
+                                        .font(ABY.Font.microBold)
                                         .foregroundStyle(.white.opacity(0.75))
                                     Text("Begin your devotion")
-                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .font(ABY.Font.bodySemibold)
                                         .foregroundStyle(.white)
                                 }
                                 Spacer()
@@ -138,23 +138,23 @@ struct WidgetSettingsView: View {
                     }
                 } else {
                     Text("9:41")
-                        .font(.system(size: 44, weight: .light, design: .rounded))
+                        .font(ABY.Font.largeTitle)
                     liveActivityPreviewMock
                     HStack(spacing: 10) {
                         Circle()
                             .stroke(ABY.Color.pillTeal, lineWidth: 3)
                             .frame(width: 44, height: 44)
-                            .overlay { Image(systemName: "flame.fill").font(.caption) }
+                            .overlay { Image(systemName: "flame.fill").font(ABY.Font.caption) }
                         RoundedRectangle(cornerRadius: 12)
                             .fill(ABY.Color.meshLilac.opacity(0.2))
                             .frame(height: 44)
                             .overlay {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Be still, and know…")
-                                        .font(.caption)
+                                        .font(ABY.Font.caption)
                                         .lineLimit(1)
                                     Text("Psalm 46:10")
-                                        .font(.system(size: 9, weight: .semibold))
+                                        .font(ABY.Font.microBold)
                                         .foregroundStyle(ABY.Color.textSecondary)
                                 }
                                 .padding(.horizontal, 8)
@@ -175,19 +175,19 @@ struct WidgetSettingsView: View {
                     .frame(width: 40, height: 40)
                     .overlay {
                         Image(systemName: "book.fill")
-                            .font(.caption)
+                            .font(ABY.Font.caption)
                             .foregroundStyle(ABY.Color.pillPurple)
                     }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("2:34")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .font(ABY.Font.title2)
                     Text("Today's word")
-                        .font(.caption)
+                        .font(ABY.Font.caption)
                         .foregroundStyle(ABY.Color.textSecondary)
                 }
                 Spacer()
                 Text("3/5")
-                    .font(.caption.weight(.semibold))
+                    .font(ABY.Font.captionSemibold)
                     .foregroundStyle(ABY.Color.pillPurple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -201,11 +201,11 @@ struct WidgetSettingsView: View {
                 .padding(.top, 10)
             HStack {
                 Label("Morning Devotion", systemImage: "sparkles")
-                    .font(.caption2)
+                    .font(ABY.Font.caption)
                     .foregroundStyle(ABY.Color.textSecondary)
                 Spacer()
                 Text("Hang in there")
-                    .font(.caption2)
+                    .font(ABY.Font.caption)
                     .foregroundStyle(ABY.Color.textSecondary)
             }
             .padding(.top, 10)

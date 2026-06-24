@@ -72,6 +72,30 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// Prompts for permission when needed, then turns on default morning reminders and schedules them.
+    @discardableResult
+    func requestAuthorizationEnablingDefaults() async -> Bool {
+        configure()
+        let status = await authorizationStatus()
+        let granted: Bool
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            granted = true
+        case .notDetermined:
+            granted = await requestAuthorization()
+        case .denied:
+            granted = false
+        @unknown default:
+            granted = false
+        }
+
+        if granted {
+            UserDefaults.standard.set(true, forKey: "morningReminderEnabled")
+            rescheduleAll()
+        }
+        return granted
+    }
+
     func authorizationStatus() async -> UNAuthorizationStatus {
         await center.notificationSettings().authorizationStatus
     }

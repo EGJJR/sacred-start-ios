@@ -34,7 +34,7 @@ struct VerseSelectionToolbar: View {
                                     Circle().stroke(.white.opacity(0.35), lineWidth: 1)
                                 }
                             Text(color.label)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(ABY.Font.micro)
                                 .foregroundStyle(palette.textSecondary)
                         }
                     }
@@ -82,7 +82,7 @@ struct VerseSelectionToolbar: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(ABY.Font.calloutMedium)
                 Text(title)
                     .font(ABY.Font.captionMedium)
             }
@@ -123,7 +123,7 @@ struct HighlightedVerseRow: View {
                 }
 
                 Text(verse.text)
-                    .font(.system(size: 22, weight: .regular, design: .serif))
+                    .font(ABY.Font.editorialHeadline)
                     .foregroundStyle(palette.textPrimary)
                     .lineSpacing(7)
                     .multilineTextAlignment(.leading)

@@ -46,7 +46,7 @@ struct ShieldSettingsView: View {
 
                 VStack(spacing: 12) {
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 40, weight: .semibold))
+                        .font(ABY.Font.heroIcon)
                         .foregroundStyle(ABY.Color.pillOrange)
                     Text("Premium feature")
                         .font(ABY.Font.headline)
@@ -117,6 +117,12 @@ struct ShieldSettingsView: View {
 
                 infoFooter
                     .padding(.horizontal, ABY.Spacing.screen)
+
+                #if DEBUG
+                debugTestingSection
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.top, 24)
+                #endif
             }
         }
         .onAppear {
@@ -143,7 +149,7 @@ struct ShieldSettingsView: View {
                     .fill(statusTint.opacity(0.14))
                     .frame(width: 44, height: 44)
                 Image(systemName: statusIcon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ABY.Font.headline)
                     .foregroundStyle(statusTint)
             }
 
@@ -311,6 +317,48 @@ struct ShieldSettingsView: View {
         if shieldManager.isShieldActive { return ABY.Color.pillOrange }
         return ABY.Color.pillPurple
     }
+
+    #if DEBUG
+    private var debugTestingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ABYSectionHeader(title: "Testing")
+                .padding(.bottom, 2)
+
+            Button(action: resetTodayDevotionForTesting) {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(ABY.Color.pillOrange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reset today's devotion")
+                            .font(ABY.Font.calloutSemibold)
+                            .foregroundStyle(palette.textPrimary)
+                        Text("Simulates an incomplete morning — shields re-apply on device.")
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(palette.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(ABY.Spacing.card)
+                .background(palette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                        .stroke(palette.divider, lineWidth: 1)
+                }
+            }
+            .buttonStyle(ScaleButtonStyle())
+        }
+    }
+
+    private func resetTodayDevotionForTesting() {
+        StreakManager.shared.clearTodayForTesting()
+        DailyRhythmStore.shared.clearTodayCompletions()
+        shieldManager.syncShieldState()
+        DevotionHaptics.medium()
+    }
+    #endif
 }
 
 #Preview {

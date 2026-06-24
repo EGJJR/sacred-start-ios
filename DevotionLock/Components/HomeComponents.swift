@@ -7,29 +7,49 @@ import SwiftUI
 
 // MARK: - Chrome
 
-struct ABYScreenHeader: View {
+struct ABYScreenHeader<Trailing: View>: View {
     @Environment(\.sanctuaryPalette) private var palette
     let title: String
-    var showDot: Bool = true
+    var showDot: Bool = false
     var subtitle: String? = nil
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(
+        title: String,
+        showDot: Bool = false,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
+        self.title = title
+        self.showDot = showDot
+        self.subtitle = subtitle
+        self.trailing = trailing
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(ABY.Font.title)
-                    .foregroundStyle(palette.textPrimary)
-                if showDot {
-                    Circle()
-                        .fill(ABY.Color.accentDot)
-                        .frame(width: 7, height: 7)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(ABY.Font.editorialLargeTitle)
+                        .foregroundStyle(palette.textPrimary)
+                    if showDot {
+                        Circle()
+                            .fill(ABY.Color.accentDot)
+                            .frame(width: 7, height: 7)
+                            .offset(y: 2)
+                    }
+                }
+                if let subtitle {
+                    Text(subtitle)
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textSecondary)
                 }
             }
-            if let subtitle {
-                Text(subtitle)
-                    .font(ABY.Font.subheadline)
-                    .foregroundStyle(palette.textSecondary)
-            }
+
+            Spacer(minLength: 12)
+
+            trailing()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -314,6 +334,101 @@ struct ABYThemeRow: View {
 
 // MARK: - Home
 
+struct HomeScriptureShortcutsRow: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var onBible: () -> Void
+    var onPromises: () -> Void
+
+    private var bibleSubtitle: String {
+        FeatureFlags.bibleReaderEnabled ? "Browse by book" : "Curated passages"
+    }
+
+    private var promisesPreview: String {
+        SpiritualPassageCatalog.passages(for: .promises).first?.reference ?? "Jeremiah 29:11"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Scripture")
+                    .font(ABY.Font.section)
+                    .foregroundStyle(palette.textSecondary)
+                    .tracking(0.5)
+                Text("Bible and promises for your day")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+            }
+
+            HStack(spacing: 12) {
+                HomeScriptureShortcutTile(
+                    icon: "book.closed.fill",
+                    tint: ABY.Color.pillTeal,
+                    title: "Bible",
+                    subtitle: bibleSubtitle,
+                    action: onBible
+                )
+                HomeScriptureShortcutTile(
+                    icon: PassageTopic.promises.icon,
+                    tint: PassageTopic.promises.tint,
+                    title: "Promises",
+                    subtitle: promisesPreview,
+                    action: onPromises
+                )
+            }
+        }
+    }
+}
+
+private struct HomeScriptureShortcutTile: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let icon: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.14))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(tint)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(palette.textPrimary)
+                    Text(subtitle)
+                        .font(ABY.Font.footnote)
+                        .foregroundStyle(palette.textSecondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(ABY.Spacing.card)
+            .background(palette.surface.opacity(0.92))
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                    .stroke(palette.divider, lineWidth: 1)
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint(subtitle)
+    }
+}
+
 struct HomeTodayCard: View {
     @Environment(\.sanctuaryPalette) private var palette
     let focus: DailyFocus
@@ -436,7 +551,7 @@ struct MoodPill: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(ABY.Font.paywallPromoBadge)
                 .foregroundStyle(ABY.Color.moodPeachText)
             Text(label)
                 .font(ABY.Font.captionMedium)
@@ -450,115 +565,106 @@ struct MoodPill: View {
 }
 
 struct TimelineEntryRow: View {
-    @Environment(\.sanctuaryPalette) private var palette
     let time: String
     let conversation: Conversation
+    var isLastInSection: Bool = true
     var onTap: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            JournalTimeRail(date: conversation.recordedAt, timeLabel: time)
-                .frame(width: 44)
+        JournalTimelineEntry(
+            conversation: conversation,
+            isEarlier: !conversation.isToday,
+            isLastInSection: isLastInSection,
+            onTap: onTap
+        )
+    }
+}
 
-            Button(action: onTap) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .center) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "bubble.left")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(palette.textTertiary)
-                            Text(conversation.tag.uppercased())
-                                .font(ABY.Font.section)
-                                .foregroundStyle(palette.textTertiary)
-                                .tracking(0.4)
-                        }
-                        Spacer(minLength: 8)
-                        MoodPill(label: conversation.moodLabel)
-                    }
+struct HomeJournalPreviewLink: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let entryCount: Int
+    let latestPreview: String?
+    let onSeeAll: () -> Void
 
-                    Text(conversation.title)
+    var body: some View {
+        Button(action: onSeeAll) {
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(ABY.Color.pillPink.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "book.pages.fill")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(ABY.Color.pillPink)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Recent reflections")
                         .font(ABY.Font.headline)
                         .foregroundStyle(palette.textPrimary)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-
-                    Text(conversation.preview)
-                        .font(ABY.Font.body)
-                        .foregroundStyle(palette.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .lineSpacing(3)
+                    if let latestPreview {
+                        Text(latestPreview)
+                            .font(ABY.Font.callout)
+                            .foregroundStyle(palette.textSecondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    } else {
+                        Text("\(entryCount) entries in your journal")
+                            .font(ABY.Font.callout)
+                            .foregroundStyle(palette.textSecondary)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(ABY.Spacing.card)
-                .background(palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
-                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 4) {
+                    Text("See all")
+                        .font(ABY.Font.captionMedium)
+                    Image(systemName: "chevron.right")
+                        .font(ABY.Font.emojiSmall)
+                }
+                .foregroundStyle(ABY.Color.pillPink)
             }
-            .buttonStyle(ScaleButtonStyle())
+            .padding(ABY.Spacing.card)
+            .background(palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
+            .overlay {
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge)
+                    .stroke(palette.divider, lineWidth: 1)
+            }
         }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("See all journal reflections")
     }
 }
 
 struct HomeDaySummaryCard: View {
-    @Environment(\.sanctuaryPalette) private var palette
     let summary: DaySummary
     var onTap: (() -> Void)? = nil
 
-    var body: some View {
-        Button {
-            onTap?()
-        } label: {
-            VStack(spacing: 0) {
-                HStack {
-                    MoodPill(label: summary.mood)
-                    Spacer()
-                    Text(summary.timeLabel)
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textTertiary)
-                }
-                .padding(ABY.Spacing.card)
-                .background(ABY.Color.moodPeach.opacity(0.35))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Day summary")
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(palette.textTertiary)
-                    Text(summary.insight)
-                        .font(ABY.Font.body)
-                        .foregroundStyle(palette.textPrimary)
-                        .lineSpacing(4)
-                        .multilineTextAlignment(.leading)
-                    HStack(spacing: 8) {
-                        summaryChip(summary.journalPreview)
-                        if let verse = summary.verseReference {
-                            summaryChip(verse)
-                        }
-                    }
-                }
-                .padding(ABY.Spacing.card)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(palette.surface)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(palette.divider, lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
-        }
-        .buttonStyle(ScaleButtonStyle())
+    private var displayTime: String {
+        summary.timeLabel.contains("-") && summary.timeLabel.count == 10 ? "" : summary.timeLabel
     }
 
-    private func summaryChip(_ text: String) -> some View {
-        Text(text)
-            .font(ABY.Font.caption)
-            .foregroundStyle(palette.textSecondary)
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(palette.background)
-            .clipShape(Capsule())
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if !displayTime.isEmpty {
+                ABYTimelineRail(time: displayTime, showsConnector: false)
+            }
+
+            Button {
+                onTap?()
+            } label: {
+                ABYTimelineEntryCard(
+                    moodEmoji: summary.moodEmoji,
+                    moodLabel: summary.mood,
+                    bodyText: summary.insight,
+                    entryEmoji: "🌅"
+                )
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(onTap == nil)
+        }
     }
 }
 
@@ -576,7 +682,7 @@ struct ShieldStatusCard: View {
                     .fill(isCompletedToday ? ABY.Color.orbSage.opacity(0.18) : ABY.Color.pillOrange.opacity(0.14))
                     .frame(width: 44, height: 44)
                 Image(systemName: isCompletedToday ? "lock.open.fill" : "lock.shield.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ABY.Font.headline)
                     .foregroundStyle(isCompletedToday ? ABY.Color.pillTeal : ABY.Color.pillOrange)
             }
 

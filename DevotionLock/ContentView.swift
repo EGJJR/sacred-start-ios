@@ -8,16 +8,37 @@ import SwiftUI
 /// Root routing: splash → auth → onboarding → main tabs. Paywall presents after onboarding
 /// when the user has no active trial/subscription.
 struct ContentView: View {
-    @State private var auth = AuthManager.shared
+    private var auth = AuthManager.shared
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("showOnboardingAfterSignOut") private var showOnboardingAfterSignOut = false
     @AppStorage("hasDismissedPaywall") private var hasDismissedPaywall = false
     @State private var showPaywall = false
 
     var body: some View {
+        #if DEBUG
+        if DesignTour.isActive {
+            DesignTourView()
+        } else {
+            appContent
+        }
+        #else
+        appContent
+        #endif
+    }
+
+    @ViewBuilder
+    private var appContent: some View {
         Group {
             if !auth.hasResolvedInitialSession {
                 Color.clear
+            } else if !auth.isAuthenticated && showOnboardingAfterSignOut {
+                OnboardingFlowView {
+                    withAnimation(AppTheme.springGentle) {
+                        showOnboardingAfterSignOut = false
+                        hasCompletedOnboarding = true
+                    }
+                }
             } else if !auth.isAuthenticated {
                 AuthFlowView()
             } else if !hasCompletedOnboarding {
@@ -48,26 +69,6 @@ struct ContentView: View {
                 showPaywall = true
             }
         }
-    }
-}
-
-private struct PresentDevotionPaywallKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-private struct AuthManagerKey: EnvironmentKey {
-    static let defaultValue = AuthManager.shared
-}
-
-extension EnvironmentValues {
-    var presentDevotionPaywall: () -> Void {
-        get { self[PresentDevotionPaywallKey.self] }
-        set { self[PresentDevotionPaywallKey.self] = newValue }
-    }
-
-    var authManager: AuthManager {
-        get { self[AuthManagerKey.self] }
-        set { self[AuthManagerKey.self] = newValue }
     }
 }
 

@@ -116,13 +116,37 @@ final class JournalLocalStore {
     static let shared = JournalLocalStore()
 
     private enum Keys {
-        static let entries = "journalLocalEntries"
+        static let legacyEntries = "journalLocalEntries"
+
+        static func entries(for userId: UUID) -> String {
+            "journalLocalEntries.\(userId.uuidString)"
+        }
     }
 
     private(set) var entries: [JournalLocalEntry] = []
+    private var activeUserId: UUID?
 
     init() {
-        load()
+        purgeLegacyGlobalEntries()
+    }
+
+    /// Switches the in-memory store to the signed-in user. Each account has its own timeline.
+    func activateAccount(userId: UUID?) {
+        guard activeUserId != userId else { return }
+        activeUserId = userId
+        if let userId {
+            load(for: userId)
+        } else {
+            entries = []
+        }
+    }
+
+    func clearAll(for userId: UUID? = nil) {
+        let targetId = userId ?? activeUserId
+        entries = []
+        if let targetId {
+            UserDefaults.standard.removeObject(forKey: Keys.entries(for: targetId))
+        }
     }
 
     var conversations: [Conversation] {
@@ -239,23 +263,25 @@ final class JournalLocalStore {
         return entry
     }
 
-    private func load() {
-        guard let data = UserDefaults.standard.data(forKey: Keys.entries),
+    private func load(for userId: UUID) {
+        guard let data = UserDefaults.standard.data(forKey: Keys.entries(for: userId)),
               let decoded = try? JSONDecoder().decode([JournalLocalEntry].self, from: data)
-        else { return }
+        else {
+            entries = []
+            return
+        }
         entries = decoded
     }
 
     private func persist() {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
-        UserDefaults.standard.set(data, forKey: Keys.entries)
+        guard let userId = activeUserId,
+              let data = try? JSONEncoder().encode(entries)
+        else { return }
+        UserDefaults.standard.set(data, forKey: Keys.entries(for: userId))
     }
-}
 
-@Observable
-@MainActor
-final class JournalPresentationStore {
-    static let shared = JournalPresentationStore()
-
-    var presentEntryHub = false
+    /// Pre-account journal data lived in a global key and leaked across sign-ups.
+    private func purgeLegacyGlobalEntries() {
+        UserDefaults.standard.removeObject(forKey: Keys.legacyEntries)
+    }
 }

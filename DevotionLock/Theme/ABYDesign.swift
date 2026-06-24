@@ -13,6 +13,8 @@ enum ABY {
         static let textPrimary = SwiftUI.Color.black
         static let textSecondary = SwiftUI.Color(red: 0.557, green: 0.557, blue: 0.576)
         static let textTertiary = SwiftUI.Color(red: 0.682, green: 0.682, blue: 0.698)
+        static let linkBlue = SwiftUI.Color(red: 0.0, green: 0.478, blue: 1.0)
+        static let fieldFill = SwiftUI.Color(red: 0.949, green: 0.949, blue: 0.969)
         static let divider = SwiftUI.Color.black.opacity(0.06)
         static let track = SwiftUI.Color.black.opacity(0.08)
         static let trackFill = SwiftUI.Color.black
@@ -29,20 +31,48 @@ enum ABY {
         static let orbSage = SwiftUI.Color(red: 0.48, green: 0.68, blue: 0.56)
         static let orbTeal = SwiftUI.Color(red: 0.36, green: 0.71, blue: 0.64)
 
-        static let onboardingTop = SwiftUI.Color(red: 0.88, green: 0.86, blue: 0.96)
-        static let onboardingBottom = SwiftUI.Color(red: 0.78, green: 0.82, blue: 0.94)
+        static let onboardingTop = SwiftUI.Color(red: 0.91, green: 0.36, blue: 0.27)
+        static let onboardingBottom = SwiftUI.Color(red: 0.95, green: 0.72, blue: 0.19)
 
-        // ABY-inspired mesh: lilac → periwinkle → sky (Devotion Lock adds a whisper of sage)
-        static let meshLilac = SwiftUI.Color(red: 0.74, green: 0.66, blue: 0.93)
-        static let meshLavender = SwiftUI.Color(red: 0.66, green: 0.62, blue: 0.90)
-        static let meshPeriwinkle = SwiftUI.Color(red: 0.56, green: 0.66, blue: 0.91)
-        static let meshSky = SwiftUI.Color(red: 0.50, green: 0.72, blue: 0.94)
-        static let meshSage = SwiftUI.Color(red: 0.58, green: 0.76, blue: 0.72)
+        // Sanctuary mesh — lavender, pink, periwinkle, sky (Mobbin ABY refs)
+        static let meshLilac = SwiftUI.Color(red: 0.72, green: 0.58, blue: 0.88)
+        static let meshLavender = SwiftUI.Color(red: 0.88, green: 0.70, blue: 0.86)
+        static let meshPeriwinkle = SwiftUI.Color(red: 0.58, green: 0.64, blue: 0.90)
+        static let meshSky = SwiftUI.Color(red: 0.52, green: 0.74, blue: 0.94)
+        static let meshSage = SwiftUI.Color(red: 0.62, green: 0.78, blue: 0.88)
 
-        // Clean screen gradient — lilac mist → warm cream (voice, loading, journal)
-        static let gradientTop = SwiftUI.Color(red: 0.975, green: 0.968, blue: 0.992)
-        static let gradientMid = SwiftUI.Color(red: 0.928, green: 0.918, blue: 0.958)
-        static let gradientBottom = SwiftUI.Color(red: 0.984, green: 0.948, blue: 0.908)
+        static let meshCoral = SwiftUI.Color(red: 0.85, green: 0.25, blue: 0.30)
+        static let meshAmber = SwiftUI.Color(red: 0.98, green: 0.55, blue: 0.22)
+        static let meshGold = SwiftUI.Color(red: 0.99, green: 0.78, blue: 0.35)
+        static let meshRose = SwiftUI.Color(red: 0.92, green: 0.45, blue: 0.35)
+        static let meshHoney = SwiftUI.Color(red: 0.88, green: 0.62, blue: 0.38)
+
+        // Bold onboarding sunset (personalization screens only)
+        static let sunsetGradientTop = SwiftUI.Color(red: 0.70, green: 0.14, blue: 0.21)
+        static let sunsetGradientMid = SwiftUI.Color(red: 0.91, green: 0.36, blue: 0.27)
+        static let sunsetGradientBottom = SwiftUI.Color(red: 0.95, green: 0.72, blue: 0.19)
+
+        // Soft lavender sanctuary — ABY home, journal, main tabs (Mobbin 0e8b2fff / fdb91744)
+        static let sanctuaryGradientTop = SwiftUI.Color(red: 0.90, green: 0.84, blue: 0.96)
+        static let sanctuaryGradientMid = SwiftUI.Color(red: 0.94, green: 0.86, blue: 0.94)
+        static let sanctuaryGradientBottom = SwiftUI.Color(red: 0.86, green: 0.92, blue: 0.98)
+
+        /// Near-flat wash for main tab shells (Home, Chaplain, You) — ABY / Alan Mind home surfaces.
+        static let tabWashTop = SwiftUI.Color(red: 0.984, green: 0.982, blue: 0.992)
+        static let tabWashMid = SwiftUI.Color(red: 0.976, green: 0.974, blue: 0.986)
+        static let tabWashBottom = SwiftUI.Color(red: 0.970, green: 0.974, blue: 0.988)
+        static let tabWashHint = SwiftUI.Color(red: 0.94, green: 0.90, blue: 0.97)
+
+        static let brandGreenTop = SwiftUI.Color(red: 0.72, green: 0.88, blue: 0.34)
+        static let brandGreenBottom = SwiftUI.Color(red: 0.58, green: 0.78, blue: 0.28)
+
+        /// ABY guided write — Finish pill & prompt accent (Mobbin e3f97f9b)
+        static let journalFinish = SwiftUI.Color(red: 0.75, green: 0.60, blue: 0.32)
+        static let journalPromptAccent = SwiftUI.Color(red: 0.62, green: 0.48, blue: 0.24)
+
+        static let gradientTop = sanctuaryGradientTop
+        static let gradientMid = sanctuaryGradientMid
+        static let gradientBottom = sanctuaryGradientBottom
 
         // Night sanctuary — Headspace midnight navy → Calm indigo/violet (Mobbin ref)
         // Top ~#0A0D21, mid ~#141838, bottom ~#1E1648
@@ -59,6 +89,19 @@ enum ABY {
         static let onboardingButtonText = SwiftUI.Color(red: 0.46, green: 0.50, blue: 0.76)
         static let glassFill = SwiftUI.Color.white.opacity(0.16)
         static let glassStroke = SwiftUI.Color.white.opacity(0.32)
+
+        // Dark premium paywall — navy gradient, white type, glass cards
+        static let paywallTextPrimary = SwiftUI.Color.white
+        static let paywallTextSecondary = SwiftUI.Color.white.opacity(0.72)
+        static let paywallTextTertiary = SwiftUI.Color.white.opacity(0.48)
+        static let paywallGlassFill = SwiftUI.Color.white.opacity(0.08)
+        static let paywallGlassStroke = SwiftUI.Color.white.opacity(0.14)
+        static let paywallPlanFill = SwiftUI.Color.white.opacity(0.06)
+        static let paywallPlanBorder = SwiftUI.Color.white.opacity(0.22)
+        static let paywallCloseFill = SwiftUI.Color.white.opacity(0.12)
+        static let paywallOrbPurple = nightMeshPlum
+        static let paywallOrbBlue = nightMeshIndigo
+        static let paywallOrbViolet = nightMeshViolet
     }
 
     enum Font {
@@ -67,14 +110,46 @@ enum ABY {
         static var title2: SwiftUI.Font { AppFont.font(size: 22, weight: .bold) }
         static var headline: SwiftUI.Font { AppFont.font(size: 17, weight: .semibold) }
         static var body: SwiftUI.Font { AppFont.font(size: 15, weight: .regular) }
+        static var bodyMedium: SwiftUI.Font { AppFont.font(size: 15, weight: .medium) }
+        static var bodySemibold: SwiftUI.Font { AppFont.font(size: 15, weight: .semibold) }
         static var callout: SwiftUI.Font { AppFont.font(size: 14, weight: .regular) }
+        static var calloutMedium: SwiftUI.Font { AppFont.font(size: 14, weight: .medium) }
+        static var calloutSemibold: SwiftUI.Font { AppFont.font(size: 14, weight: .semibold) }
         static var subheadline: SwiftUI.Font { AppFont.font(size: 15, weight: .regular) }
         static var footnote: SwiftUI.Font { AppFont.font(size: 13, weight: .regular) }
+        static var footnoteMedium: SwiftUI.Font { AppFont.font(size: 13, weight: .medium) }
+        static var footnoteSemibold: SwiftUI.Font { AppFont.font(size: 13, weight: .semibold) }
         static var caption: SwiftUI.Font { AppFont.font(size: 12, weight: .regular) }
         static var captionMedium: SwiftUI.Font { AppFont.font(size: 12, weight: .medium) }
+        static var captionSemibold: SwiftUI.Font { AppFont.font(size: 12, weight: .semibold) }
         static var section: SwiftUI.Font { AppFont.font(size: 12, weight: .medium) }
         static var button: SwiftUI.Font { AppFont.font(size: 17, weight: .semibold) }
         static var onboardingTitle: SwiftUI.Font { AppFont.font(size: 26, weight: .bold) }
+        /// Instrument Serif — ABY education / welcome headlines.
+        static var editorialTitle: SwiftUI.Font { AppFont.serif(size: 28) }
+        static var editorialLargeTitle: SwiftUI.Font { AppFont.serif(size: 34) }
+        static var editorialHeadline: SwiftUI.Font { AppFont.serif(size: 22) }
+        static var editorialBody: SwiftUI.Font { AppFont.serif(size: 17) }
+        static var editorialCallout: SwiftUI.Font { AppFont.serif(size: 16) }
+        static var editorialAccent: SwiftUI.Font { AppFont.serif(size: 17, style: .italic) }
+
+        /// Tiny badges and tab-adjacent labels.
+        static var micro: SwiftUI.Font { AppFont.font(size: 10, weight: .semibold) }
+        static var microBold: SwiftUI.Font { AppFont.font(size: 9, weight: .bold) }
+        static var displayLarge: SwiftUI.Font { AppFont.font(size: 52, weight: .bold) }
+        static var displayHero: SwiftUI.Font { AppFont.font(size: 56, weight: .bold) }
+        static var editorialSubhead: SwiftUI.Font { AppFont.serif(size: 19) }
+        static var editorialFootnote: SwiftUI.Font { AppFont.serif(size: 13) }
+
+        /// Pic-a-Book PLUS–style paywall typography.
+        static var paywallBrand: SwiftUI.Font { AppFont.serif(size: 24) }
+        static var paywallBadge: SwiftUI.Font { AppFont.font(size: 11, weight: .bold) }
+        static var paywallHeadline: SwiftUI.Font { AppFont.font(size: 28, weight: .bold) }
+        static var paywallFeature: SwiftUI.Font { AppFont.font(size: 16, weight: .medium) }
+        static var paywallPlanLabel: SwiftUI.Font { AppFont.font(size: 13, weight: .regular) }
+        static var paywallPrice: SwiftUI.Font { AppFont.font(size: 22, weight: .bold) }
+        static var paywallCTA: SwiftUI.Font { AppFont.font(size: 17, weight: .bold) }
+        static var paywallPromoBadge: SwiftUI.Font { AppFont.font(size: 10, weight: .bold) }
 
         // SF Symbols — keep system font so icons render correctly
         static let iconSmall = SwiftUI.Font.system(size: 13, weight: .medium)
@@ -120,6 +195,303 @@ enum ABYLightTheme {
     static let trackFill = ABY.Color.trackFill
 }
 
+// MARK: - ABY Journal onboarding (Mobbin ref)
+
+enum ABYJournalOnboardingStyle: Equatable {
+    case warmSunset
+    case lavenderSky
+
+    var buttonStyle: ABYJournalOnboardingButtonStyle {
+        switch self {
+        case .warmSunset: .black
+        case .lavenderSky: .white
+        }
+    }
+}
+
+enum ABYJournalOnboardingButtonStyle {
+    case black
+    case white
+}
+
+/// ABY Journal education screens — soft off-white (Mobbin "Self-discovery through reflection" ref).
+struct ABYJournalLightBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.94, green: 0.95, blue: 0.99),
+                Color(red: 0.90, green: 0.93, blue: 0.98),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+}
+
+/// Blurred photo-mosaic tiles (Mobbin ABY welcome scrub screen).
+private struct ABYJournalMosaicGrid: View {
+    private let tileColors: [Color] = [
+        Color(red: 0.82, green: 0.72, blue: 0.88),
+        Color(red: 0.68, green: 0.78, blue: 0.92),
+        Color(red: 0.95, green: 0.82, blue: 0.72),
+        Color(red: 0.72, green: 0.86, blue: 0.80),
+        Color(red: 0.90, green: 0.76, blue: 0.68),
+        Color(red: 0.78, green: 0.70, blue: 0.94),
+    ]
+
+    var body: some View {
+        GeometryReader { proxy in
+            let columns = 5
+            let tile = proxy.size.width / CGFloat(columns)
+            let rows = Int(ceil(proxy.size.height / tile)) + 1
+
+            VStack(spacing: 3) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: 3) {
+                        ForEach(0..<columns, id: \.self) { column in
+                            let index = row * columns + column
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(tileColors[index % tileColors.count].opacity(0.72))
+                                .frame(width: tile - 3, height: tile - 3)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .blur(radius: 26)
+            .opacity(0.9)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// ABY Journal welcome — blurred mosaic + frosted veil (Mobbin "Your Smarter Journal" ref).
+struct ABYJournalWelcomeBackground: View {
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            Color(red: 0.96, green: 0.96, blue: 0.97)
+            ABYJournalMosaicGrid()
+
+            welcomeBlob(Color(red: 0.74, green: 0.66, blue: 0.93), size: 280, blur: 70, x: -90, y: -120)
+            welcomeBlob(Color(red: 0.58, green: 0.76, blue: 0.72), size: 240, blur: 65, x: 110, y: -40)
+            welcomeBlob(Color(red: 0.98, green: 0.85, blue: 0.72), size: 260, blur: 68, x: -40, y: 280)
+            welcomeBlob(Color(red: 0.56, green: 0.66, blue: 0.91), size: 220, blur: 60, x: 100, y: 360)
+
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.62)
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+    }
+
+    private func welcomeBlob(_ color: Color, size: CGFloat, blur: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+        Circle()
+            .fill(color.opacity(drift ? 0.38 : 0.26))
+            .frame(width: size, height: size)
+            .blur(radius: blur)
+            .offset(x: x, y: y)
+            .allowsHitTesting(false)
+    }
+}
+
+/// Soft 3D cloud mark inspired by ABY splash / welcome logo.
+struct SacredStartCloudMark: View {
+    var size: CGFloat = 112
+
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.96, green: 0.72, blue: 0.82),
+                            Color(red: 0.62, green: 0.78, blue: 0.96),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size * 0.92, height: size * 0.58)
+                .offset(y: size * 0.04)
+
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.98, green: 0.80, blue: 0.88),
+                            Color(red: 0.48, green: 0.82, blue: 0.94),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.62, height: size * 0.44)
+                .offset(x: -size * 0.18, y: -size * 0.08)
+
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.90, green: 0.74, blue: 0.92),
+                            Color(red: 0.40, green: 0.76, blue: 0.92),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size * 0.54, height: size * 0.40)
+                .offset(x: size * 0.20, y: -size * 0.04)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Color(red: 0.48, green: 0.62, blue: 0.90).opacity(0.22), radius: 18, y: 8)
+    }
+}
+
+struct DevotionLockBrandMark: View {
+    var size: CGFloat = 112
+    var showsShadow = true
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [ABY.Color.brandGreenTop, ABY.Color.brandGreenBottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+
+            SacredStartCloudMark(size: size * 0.52)
+                .offset(y: -size * 0.02)
+        }
+        .shadow(
+            color: ABY.Color.brandGreenBottom.opacity(showsShadow ? 0.28 : 0),
+            radius: size * 0.14,
+            y: size * 0.05
+        )
+    }
+}
+
+/// Premium paywall — dark navy gradient with purple/blue glow orbs.
+struct ABYPaywallBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    ABY.Color.nightGradientTop,
+                    ABY.Color.nightGradientMid,
+                    ABY.Color.nightGradientBottom,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            Circle()
+                .fill(ABY.Color.paywallOrbPurple.opacity(0.55))
+                .frame(width: 280, height: 280)
+                .blur(radius: 70)
+                .offset(x: -90, y: -200)
+
+            Circle()
+                .fill(ABY.Color.paywallOrbBlue.opacity(0.45))
+                .frame(width: 240, height: 240)
+                .blur(radius: 65)
+                .offset(x: 130, y: -80)
+
+            Circle()
+                .fill(ABY.Color.paywallOrbViolet.opacity(0.35))
+                .frame(width: 220, height: 220)
+                .blur(radius: 60)
+                .offset(x: -30, y: 340)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct ABYJournalOnboardingBackground: View {
+    let style: ABYJournalOnboardingStyle
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: gradientColors,
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            if style == .warmSunset {
+                warmBlobs
+            } else {
+                lavenderBlobs
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+    }
+
+    private var gradientColors: [Color] {
+        switch style {
+        case .warmSunset:
+            [ABY.Color.sunsetGradientTop, ABY.Color.sunsetGradientMid, ABY.Color.sunsetGradientBottom]
+        case .lavenderSky:
+            [
+                ABY.Color.meshPeriwinkle,
+                ABY.Color.meshSky,
+                Color(red: 0.42, green: 0.56, blue: 0.86),
+            ]
+        }
+    }
+
+    @ViewBuilder
+    private var warmBlobs: some View {
+        journalBlob(ABY.Color.meshCoral, size: 320, blur: 80, x: -120, y: -200)
+        journalBlob(ABY.Color.meshAmber, size: 280, blur: 70, x: 140, y: 60)
+        journalBlob(ABY.Color.meshGold, size: 300, blur: 75, x: -60, y: 380)
+    }
+
+    @ViewBuilder
+    private var lavenderBlobs: some View {
+        journalBlob(ABY.Color.meshSky, size: 300, blur: 75, x: -100, y: -180)
+        journalBlob(ABY.Color.meshPeriwinkle, size: 280, blur: 70, x: 120, y: 120)
+        journalBlob(Color(red: 0.48, green: 0.68, blue: 0.92), size: 260, blur: 65, x: -80, y: 360)
+    }
+
+    private func journalBlob(_ color: Color, size: CGFloat, blur: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+        Circle()
+            .fill(color.opacity(drift ? 0.42 : 0.28))
+            .frame(width: size, height: size)
+            .blur(radius: blur)
+            .offset(x: x, y: y)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct ABYJournalOnboardingStyleKey: EnvironmentKey {
+    static let defaultValue: ABYJournalOnboardingStyle = .warmSunset
+}
+
+extension EnvironmentValues {
+    var abyJournalOnboardingStyle: ABYJournalOnboardingStyle {
+        get { self[ABYJournalOnboardingStyleKey.self] }
+        set { self[ABYJournalOnboardingStyleKey.self] = newValue }
+    }
+}
+
 struct ABYOnboardingMeshBackground: View {
     @State private var drift = false
 
@@ -157,13 +529,21 @@ struct ABYBackground: View {
     /// Optional mesh intensity overlay (0 = default clean gradient only).
     var meshOpacity: CGFloat = 0
 
-    enum Style { case app, onboarding }
+    enum Style {
+        /// Full sanctuary gradient + mesh (immersive flows, Journal tab).
+        case app
+        /// Near-flat wash for main tab browsing surfaces.
+        case tabShell
+        case onboarding
+    }
 
     var body: some View {
         ZStack {
             switch style {
             case .app:
                 ABYCleanGradientBackground()
+            case .tabShell:
+                ABYFlatTabWashBackground()
             case .onboarding:
                 ABYOnboardingMeshBackground()
             }
@@ -203,7 +583,7 @@ enum SanctuaryGradientMode: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .light: "Soft lilac mist and warm cream"
+        case .light: "Soft lavender, pink & sky blue mist"
         case .night: "Midnight navy with indigo & violet glow"
         }
     }
@@ -273,9 +653,9 @@ struct SanctuaryPalette: Equatable {
         textSecondary: ABY.Color.textSecondary,
         textTertiary: ABY.Color.textTertiary,
         surface: ABY.Color.surface,
-        surfaceMuted: ABY.Color.background,
+        surfaceMuted: Color(red: 0.99, green: 0.95, blue: 0.90),
         surfaceElevated: ABY.Color.surface,
-        background: ABY.Color.background,
+        background: ABY.Color.sanctuaryGradientTop,
         divider: ABY.Color.divider,
         track: ABY.Color.track,
         trackFill: ABY.Color.trackFill,
@@ -329,6 +709,98 @@ extension EnvironmentValues {
     }
 }
 
+/// Soft, near-flat background for Home / Chaplain / Profile tabs — white cards stay the focus.
+struct ABYFlatTabWashBackground: View {
+    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+
+    private var mode: SanctuaryGradientMode {
+        SanctuaryGradientMode.resolved(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
+    }
+
+    var body: some View {
+        Group {
+            switch mode {
+            case .light:
+                lightWash
+            case .night:
+                nightWash
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var lightWash: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    ABY.Color.tabWashTop,
+                    ABY.Color.tabWashMid,
+                    ABY.Color.tabWashBottom,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                colors: [ABY.Color.tabWashHint.opacity(0.14), Color.clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 420
+            )
+            .allowsHitTesting(false)
+        }
+    }
+
+    private var nightWash: some View {
+        LinearGradient(
+            colors: [
+                ABY.Color.nightGradientTop,
+                ABY.Color.nightGradientTop.opacity(0.96),
+                ABY.Color.nightGradientMid.opacity(0.92),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+}
+
+struct ABYWarmSanctuaryBackground: View {
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    ABY.Color.sanctuaryGradientTop,
+                    ABY.Color.sanctuaryGradientMid,
+                    ABY.Color.sanctuaryGradientBottom,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            sanctuaryBlob(ABY.Color.meshLilac, size: 340, blur: 95, x: -110, y: -190)
+            sanctuaryBlob(ABY.Color.meshLavender, size: 300, blur: 85, x: 130, y: 70)
+            sanctuaryBlob(ABY.Color.meshSky, size: 280, blur: 80, x: -70, y: 360)
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+    }
+
+    private func sanctuaryBlob(_ color: Color, size: CGFloat, blur: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+        Circle()
+            .fill(color.opacity(drift ? 0.28 : 0.18))
+            .frame(width: size, height: size)
+            .blur(radius: blur)
+            .offset(x: x, y: y)
+            .allowsHitTesting(false)
+    }
+}
+
 struct ABYCleanGradientBackground: View {
     @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
 
@@ -349,15 +821,7 @@ struct ABYCleanGradientBackground: View {
     }
 
     private var lightGradient: some View {
-        LinearGradient(
-            stops: [
-                .init(color: ABY.Color.gradientTop, location: 0),
-                .init(color: ABY.Color.gradientMid, location: 0.5),
-                .init(color: ABY.Color.gradientBottom, location: 1),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        ABYWarmSanctuaryBackground()
     }
 }
 
@@ -543,12 +1007,26 @@ extension View {
     func abyTransparentScroll() -> some View {
         scrollContentBackground(.hidden)
     }
+
+    /// Tab roots sit above `ABYBackground` in `MainTabView` — keep stacks and scroll views transparent.
+    func abyTabShell() -> some View {
+        background(Color.clear)
+            .toolbarBackground(.hidden, for: .navigationBar)
+    }
 }
 
 struct ABYOnboardingPrimaryButton: View {
     let title: String
     var icon: String? = nil
+    var style: ABYJournalOnboardingButtonStyle? = nil
+    var isEnabled = true
     let action: () -> Void
+
+    @Environment(\.abyJournalOnboardingStyle) private var journalStyle
+
+    private var resolvedStyle: ABYJournalOnboardingButtonStyle {
+        style ?? journalStyle.buttonStyle
+    }
 
     var body: some View {
         Button(action: action) {
@@ -559,30 +1037,196 @@ struct ABYOnboardingPrimaryButton: View {
                         .font(ABY.Font.iconSmall)
                 }
             }
-            .foregroundStyle(ABY.Color.onboardingButtonText)
+            .foregroundStyle(foregroundColor)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(.white)
+            .background(backgroundColor)
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            .shadow(color: .black.opacity(isEnabled ? 0.10 : 0), radius: 12, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.45)
+    }
+
+    private var foregroundColor: Color {
+        switch resolvedStyle {
+        case .black: .white
+        case .white: ABY.Color.meshPeriwinkle
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch resolvedStyle {
+        case .black: .black.opacity(isEnabled ? 1 : 0.55)
+        case .white: .white.opacity(isEnabled ? 1 : 0.55)
+        }
     }
 }
 
 struct ABYOnboardingProgressBar: View {
     let total: Int
     let current: Int
+    var style: OnboardingSurface = .gradient(.warmSunset)
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(0..<total, id: \.self) { index in
                 Capsule()
-                    .fill(index <= current ? Color.white : Color.white.opacity(0.28))
+                    .fill(fillColor(for: index))
                     .frame(height: 3)
                     .animation(AppTheme.springSnappy, value: current)
             }
         }
+    }
+
+    private func fillColor(for index: Int) -> Color {
+        let filled = index <= current
+        switch style {
+        case .welcome, .light, .plain:
+            return filled ? ABY.Color.textPrimary : ABY.Color.track
+        case .gradient:
+            return filled ? Color.white : Color.white.opacity(0.28)
+        }
+    }
+}
+
+enum OnboardingSurface: Equatable {
+    case welcome
+    case light
+    case plain
+    case gradient(ABYJournalOnboardingStyle)
+}
+
+// MARK: - ABY Journal screen shell
+
+struct ABYJournalBackground: View {
+    let surface: OnboardingSurface
+
+    var body: some View {
+        switch surface {
+        case .welcome:
+            ABYJournalWelcomeBackground()
+        case .light:
+            ABYJournalLightBackground()
+        case .plain:
+            Color.white.ignoresSafeArea()
+        case .gradient(let style):
+            ABYJournalOnboardingBackground(style: style)
+        }
+    }
+}
+
+/// Crossfades between onboarding surfaces instead of hard-swapping gradients.
+struct ABYJournalCrossfadeBackground: View {
+    let surface: OnboardingSurface
+
+    @State private var topSurface: OnboardingSurface
+    @State private var bottomSurface: OnboardingSurface?
+    @State private var topOpacity: Double = 1
+
+    init(surface: OnboardingSurface) {
+        self.surface = surface
+        _topSurface = State(initialValue: surface)
+    }
+
+    var body: some View {
+        ZStack {
+            if let bottomSurface {
+                ABYJournalBackground(surface: bottomSurface)
+            }
+            ABYJournalBackground(surface: topSurface)
+                .opacity(topOpacity)
+        }
+        .onChange(of: surface) { _, newSurface in
+            guard newSurface != topSurface else { return }
+            bottomSurface = topSurface
+            topSurface = newSurface
+            topOpacity = 0
+            withAnimation(AppTheme.onboardingBackgroundFade) {
+                topOpacity = 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + AppTheme.onboardingBackgroundFadeDuration + 0.05) {
+                bottomSurface = nil
+            }
+        }
+    }
+}
+
+struct ABYJournalScreen<Content: View>: View {
+    let surface: OnboardingSurface
+    @ViewBuilder let content: () -> Content
+
+    private var journalStyle: ABYJournalOnboardingStyle {
+        switch surface {
+        case .welcome, .light, .plain: .warmSunset
+        case .gradient(let style): style
+        }
+    }
+
+    private var usesDarkChrome: Bool {
+        if case .gradient = surface { return true }
+        return false
+    }
+
+    var body: some View {
+        ZStack {
+            ABYJournalBackground(surface: surface)
+            content()
+        }
+        .environment(\.onboardingSurface, surface)
+        .environment(\.abyJournalOnboardingStyle, journalStyle)
+        .preferredColorScheme(usesDarkChrome ? .dark : .light)
+    }
+}
+
+struct ABYJournalCTAButton: View {
+    let title: String
+    var icon: String? = nil
+    var isEnabled = true
+    let action: () -> Void
+
+    @Environment(\.onboardingSurface) private var surface
+
+    var body: some View {
+        switch surface {
+        case .welcome, .light, .plain:
+            ABYLightOnboardingPrimaryButton(title: title, isEnabled: isEnabled, action: action)
+        case .gradient:
+            ABYOnboardingPrimaryButton(title: title, icon: icon, isEnabled: isEnabled, action: action)
+        }
+    }
+}
+
+private struct OnboardingSurfaceKey: EnvironmentKey {
+    static let defaultValue: OnboardingSurface = .gradient(.warmSunset)
+}
+
+extension EnvironmentValues {
+    var onboardingSurface: OnboardingSurface {
+        get { self[OnboardingSurfaceKey.self] }
+        set { self[OnboardingSurfaceKey.self] = newValue }
+    }
+}
+
+struct ABYLightOnboardingPrimaryButton: View {
+    let title: String
+    var isEnabled = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ABY.Font.button)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.black.opacity(isEnabled ? 1 : 0.45))
+                .clipShape(Capsule())
+                .shadow(color: .black.opacity(isEnabled ? 0.08 : 0), radius: 12, y: 4)
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .disabled(!isEnabled)
     }
 }
 
@@ -591,12 +1235,23 @@ struct ABYOnboardingHeadline: View {
     let title: String
     let subtitle: String
     var alignment: TextAlignment = .center
+    /// Use Instrument Serif for the title (default: on light education screens).
+    var serifTitle: Bool?
 
-    init(eyebrow: String? = nil, title: String, subtitle: String, alignment: TextAlignment = .center) {
+    @Environment(\.onboardingSurface) private var surface
+
+    init(
+        eyebrow: String? = nil,
+        title: String,
+        subtitle: String,
+        alignment: TextAlignment = .center,
+        serifTitle: Bool? = nil
+    ) {
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
         self.alignment = alignment
+        self.serifTitle = serifTitle
     }
 
     var body: some View {
@@ -604,18 +1259,44 @@ struct ABYOnboardingHeadline: View {
             if let eyebrow {
                 Text(eyebrow)
                     .font(ABY.Font.callout)
-                    .foregroundStyle(ABY.Color.onboardingTextSecondary)
+                    .foregroundStyle(subtitleColor)
                     .multilineTextAlignment(alignment)
             }
             Text(title)
-                .font(ABY.Font.onboardingTitle)
-                .foregroundStyle(ABY.Color.onboardingText)
+                .font(titleFont)
+                .foregroundStyle(titleColor)
                 .multilineTextAlignment(alignment)
+                .lineSpacing(usesSerifTitle ? 2 : 0)
             Text(subtitle)
                 .font(ABY.Font.callout)
-                .foregroundStyle(ABY.Color.onboardingTextSecondary)
+                .foregroundStyle(subtitleColor)
                 .multilineTextAlignment(alignment)
                 .lineSpacing(4)
+        }
+    }
+
+    private var usesSerifTitle: Bool {
+        if let serifTitle { return serifTitle }
+        if case .light = surface { return true }
+        return false
+    }
+
+    private var titleFont: Font {
+        usesSerifTitle ? ABY.Font.editorialTitle : ABY.Font.onboardingTitle
+    }
+
+    private var titleColor: Color {
+        isLightSurface ? ABY.Color.textPrimary : ABY.Color.onboardingText
+    }
+
+    private var subtitleColor: Color {
+        isLightSurface ? ABY.Color.textSecondary : ABY.Color.onboardingTextSecondary
+    }
+
+    private var isLightSurface: Bool {
+        switch surface {
+        case .welcome, .light, .plain: true
+        case .gradient: false
         }
     }
 }

@@ -1,6 +1,8 @@
 //
 //  RecordingSessionView.swift
-//  test1
+//  DevotionLock
+//
+//  Mobbin ABY Journal: transcript up top, floating waveform card at bottom.
 //
 
 import Combine
@@ -22,41 +24,14 @@ struct RecordingSessionView: View {
     @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
 
     @State private var transcription = SpeechTranscriptionService()
-    @State private var voiceState: VoiceOrbState = .listening
     @State private var elapsed: TimeInterval = 0
     @State private var appeared = false
-    @State private var promptIndex = 0
-    @State private var isMuted = false
-    @State private var starterLocked = false
-    @State private var showCaptions = true
     @State private var speechStarted = false
     @State private var phase: VoiceCapturePhase = .recording
     @State private var capturedTranscript = ""
+    @State private var sessionStartedAt = Date()
 
     private var offersChatHandoff: Bool { onSwitchToChat != nil }
-
-    private var statusLabel: String {
-        switch phase {
-        case .handoff: "Ready to continue"
-        case .recording:
-            if transcription.authorizationDenied { "Microphone access needed" }
-            else if isMuted { "Muted" }
-            else if transcription.isListening { "Listening…" }
-            else { "Ready to capture" }
-        }
-    }
-
-    private var sessionPrompts: [String] {
-        if let initialPrompt {
-            [initialPrompt, "Speak freely — your words appear below.", "Tap done when you're finished."]
-        } else {
-            [
-                "What's on your heart?",
-                "Speak freely — your words appear below.",
-                "Tap done when you're finished.",
-            ]
-        }
-    }
 
     private var placeholderCaption: String {
         "Your words will appear here as you speak."
@@ -65,16 +40,14 @@ struct RecordingSessionView: View {
     private var liveCaption: String {
         let spoken = transcription.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         if !spoken.isEmpty { return spoken }
+        if let seed = voiceTranscript?.trimmingCharacters(in: .whitespacesAndNewlines), !seed.isEmpty {
+            return seed
+        }
         return placeholderCaption
     }
 
-    private var hillIntensity: CGFloat {
-        if isMuted || phase == .handoff { return 0.35 }
-        return voiceState == .listening ? 1.0 : 0.55
-    }
-
-    private var selectedVoice: ChaplainVoice {
-        ChaplainVoice.options.first { $0.id == selectedVoiceID } ?? ChaplainVoice.options[0]
+    private var isListening: Bool {
+        phase == .recording && transcription.isListening
     }
 
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -83,15 +56,7 @@ struct RecordingSessionView: View {
         ZStack(alignment: .bottom) {
             ABYCleanGradientBackground()
 
-            PiVoiceHillsView(intensity: hillIntensity)
-                .frame(height: 220)
-                .allowsHitTesting(false)
-
             VStack(spacing: 0) {
-                topBar
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 16)
-
                 if phase == .handoff {
                     handoffContent
                 } else {
@@ -101,7 +66,6 @@ struct RecordingSessionView: View {
         }
         .abyScreen()
         .onAppear {
-            starterLocked = initialPrompt != nil
             if let seed = voiceTranscript?.trimmingCharacters(in: .whitespacesAndNewlines), !seed.isEmpty {
                 transcription.transcript = seed
             }
@@ -112,227 +76,131 @@ struct RecordingSessionView: View {
             _ = transcription.stop()
         }
         .onReceive(timer) { _ in
-            guard phase == .recording, !isMuted else { return }
+            guard phase == .recording, transcription.isListening else { return }
             elapsed += 1
-            if Int(elapsed) % 5 == 0 {
-                withAnimation(AppTheme.springGentle) {
-                    voiceState = voiceState == .listening ? .speaking : .listening
-                }
-            }
-            if !starterLocked, Int(elapsed) % 6 == 0 {
-                withAnimation {
-                    promptIndex = (promptIndex + 1) % sessionPrompts.count
-                }
-            } else if starterLocked, elapsed >= 8 {
-                starterLocked = false
-            }
         }
     }
 
     // MARK: - Recording phase
 
     private var recordingContent: some View {
-        Group {
-            Spacer()
-
-            VStack(spacing: 12) {
-                Text(statusLabel)
-                    .font(ABY.Font.callout)
-                    .foregroundStyle(palette.textSecondary)
-
-                Text(sessionPrompts[promptIndex])
-                    .font(ABY.Font.title2)
-                    .foregroundStyle(palette.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .animation(AppTheme.springGentle, value: promptIndex)
-            }
+        VStack(spacing: 0) {
+            ABYVoiceEntryTopBar(
+                sessionTime: sessionStartedAt.formatted(date: .omitted, time: .shortened),
+                onDismiss: cancelSession,
+                onDone: finishRecording
+            )
             .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 16)
             .opacity(appeared ? 1 : 0)
 
-            VoiceOrb(state: isMuted ? .idle : voiceState, size: 220)
-                .padding(.vertical, 28)
-                .scaleEffect(appeared ? 1 : 0.7)
+            Text(liveCaption)
+                .font(ABY.Font.body)
+                .foregroundStyle(
+                    liveCaption == placeholderCaption ? palette.textTertiary : palette.textPrimary
+                )
+                .multilineTextAlignment(.leading)
+                .lineSpacing(6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 28)
+                .animation(AppTheme.springGentle, value: liveCaption)
                 .opacity(appeared ? 1 : 0)
 
-            VStack(spacing: 4) {
-                if offersChatHandoff {
-                    Text("Chaplain \(selectedVoice.name)")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                    Text("Speak first — your Chaplain replies in chat")
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textSecondary)
-                } else {
-                    Text("Voice capture")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                    Text("Your words save to your journal")
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textSecondary)
-                }
-            }
-            .opacity(appeared ? 1 : 0)
-
-            if showCaptions {
-                Text(liveCaption)
-                    .font(ABY.Font.body)
-                    .foregroundStyle(palette.isNight ? palette.textSecondary : ABY.Color.moodPeachText)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 36)
-                    .padding(.top, 20)
-                    .animation(AppTheme.springGentle, value: liveCaption)
-            }
-
             Spacer()
 
-            recordingControls
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 48)
+            ABYVoiceCaptureCard(
+                timerText: cardTimerText,
+                isListening: isListening,
+                onCancel: cancelSession,
+                onSubmit: finishRecording
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.bottom, 28)
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 24)
         }
     }
 
-    // MARK: - Handoff phase (Hybrid B)
+    // MARK: - Handoff phase
 
     private var handoffContent: some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 24)
+        VStack(spacing: 0) {
+            ABYVoiceEntryTopBar(
+                sessionTime: sessionStartedAt.formatted(date: .omitted, time: .shortened),
+                onDismiss: { isPresented = false },
+                onDone: handoffToChat
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 16)
 
-            VStack(spacing: 10) {
-                Image(systemName: "text.bubble.fill")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(ABY.Color.pillPurple)
-                    .frame(width: 56, height: 56)
-                    .background(ABY.Color.pillPurple.opacity(0.12))
-                    .clipShape(Circle())
+            VStack(spacing: 24) {
+                Spacer(minLength: 24)
 
-                Text("Continue with Chaplain?")
-                    .font(ABY.Font.title2)
+                VStack(spacing: 10) {
+                    Image(systemName: "text.bubble.fill")
+                        .font(ABY.Font.title)
+                        .foregroundStyle(ABY.Color.pillPurple)
+                        .frame(width: 56, height: 56)
+                        .background(ABY.Color.pillPurple.opacity(0.12))
+                        .clipShape(Circle())
+
+                    Text("Continue with Chaplain?")
+                        .font(ABY.Font.title2)
+                        .foregroundStyle(palette.textPrimary)
+
+                    Text("Your Chaplain will respond in text chat — you can keep the conversation going there.")
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 12)
+                }
+
+                Text(capturedTranscript)
+                    .font(ABY.Font.body)
                     .foregroundStyle(palette.textPrimary)
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                            .stroke(palette.divider, lineWidth: 1)
+                    }
+                    .padding(.horizontal, ABY.Spacing.screen)
 
-                Text("Your Chaplain will respond in text chat — you can keep the conversation going there.")
-                    .font(ABY.Font.callout)
+                Spacer()
+
+                VStack(spacing: 12) {
+                    ABYPrimaryButton(title: "Continue with Chaplain", icon: "sparkles") {
+                        handoffToChat()
+                    }
+
+                    Button(saveOnlyLabel) {
+                        saveOnlyAndDismiss()
+                    }
+                    .font(ABY.Font.calloutMedium)
                     .foregroundStyle(palette.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 12)
-            }
-
-            Text(capturedTranscript)
-                .font(.system(size: 17, weight: .regular, design: .serif))
-                .foregroundStyle(palette.textPrimary)
-                .lineSpacing(5)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                        .stroke(palette.divider, lineWidth: 1)
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                ABYPrimaryButton(title: "Continue with Chaplain", icon: "sparkles") {
-                    handoffToChat()
-                }
-
-                Button(saveOnlyLabel) {
-                    saveOnlyAndDismiss()
-                }
-                .font(ABY.Font.callout.weight(.medium))
-                .foregroundStyle(palette.textSecondary)
+                .padding(.bottom, 48)
             }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.bottom, 48)
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-    }
-
-    // MARK: - Controls
-
-    private var recordingControls: some View {
-        HStack(spacing: 20) {
-            Button {
-                withAnimation(AppTheme.springSnappy) {
-                    isMuted.toggle()
-                    if isMuted {
-                        _ = transcription.stop()
-                        voiceState = .idle
-                    } else {
-                        Task { await beginSpeechIfNeeded() }
-                        voiceState = .listening
-                    }
-                }
-            } label: {
-                Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-                    .font(ABY.Font.iconLarge)
-                    .foregroundStyle(isMuted ? palette.textTertiary : palette.textPrimary)
-                    .frame(width: 52, height: 52)
-                    .background(palette.surface)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(palette.divider, lineWidth: 1))
-            }
-            .buttonStyle(ScaleButtonStyle())
-
-            Spacer()
-
-            Button(action: finishRecording) {
-                HStack(spacing: 8) {
-                    VoiceWaveformIcon(active: !isMuted && transcription.isListening)
-                    Text("Done")
-                        .font(ABY.Font.button)
-                }
-                .foregroundStyle(palette.buttonForeground)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 14)
-                .background(palette.buttonFill)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(ScaleButtonStyle())
-        }
-    }
-
-    private var topBar: some View {
-        HStack {
-            ABYIconButton(icon: "xmark") {
-                _ = transcription.stop()
-                isPresented = false
-            }
-
-            Spacer()
-
-            if phase == .recording {
-                Text(formattedTime)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .foregroundStyle(palette.textSecondary)
-            }
-
-            Spacer()
-
-            if phase == .recording {
-                ABYIconButton(icon: showCaptions ? "captions.bubble.fill" : "captions.bubble") {
-                    withAnimation(AppTheme.springSnappy) { showCaptions.toggle() }
-                }
-            } else {
-                Color.clear.frame(width: 36, height: 36)
-            }
-        }
     }
 
     // MARK: - Actions
 
     private func beginSpeechIfNeeded() async {
-        guard !speechStarted, !isMuted else { return }
+        guard !speechStarted else { return }
         let authorized = await transcription.requestAuthorization()
         guard authorized else { return }
         speechStarted = true
         do {
             try transcription.start()
-            voiceState = .listening
         } catch {
             speechStarted = false
         }
@@ -345,6 +213,11 @@ struct RecordingSessionView: View {
             return seed
         }
         return ""
+    }
+
+    private func cancelSession() {
+        _ = transcription.stop()
+        isPresented = false
     }
 
     private func finishRecording() {
@@ -377,8 +250,12 @@ struct RecordingSessionView: View {
         isPresented = false
     }
 
-    private var formattedTime: String {
-        String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60)
+    private var cardTimerText: String {
+        let seconds = Int(elapsed)
+        if seconds < 60 {
+            return String(format: "0:%02d", seconds)
+        }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }
 

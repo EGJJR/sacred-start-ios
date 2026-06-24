@@ -69,7 +69,7 @@ struct NotificationSettingsView: View {
                                     .foregroundStyle(ABY.Color.textPrimary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
+                                    .font(ABY.Font.captionSemibold)
                                     .foregroundStyle(ABY.Color.textTertiary)
                             }
                             .padding(.vertical, 12)
@@ -197,24 +197,24 @@ struct NotificationBannerPreviewView: View {
                 .frame(width: 36, height: 36)
                 .overlay {
                     Image(systemName: "flame.fill")
-                        .font(.caption)
+                        .font(ABY.Font.caption)
                         .foregroundStyle(.white)
                 }
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("DEVOTION LOCK")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(ABY.Font.paywallPromoBadge)
                         .foregroundStyle(ABY.Color.textSecondary)
                     Spacer()
                     Text("now")
-                        .font(.system(size: 10))
+                        .font(ABY.Font.micro)
                         .foregroundStyle(ABY.Color.textTertiary)
                 }
                 Text(copy.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(ABY.Color.textPrimary)
                 Text(copy.body)
-                    .font(.system(size: 13))
+                    .font(ABY.Font.footnote)
                     .foregroundStyle(ABY.Color.textSecondary)
                     .lineLimit(2)
             }

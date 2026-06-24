@@ -36,7 +36,7 @@ struct MeshLoadingOverlay: View {
                 }
 
                 Text(message)
-                    .font(ABY.Font.callout.weight(.medium))
+                    .font(ABY.Font.calloutMedium)
                     .foregroundStyle(ABY.Color.textPrimary)
             }
             .padding(28)

@@ -40,7 +40,7 @@ struct SanctuaryGrowthArtifact: View {
                 .offset(y: size * 0.2)
 
             plantSymbol
-                .font(.system(size: size * plantScale, weight: .semibold))
+                .font(AppFont.font(size: size * plantScale, weight: .semibold))
                 .foregroundStyle(plantGradient)
                 .offset(y: size * plantYOffset)
         }
@@ -140,7 +140,7 @@ struct SanctuaryGrowthBadgeRow: View {
                             SanctuaryGrowthArtifact(stage: stage, size: 40)
                         } else {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 14))
+                                .font(ABY.Font.callout)
                                 .foregroundStyle(palette.textTertiary)
                         }
                     }
@@ -153,7 +153,7 @@ struct SanctuaryGrowthBadgeRow: View {
 
                 if unlocked {
                     Text("\(days)")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(ABY.Font.microBold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -164,7 +164,7 @@ struct SanctuaryGrowthBadgeRow: View {
             }
 
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(ABY.Font.micro)
                 .foregroundStyle(unlocked ? palette.textPrimary : palette.textTertiary)
         }
         .frame(maxWidth: .infinity)

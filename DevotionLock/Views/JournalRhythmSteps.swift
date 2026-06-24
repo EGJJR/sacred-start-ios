@@ -47,26 +47,32 @@ private struct FocusTagChip: View {
     let isSelected: Bool
     let action: () -> Void
 
+    private var accent: Color { ABY.Color.pillTeal }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: tag.icon)
                     .font(ABY.Font.iconSmall)
                 Text(tag.label)
-                    .font(ABY.Font.callout)
+                    .font(ABY.Font.calloutMedium)
                 Spacer(minLength: 0)
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
+                        .font(ABY.Font.callout)
                 }
             }
-            .foregroundStyle(isSelected ? ABY.Color.textPrimary : ABY.Color.textSecondary)
+            .foregroundStyle(isSelected ? ABY.Color.textPrimary : accent)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(isSelected ? ABY.Color.background : ABY.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
+            .background(isSelected ? Color.white : accent.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.card)
-                    .stroke(isSelected ? ABY.Color.textPrimary : ABY.Color.divider, lineWidth: isSelected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        accent.opacity(isSelected ? 0.85 : 0.55),
+                        style: isSelected ? StrokeStyle(lineWidth: 1.5) : StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                    )
             }
         }
         .buttonStyle(ScaleButtonStyle())
@@ -90,20 +96,31 @@ struct GratitudeStepView: View {
                 subtitle: "Name at least two — small things count."
             )
 
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Knowing this, I'm grateful for:")
+                    .font(ABY.Font.body)
+                    .foregroundStyle(ABY.Color.textPrimary)
+
                 ForEach(0..<3, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .center, spacing: 10) {
                         Text("\(index + 1).")
                             .font(ABY.Font.captionMedium)
                             .foregroundStyle(ABY.Color.pillOrange)
+                            .frame(width: 18, alignment: .trailing)
+
                         TextField(prompts[index], text: binding(for: index))
-                            .font(ABY.Font.body)
-                            .padding(14)
-                            .background(ABY.Color.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
+                            .font(ABY.Font.bodyMedium)
+                            .foregroundStyle(ABY.Color.pillOrange)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(ABY.Color.pillOrange.opacity(0.08))
+                            .clipShape(Capsule())
                             .overlay {
-                                RoundedRectangle(cornerRadius: ABY.Radius.card)
-                                    .stroke(ABY.Color.divider, lineWidth: 1)
+                                Capsule()
+                                    .strokeBorder(
+                                        ABY.Color.pillOrange.opacity(0.45),
+                                        style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                                    )
                             }
                     }
                     .opacity(appeared ? 1 : 0)
@@ -145,30 +162,37 @@ struct AffirmationStepView: View {
             )
 
             TextField("Today I will…", text: $affirmation)
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(ABY.Font.editorialTitle)
+                .foregroundStyle(ABY.Color.textPrimary)
                 .padding(18)
-                .background(ABY.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge)
-                        .stroke(ABY.Color.pillPurple.opacity(0.25), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(
+                            ABY.Color.pillPurple.opacity(0.45),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                        )
                 }
+                .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Suggestions")
-                    .font(ABY.Font.section)
-                    .foregroundStyle(ABY.Color.textSecondary)
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button {
-                        affirmation = suggestion
-                    } label: {
-                        Text(suggestion)
-                            .font(ABY.Font.callout)
-                            .foregroundStyle(ABY.Color.pillPurple)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 8)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.self) { suggestion in
+                        Button {
+                            affirmation = suggestion
+                        } label: {
+                            Text(suggestion)
+                                .font(ABY.Font.captionMedium)
+                                .foregroundStyle(ABY.Color.pillPurple)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(ABY.Color.pillPurple.opacity(0.08))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(ABY.Color.pillPurple.opacity(0.25), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -213,7 +237,7 @@ struct BlackoutVerseView: View {
                         .font(ABY.Font.section)
                         .foregroundStyle(ABY.Color.textSecondary)
                     Text("“\(savedPhrase)”")
-                        .font(.system(size: 18, weight: .medium, design: .serif))
+                        .font(ABY.Font.editorialBody)
                         .foregroundStyle(ABY.Color.pillPurple)
                 }
                 .padding(14)
@@ -253,7 +277,7 @@ private struct FlowWordLayout: View {
                     onChange(selectedIndices)
                 } label: {
                     Text(word)
-                        .font(.system(size: 17, weight: selected ? .semibold : .regular, design: .serif))
+                        .font(ABY.Font.editorialBody)
                         .foregroundStyle(selected ? ABY.Color.textPrimary : ABY.Color.textTertiary.opacity(0.55))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -342,7 +366,7 @@ struct WisdomReflectionView: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(ABY.Font.calloutSemibold)
                             .foregroundStyle(palette.textSecondary)
                             .frame(width: 36, height: 36)
                     }
@@ -363,7 +387,7 @@ struct WisdomReflectionView: View {
                             .frame(width: 56, height: 56)
                             .overlay {
                                 Text("“")
-                                    .font(.system(size: 28, weight: .light, design: .serif))
+                                    .font(ABY.Font.editorialTitle)
                                     .foregroundStyle(palette.isNight ? palette.textPrimary : .white.opacity(0.9))
                             }
 
@@ -426,7 +450,7 @@ struct WisdomReflectionView: View {
                 dismiss()
             } label: {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(ABY.Font.bodySemibold)
                     .foregroundStyle(palette.buttonForeground)
                     .frame(width: 48, height: 48)
                     .background(palette.buttonFill)
@@ -460,7 +484,7 @@ private struct CircleIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(ABY.Font.bodyMedium)
                 .foregroundStyle(tint ?? palette.textPrimary)
                 .frame(width: 44, height: 44)
                 .background(palette.surfaceElevated)
@@ -505,7 +529,7 @@ struct FocusTagPromptCard: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Image(systemName: "scope")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(ABY.Font.bodyMedium)
                     .foregroundStyle(ABY.Color.pillTeal)
                     .frame(width: 36, height: 36)
                     .background(ABY.Color.pillTeal.opacity(0.12))
@@ -550,7 +574,7 @@ struct WisdomReflectionEntryCard: View {
                     .frame(width: 44, height: 44)
                     .overlay {
                         Text("“")
-                            .font(.system(size: 22, weight: .light, design: .serif))
+                            .font(ABY.Font.editorialHeadline)
                             .foregroundStyle(.white.opacity(0.9))
                     }
 

@@ -19,8 +19,8 @@ enum MorningStep: Equatable {
 }
 
 struct MorningFlowView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
-    @Binding var isPresented: Bool
     var streakManager: StreakManager
     var userName: String
     var onDevotionFinished: ((DevotionFinishResult) -> Void)? = nil
@@ -71,18 +71,23 @@ struct MorningFlowView: View {
     private var tags: [FocusTag] { selectedTag.map { [$0] } ?? [] }
 
     var body: some View {
-        ZStack {
-            ABYCleanGradientBackground().ignoresSafeArea()
-
+        Group {
             if currentStep == .complete {
-                DevotionCompletionView(
-                    streak: completedStreak,
-                    mood: mood,
-                    onContinue: dismissFlow
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                ZStack {
+                    ABYBackground()
+                    DevotionCompletionView(
+                        streak: completedStreak,
+                        mood: mood,
+                        onContinue: dismissFlow
+                    )
+                }
+                .abyScreen()
+                .transition(.opacity)
             } else {
-                VStack(spacing: 0) {
+                ZStack {
+                    ABYCleanGradientBackground().ignoresSafeArea()
+
+                    VStack(spacing: 0) {
                     topBar
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.top, 8)
@@ -98,6 +103,7 @@ struct MorningFlowView: View {
                     bottomBar
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.bottom, 28)
+                    }
                 }
             }
         }
@@ -135,7 +141,7 @@ struct MorningFlowView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { promptFocused = false }
-                    .font(ABY.Font.body.weight(.medium))
+                    .font(ABY.Font.bodyMedium)
             }
         }
     }
@@ -154,7 +160,7 @@ struct MorningFlowView: View {
                 Spacer()
                 Button(action: dismissFlow) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(palette.textSecondary)
                         .frame(width: 36, height: 36)
                 }
@@ -329,7 +335,7 @@ struct MorningFlowView: View {
                     .font(ABY.Font.captionMedium)
                     .foregroundStyle(palette.textSecondary)
                 Text(currentPrompt)
-                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                    .font(ABY.Font.editorialTitle)
                     .foregroundStyle(palette.textPrimary)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
@@ -403,7 +409,7 @@ struct MorningFlowView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: passage.source == .scripture ? "book.closed.fill" : "quote.opening")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(ABY.Font.emojiSmall)
                     Text(passage.source == .scripture ? "For you today" : "A word for today")
                         .font(ABY.Font.section)
                         .tracking(0.6)
@@ -412,13 +418,13 @@ struct MorningFlowView: View {
             }
 
             Text(passage.text)
-                .font(.system(size: 26, weight: .regular, design: .serif))
+                .font(ABY.Font.editorialTitle)
                 .foregroundStyle(palette.textPrimary)
                 .lineSpacing(8)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(passage.attribution)
-                .font(ABY.Font.callout.weight(.medium))
+                .font(ABY.Font.calloutMedium)
                 .foregroundStyle(palette.textSecondary)
 
             Divider().overlay(palette.divider)
@@ -429,7 +435,7 @@ struct MorningFlowView: View {
                     .tracking(0.6)
                     .foregroundStyle(palette.textSecondary)
                 Text(profile.affirmation(mood: mood, tags: tags))
-                    .font(ABY.Font.body.weight(.medium))
+                    .font(ABY.Font.bodyMedium)
                     .foregroundStyle(palette.textPrimary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -587,7 +593,7 @@ struct MorningFlowView: View {
 
     private func finalizeAndOpenChat(_ seed: String) {
         recordCompletion()
-        isPresented = false
+        dismiss()
         if shouldCelebrate, let finishResult {
             onDevotionFinished?(finishResult)
         }
@@ -598,7 +604,7 @@ struct MorningFlowView: View {
         if shouldCelebrate, let finishResult {
             onDevotionFinished?(finishResult)
         }
-        withAnimation(AppTheme.springSnappy) { isPresented = false }
+        withAnimation(AppTheme.springSnappy) { dismiss() }
     }
 }
 
@@ -620,7 +626,7 @@ private struct MorningTierRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(tier.title)
-                            .font(ABY.Font.body.weight(.semibold))
+                            .font(ABY.Font.bodySemibold)
                             .foregroundStyle(palette.textPrimary)
                         Text(tier.minutesLabel)
                             .font(ABY.Font.caption)
@@ -660,7 +666,7 @@ private struct MorningChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ABY.Font.captionSemibold)
                 Text(label)
                     .font(ABY.Font.captionMedium)
             }
@@ -691,7 +697,7 @@ private struct DepthOptionRow: View {
                     .frame(width: 32)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(ABY.Font.body.weight(.semibold))
+                        .font(ABY.Font.bodySemibold)
                         .foregroundStyle(palette.textPrimary)
                     Text(subtitle)
                         .font(ABY.Font.caption)
@@ -699,7 +705,7 @@ private struct DepthOptionRow: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, 16)
@@ -783,7 +789,6 @@ struct FlexibleWrap<Data: RandomAccessCollection, Content: View>: View where Dat
 
 #Preview {
     MorningFlowView(
-        isPresented: .constant(true),
         streakManager: .shared,
         userName: "Alex"
     )

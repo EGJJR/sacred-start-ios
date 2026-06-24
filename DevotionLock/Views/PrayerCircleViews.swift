@@ -7,13 +7,24 @@ import SwiftUI
 
 // MARK: - Circles home (list)
 
+private enum CirclesHomeSheet: Identifiable {
+    case create
+    case join
+
+    var id: String {
+        switch self {
+        case .create: "create"
+        case .join: "join"
+        }
+    }
+}
+
 struct SanctuaryCirclesHomeView: View {
     @Environment(\.sanctuaryPalette) private var palette
     var circleStore: PrayerCircleStore
     var onSelectCircle: (PrayerCircle) -> Void
 
-    @State private var showCreate = false
-    @State private var showJoin = false
+    @State private var homeSheet: CirclesHomeSheet?
     @State private var appeared = false
 
     var body: some View {
@@ -30,7 +41,7 @@ struct SanctuaryCirclesHomeView: View {
                                 CircleFeedRow(
                                     circle: circle,
                                     members: circleStore.members(for: circle),
-                                    latestPost: circleStore.posts(for: circle.id).sorted { $0.createdAt > $1.createdAt }.first,
+                                    latestPost: circleStore.latestPost(for: circle.id),
                                     hasNewMilestone: CircleMilestoneStore.shared.hasUncelebratedMilestones(
                                         circleId: circle.id,
                                         stats: circleStore.collectiveStats(for: circle.id)
@@ -49,11 +60,11 @@ struct SanctuaryCirclesHomeView: View {
 
             if !circleStore.circles.isEmpty {
                 Button {
-                    showCreate = true
+                    homeSheet = .create
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(ABY.Font.bodySemibold)
                         Text("Create")
                             .font(ABY.Font.captionMedium)
                     }
@@ -71,16 +82,20 @@ struct SanctuaryCirclesHomeView: View {
         }
         .onAppear {
             withAnimation(AppTheme.springGentle) { appeared = true }
-            Task { await circleStore.refreshFromRemote() }
         }
-        .sheet(isPresented: $showCreate) {
-            CreateCircleSheet(circleStore: circleStore) { circle in
-                onSelectCircle(circle)
-            }
+        .task {
+            await circleStore.refreshFromRemote()
         }
-        .sheet(isPresented: $showJoin) {
-            JoinCircleSheet(circleStore: circleStore) { circle in
-                onSelectCircle(circle)
+        .sheet(item: $homeSheet) { sheet in
+            switch sheet {
+            case .create:
+                CreateCircleSheet(circleStore: circleStore) { circle in
+                    onSelectCircle(circle)
+                }
+            case .join:
+                JoinCircleSheet(circleStore: circleStore) { circle in
+                    onSelectCircle(circle)
+                }
             }
         }
     }
@@ -97,7 +112,7 @@ struct SanctuaryCirclesHomeView: View {
                         .foregroundStyle(palette.textSecondary)
                 }
                 Spacer(minLength: 12)
-                Button("Join") { showJoin = true }
+                Button("Join") { homeSheet = .join }
                     .font(ABY.Font.captionMedium)
                     .foregroundStyle(ABY.Color.pillPurple)
                     .padding(.horizontal, 14)
@@ -108,10 +123,10 @@ struct SanctuaryCirclesHomeView: View {
 
             HStack(spacing: 10) {
                 actionPill(title: "Create circle", icon: "plus.circle.fill", filled: true) {
-                    showCreate = true
+                    homeSheet = .create
                 }
                 actionPill(title: "Invite code", icon: "qrcode", filled: false) {
-                    showJoin = true
+                    homeSheet = .join
                 }
             }
         }
@@ -130,7 +145,7 @@ struct SanctuaryCirclesHomeView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                 Text(title)
                     .font(ABY.Font.captionMedium)
             }
@@ -155,7 +170,7 @@ struct SanctuaryCirclesHomeView: View {
     private var emptyCircles: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3.sequence.fill")
-                .font(.system(size: 34, weight: .light))
+                .font(ABY.Font.largeTitle)
                 .foregroundStyle(ABY.Color.pillPurple.opacity(0.55))
             Text("No circles yet")
                 .font(ABY.Font.headline)
@@ -164,7 +179,7 @@ struct SanctuaryCirclesHomeView: View {
                 .font(ABY.Font.callout)
                 .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
-            Button("Create your first circle") { showCreate = true }
+            Button("Create your first circle") { homeSheet = .create }
                 .font(ABY.Font.captionMedium)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 18)
@@ -208,7 +223,7 @@ private struct CircleFeedRow: View {
                                 .foregroundStyle(palette.textPrimary)
                             if hasNewMilestone {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(ABY.Font.captionSemibold)
                                     .foregroundStyle(ABY.Color.pillOrange)
                             }
                         }
@@ -226,7 +241,7 @@ private struct CircleFeedRow: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image(systemName: latestPost.kind.icon)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(ABY.Font.emojiSmall)
                             Text(latestPost.authorName)
                                 .font(ABY.Font.captionMedium)
                         }
@@ -303,6 +318,26 @@ private struct CircleListRow: View {
 
 // MARK: - Circle discussion feed (Headspace-style)
 
+private enum CircleDiscussionSheet: Identifiable {
+    case invite
+    case members
+    case compose
+    case startChallenge
+    case reflectionCompose(challengeId: UUID)
+    case challengeArchive(challengeId: UUID)
+
+    var id: String {
+        switch self {
+        case .invite: "invite"
+        case .members: "members"
+        case .compose: "compose"
+        case .startChallenge: "start-challenge"
+        case .reflectionCompose(let id): "reflection-\(id)"
+        case .challengeArchive(let id): "archive-\(id)"
+        }
+    }
+}
+
 struct CircleDiscussionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
@@ -312,12 +347,7 @@ struct CircleDiscussionView: View {
     var onShareFromWall: (() -> Void)?
 
     @State private var sort: CircleFeedSort = .newest
-    @State private var showInvite = false
-    @State private var showMembers = false
-    @State private var showCompose = false
-    @State private var showStartChallenge = false
-    @State private var showReflectionCompose = false
-    @State private var showChallengeArchive = false
+    @State private var discussionSheet: CircleDiscussionSheet?
     @State private var selectedPost: CirclePost?
     @State private var appeared = false
     @State private var pendingMilestone: CircleMilestonePresentation?
@@ -372,9 +402,9 @@ struct CircleDiscussionView: View {
                         circle: circle,
                         members: circleStore.members(for: circle),
                         stats: collectiveStats,
-                        onMembersTap: { showMembers = true },
+                        onMembersTap: { discussionSheet = .members },
                         onBack: { dismiss() },
-                        onInvite: { showInvite = true }
+                        onInvite: { discussionSheet = .invite }
                     )
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -382,7 +412,11 @@ struct CircleDiscussionView: View {
                             CircleChallengeCard(
                                 challenge: challenge,
                                 reflectionCount: challengeReflections.count,
-                                onAddReflection: { showReflectionCompose = true }
+                                onAddReflection: {
+                                    if let challenge = activeChallenge {
+                                        discussionSheet = .reflectionCompose(challengeId: challenge.id)
+                                    }
+                                }
                             )
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.top, 8)
@@ -391,7 +425,11 @@ struct CircleDiscussionView: View {
                                 challenge: ended,
                                 reflectionCount: challengeReflections.count,
                                 onAddReflection: {},
-                                onViewArchive: { showChallengeArchive = true }
+                                onViewArchive: {
+                                    if let ended = endedChallenge {
+                                        discussionSheet = .challengeArchive(challengeId: ended.id)
+                                    }
+                                }
                             )
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.top, 8)
@@ -472,57 +510,52 @@ struct CircleDiscussionView: View {
         .onDisappear {
             CircleRepository.shared.unsubscribeFromCircle(circle.id)
         }
-        .sheet(isPresented: $showInvite) {
-            CircleInviteSheet(circle: circle, circleStore: circleStore)
+        .task {
+            await circleStore.refreshFromRemote()
         }
-        .sheet(isPresented: $showMembers) {
-            CircleMembersSheet(
-                circle: circle,
-                members: circleMembers,
-                canStartChallenge: activeChallenge == nil,
-                onStartChallenge: {
-                    showMembers = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showStartChallenge = true
+        .sheet(item: $discussionSheet) { sheet in
+            switch sheet {
+            case .invite:
+                CircleInviteSheet(circle: circle, circleStore: circleStore)
+            case .members:
+                CircleMembersSheet(
+                    circle: circle,
+                    members: circleMembers,
+                    canStartChallenge: activeChallenge == nil,
+                    onStartChallenge: {
+                        discussionSheet = .startChallenge
+                    },
+                    onInvite: {
+                        discussionSheet = .invite
                     }
-                },
-                onInvite: {
-                    showMembers = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showInvite = true
-                    }
-                }
-            )
-        }
-        .sheet(isPresented: $showStartChallenge) {
-            CircleChallengeStartSheet(circleName: circle.name) { template in
-                _ = circleStore.startChallenge(template: template, circleId: circle.id)
-                DevotionHaptics.success()
-            }
-        }
-        .sheet(isPresented: $showReflectionCompose) {
-            if let challenge = activeChallenge {
-                CircleReflectionComposeSheet(challenge: challenge) { text, visibility in
-                    _ = circleStore.addReflection(
-                        text: text,
-                        challengeId: challenge.id,
-                        circleId: circle.id,
-                        visibility: visibility
-                    )
+                )
+            case .startChallenge:
+                CircleChallengeStartSheet(circleName: circle.name) { template in
+                    _ = circleStore.startChallenge(template: template, circleId: circle.id)
                     DevotionHaptics.success()
                 }
+            case .reflectionCompose(let challengeId):
+                if let challenge = circleStore.challenges.first(where: { $0.id == challengeId }) {
+                    CircleReflectionComposeSheet(challenge: challenge) { text, visibility in
+                        _ = circleStore.addReflection(
+                            text: text,
+                            challengeId: challenge.id,
+                            circleId: circle.id,
+                            visibility: visibility
+                        )
+                        DevotionHaptics.success()
+                    }
+                }
+            case .challengeArchive(let challengeId):
+                if let challenge = circleStore.challenges.first(where: { $0.id == challengeId }) {
+                    CircleChallengeArchiveView(
+                        challenge: challenge,
+                        reflections: circleStore.reflections(for: challenge.id)
+                    )
+                }
+            case .compose:
+                CircleComposeSheet(circle: circle, circleStore: circleStore)
             }
-        }
-        .sheet(isPresented: $showChallengeArchive) {
-            if let challenge = endedChallenge {
-                CircleChallengeArchiveView(
-                    challenge: challenge,
-                    reflections: circleStore.reflections(for: challenge.id)
-                )
-            }
-        }
-        .sheet(isPresented: $showCompose) {
-            CircleComposeSheet(circle: circle, circleStore: circleStore)
         }
         .sheet(item: $selectedPost) { post in
             CirclePostDetailSheet(post: post, circleStore: circleStore)
@@ -540,7 +573,7 @@ struct CircleDiscussionView: View {
                     .font(ABY.Font.callout)
                     .foregroundStyle(palette.textPrimary)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ABY.Font.emojiSmall)
                     .foregroundStyle(palette.textSecondary)
             }
         }
@@ -569,7 +602,7 @@ struct CircleDiscussionView: View {
                 selectedPost = target
             }
         default:
-            showCompose = true
+            discussionSheet = .compose
         }
     }
 
@@ -626,10 +659,10 @@ struct CircleDiscussionView: View {
 
             if circleStore.hasAcceptedGuidelines {
                 Button {
-                    if activeChallenge != nil {
-                        showReflectionCompose = true
+                    if let challenge = activeChallenge {
+                        discussionSheet = .reflectionCompose(challengeId: challenge.id)
                     } else {
-                        showCompose = true
+                        discussionSheet = .compose
                     }
                 } label: {
                     Text(activeChallenge != nil ? "Add reflection" : "Add your thoughts")
@@ -652,7 +685,7 @@ struct CircleDiscussionView: View {
             } else {
                 Button {
                     circleStore.hasAcceptedGuidelines = true
-                    showCompose = true
+                    discussionSheet = .compose
                 } label: {
                     Text("Accept guidelines to post")
                         .font(ABY.Font.headline)
@@ -807,7 +840,7 @@ struct CirclePostCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isCurrentUser ? "\(post.displayAuthor) (You)" : post.displayAuthor)
-                        .font(ABY.Font.callout.weight(.semibold))
+                        .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(palette.textPrimary)
                     if let focus = post.focusLabel {
                         Text(focus)
@@ -822,7 +855,7 @@ struct CirclePostCard: View {
                 Spacer()
                 if post.kind == .testimony {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 14))
+                        .font(ABY.Font.callout)
                         .foregroundStyle(ABY.Color.orbSage)
                 }
             }
@@ -843,7 +876,7 @@ struct CirclePostCard: View {
                 Button(action: onPraying) {
                     HStack(spacing: 6) {
                         Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(ABY.Font.footnoteMedium)
                         if post.prayingCount > 0 {
                             Text("\(post.prayingCount)")
                                 .font(ABY.Font.captionMedium)
@@ -867,7 +900,7 @@ struct CirclePostCard: View {
                 } else {
                     HStack(spacing: 4) {
                         Image(systemName: "heart.fill")
-                            .font(.system(size: 11))
+                            .font(ABY.Font.emojiSmall)
                             .foregroundStyle(ABY.Color.pillOrange)
                         Text("\(post.encouragements.count)")
                             .font(ABY.Font.captionMedium)
@@ -883,7 +916,7 @@ struct CirclePostCard: View {
 
                 Button(action: onOpen) {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(ABY.Font.calloutMedium)
                         .foregroundStyle(palette.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -956,7 +989,7 @@ private struct CircleAvatarView: View {
                 .fill(Color(hue: hue, saturation: 0.35, brightness: 0.92))
                 .frame(width: compact ? 36 : 40, height: compact ? 36 : 40)
             Text(initials)
-                .font(.system(size: compact ? 12 : 13, weight: .semibold, design: .rounded))
+                .font(AppFont.font(size: compact ? 12 : 13, weight: .semibold))
                 .foregroundStyle(ABY.Color.textPrimary.opacity(0.75))
         }
     }
@@ -989,7 +1022,7 @@ private struct CircleMemberAvatarStack: View {
 
                 if overflowCount > 0 {
                     Text("+\(overflowCount)")
-                        .font(.system(size: size * 0.28, weight: .semibold, design: .rounded))
+                        .font(AppFont.font(size: size * 0.28, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.92))
                         .frame(width: size, height: size)
                         .background(Color.white.opacity(0.22))
@@ -1017,7 +1050,7 @@ private struct CircleMemberAvatarStack: View {
                 .fill(member.avatarColor)
                 .frame(width: size, height: size)
             Text(member.initials)
-                .font(.system(size: size * 0.32, weight: .semibold, design: .rounded))
+                .font(AppFont.font(size: size * 0.32, weight: .semibold))
                 .foregroundStyle(ABY.Color.textPrimary.opacity(0.75))
         }
         .overlay {
@@ -1049,9 +1082,9 @@ private struct CircleCollectiveStatsRow: View {
     private func statChip(icon: String, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(ABY.Font.paywallPromoBadge)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(ABY.Font.emojiSmall)
         }
         .foregroundStyle(.white.opacity(0.92))
         .padding(.horizontal, 10)
@@ -1086,7 +1119,7 @@ struct CircleMilestoneCelebrationView: View {
                         .fill(ABY.Color.pillPurple.opacity(0.15))
                         .frame(width: 120, height: 120)
                     Image(systemName: milestone.isPrayerMilestone ? "hands.sparkles.fill" : "checkmark.seal.fill")
-                        .font(.system(size: 44, weight: .semibold))
+                        .font(ABY.Font.largeTitle)
                         .foregroundStyle(ABY.Color.pillPurple)
                 }
                 .scaleEffect(appeared ? 1 : 0.5)
@@ -1203,7 +1236,7 @@ private struct CircleMomentBanner: View {
         Button(action: onAction) {
             HStack(spacing: 12) {
                 Image(systemName: moment.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ABY.Font.bodySemibold)
                     .foregroundStyle(ABY.Color.pillPurple)
                     .frame(width: 36, height: 36)
                     .background(ABY.Color.pillPurple.opacity(0.12))
@@ -1211,7 +1244,7 @@ private struct CircleMomentBanner: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(moment.message)
-                        .font(ABY.Font.callout.weight(.medium))
+                        .font(ABY.Font.calloutMedium)
                         .foregroundStyle(palette.textPrimary)
                         .multilineTextAlignment(.leading)
                     Text(moment.actionLabel)
@@ -1222,7 +1255,7 @@ private struct CircleMomentBanner: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ABY.Font.captionSemibold)
                     .foregroundStyle(palette.textTertiary)
             }
             .padding(14)
@@ -1261,7 +1294,7 @@ struct ShareToCircleSheet: View {
                     .foregroundStyle(palette.textPrimary)
 
                 Text("“\(note.text)”")
-                    .font(.system(size: 16, design: .serif))
+                    .font(ABY.Font.editorialCallout)
                     .foregroundStyle(PrayerWallNote.inkColor)
                     .lineLimit(4)
                     .padding(14)
@@ -1356,7 +1389,7 @@ struct ShareTestimonySheet: View {
                 VStack(spacing: 20) {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 40))
+                            .font(ABY.Font.heroIcon)
                             .foregroundStyle(ABY.Color.orbSage)
 
                         Text("Answered!")
@@ -1371,7 +1404,7 @@ struct ShareTestimonySheet: View {
                     .padding(.top, 8)
 
                     Text("“\(note.text)”")
-                        .font(.system(size: 18, weight: .medium, design: .serif))
+                        .font(ABY.Font.editorialBody)
                         .foregroundStyle(PrayerWallNote.inkColor)
                         .multilineTextAlignment(.center)
                         .padding(20)
@@ -1472,9 +1505,11 @@ private struct CreateCircleSheet: View {
                     .focused($focused)
 
                 ABYPrimaryButton(title: "Create circle", icon: "plus") {
-                    let circle = circleStore.createCircle(name: name)
-                    onCreated(circle)
-                    dismiss()
+                    Task {
+                        let circle = await circleStore.createCircle(name: name)
+                        onCreated(circle)
+                        dismiss()
+                    }
                 }
                 .opacity(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1507,7 +1542,7 @@ struct JoinCircleSheet: View {
                 Text("Enter invite code")
                     .font(ABY.Font.headline)
                 TextField("ABC123", text: $code)
-                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                    .font(ABY.Font.title2)
                     .textInputAutocapitalization(.characters)
                     .padding(14)
                     .background(ABY.Color.surface)
@@ -1581,7 +1616,7 @@ private struct CircleMembersSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(member.isCurrentUser ? "\(member.displayName) (You)" : member.displayName)
-                                        .font(ABY.Font.callout.weight(.semibold))
+                                        .font(ABY.Font.calloutSemibold)
                                         .foregroundStyle(palette.textPrimary)
                                     Text(member.isCurrentUser ? "Circle member" : "Praying with you")
                                         .font(ABY.Font.caption)
@@ -1654,7 +1689,7 @@ private struct CircleInviteSheet: View {
                     .font(ABY.Font.title2)
 
                 Text(circle.inviteCode)
-                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                    .font(ABY.Font.largeTitle)
                     .foregroundStyle(ABY.Color.pillPurple)
                     .padding(.vertical, 8)
 

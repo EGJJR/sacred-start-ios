@@ -57,16 +57,18 @@ struct JournalEntryHubSheet: View {
                         }
                     }
 
-                    JournalEntryOptionCard(
-                        icon: "waveform",
-                        tint: ABY.Color.pillOrange,
-                        title: "Voice note",
-                        subtitle: "Speak naturally — we'll transcribe it for you",
-                        badge: "Voice"
-                    ) {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            onVoice()
+                    if FeatureFlags.voiceChatEnabled {
+                        JournalEntryOptionCard(
+                            icon: "waveform",
+                            tint: ABY.Color.pillOrange,
+                            title: "Voice note",
+                            subtitle: "Speak naturally — we'll transcribe it for you",
+                            badge: "Voice"
+                        ) {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                onVoice()
+                            }
                         }
                     }
                 }
@@ -93,9 +95,9 @@ struct AssistedJournalView: View {
     @Environment(\.sanctuaryPalette) private var palette
 
     @State private var text = ""
-    @State private var moodLabel = "Peaceful"
     @State private var promptIndex = 0
     @State private var appeared = false
+    @State private var isDictating = false
     @FocusState private var focused: Bool
 
     private let prompts = [
@@ -110,144 +112,88 @@ struct AssistedJournalView: View {
         "I'm noticing…",
         "I'm grateful for…",
         "I'm asking God for…",
-        "Today I felt…",
     ]
+
+    private var canSave: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                assistedBackground
+            ZStack(alignment: .bottom) {
+                ABYCleanGradientBackground()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Assisted journal")
-                                .font(ABY.Font.captionMedium)
-                                .foregroundStyle(ABY.Color.pillPurple)
-                            Text(prompts[promptIndex])
-                                .font(ABY.Font.title2)
-                                .foregroundStyle(palette.textPrimary)
-                                .contentTransition(.opacity)
-                                .animation(AppTheme.springGentle, value: promptIndex)
-                        }
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 10)
+                VStack(alignment: .leading, spacing: 0) {
+                    ABYAssistedJournalHeader(
+                        prompt: prompts[promptIndex],
+                        onShuffle: shufflePrompt
+                    )
+                    .padding(.top, 8)
+                    .animation(AppTheme.springGentle, value: promptIndex)
+                    .blurReveal(appeared, blurRadius: 6, scale: 1.004)
 
-                        moodRow
+                    Spacer(minLength: 24)
+                }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-                        ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                                .fill(palette.surface.opacity(0.82))
-                                .background {
-                                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                                        .fill(.ultraThinMaterial)
-                                }
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                                        .stroke(palette.divider, lineWidth: 1)
-                                }
-
-                            TextEditor(text: $text)
-                                .font(.system(size: 17, weight: .regular, design: .serif))
-                                .foregroundStyle(palette.textPrimary)
-                                .scrollContentBackground(.hidden)
-                                .padding(16)
-                                .frame(minHeight: 180)
-                                .focused($focused)
+                if isDictating {
+                    ABYInlineDictationCapture(text: $text, isActive: $isDictating)
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .padding(.bottom, 12)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    VStack(spacing: 12) {
+                        if text.isEmpty {
+                            ABYStarterPhraseRow(
+                                phrases: suggestions,
+                                onSelect: appendSuggestion,
+                                onShufflePrompt: shufflePrompt
+                            )
+                            .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                         }
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(suggestions, id: \.self) { phrase in
-                                    Button {
-                                        appendSuggestion(phrase)
-                                    } label: {
-                                        Text(phrase)
-                                            .font(ABY.Font.captionMedium)
-                                            .foregroundStyle(ABY.Color.pillPurple)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(ABY.Color.pillPurple.opacity(0.08))
-                                            .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-
-                                Button {
-                                    withAnimation(AppTheme.springSnappy) {
-                                        promptIndex = (promptIndex + 1) % prompts.count
-                                    }
-                                } label: {
-                                    Label("New prompt", systemImage: "arrow.triangle.2.circlepath")
-                                        .font(ABY.Font.captionMedium)
-                                        .foregroundStyle(palette.textSecondary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 8)
-                                        .background(palette.surfaceMuted)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
+                        ABYAssistedJournalComposer(
+                            text: $text,
+                            placeholder: "Start writing…",
+                            focused: $focused,
+                            onDictate: {
+                                focused = false
+                                withAnimation(AppTheme.springGentle) { isDictating = true }
                             }
-                        }
+                        )
+                        .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                     }
-                    .padding(ABY.Spacing.screen)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(ABY.Font.calloutSemibold)
+                            .foregroundStyle(palette.textPrimary)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Write")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(palette.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    ABYAssistedJournalFinishButton(isEnabled: canSave, action: save)
                 }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Text("Your words stay private on this device until you choose to share.")
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.vertical, 10)
-                    .background(SanctuaryGradientBottomFade())
             }
         }
         .abyScreen()
+        .animation(AppTheme.springGentle, value: isDictating)
         .onAppear {
-            withAnimation(AppTheme.springGentle) { appeared = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                focused = true
-            }
-        }
-    }
-
-    private var assistedBackground: some View {
-        ABYCleanGradientBackground()
-    }
-
-    private var moodRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(MoodCatalog.options.prefix(6), id: \.label) { mood in
-                    Button {
-                        moodLabel = mood.label
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(mood.emoji)
-                            Text(mood.label)
-                                .font(ABY.Font.captionMedium)
-                        }
-                        .foregroundStyle(moodLabel == mood.label ? .white : palette.textSecondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(moodLabel == mood.label ? ABY.Color.pillPurple : palette.surfaceMuted)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+            withAnimation(AppTheme.springGentle.delay(0.04)) { appeared = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if !isDictating { focused = true }
             }
         }
     }
@@ -263,14 +209,20 @@ struct AssistedJournalView: View {
         focused = true
     }
 
+    private func shufflePrompt() {
+        withAnimation(AppTheme.springSnappy) {
+            promptIndex = (promptIndex + 1) % prompts.count
+        }
+    }
+
     private func save() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         JournalLocalStore.shared.addAssistedEntry(
             body: trimmed,
-            title: "Journal entry",
-            moodLabel: moodLabel,
-            moodEmoji: MoodCatalog.emoji(for: moodLabel)
+            title: prompts[promptIndex],
+            moodLabel: "Peaceful",
+            moodEmoji: MoodCatalog.emoji(for: "Peaceful")
         )
         DevotionHaptics.success()
         dismiss()
@@ -297,43 +249,28 @@ struct VoiceJournalView: View {
     @State private var elapsed: TimeInterval = 0
     @State private var appeared = false
     @State private var speechStarted = false
+    @State private var sessionStartedAt = Date()
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
+    private var placeholderCaption: String {
+        "Your words will appear here as you speak."
+    }
+
+    private var liveCaption: String {
+        let spoken = transcription.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        return spoken.isEmpty ? placeholderCaption : spoken
+    }
+
     var body: some View {
-        NavigationStack {
-            ZStack {
-                ABYCleanGradientBackground()
+        ZStack(alignment: .bottom) {
+            ABYCleanGradientBackground()
 
-                VStack(spacing: 24) {
-                    phaseHeader
-
-                    Spacer(minLength: 0)
-
-                    centerContent
-
-                    Spacer(minLength: 0)
-
-                    bottomControls
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.vertical, 16)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        _ = transcription.stop()
-                        dismiss()
-                    }
-                }
-                if phase == .editing {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Save") { save() }
-                            .fontWeight(.semibold)
-                            .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
+            switch phase {
+            case .recording:
+                recordingLayout
+            case .revealing, .editing:
+                reviewLayout
             }
         }
         .abyScreen()
@@ -350,174 +287,127 @@ struct VoiceJournalView: View {
         }
     }
 
-    @ViewBuilder
-    private var phaseHeader: some View {
-        VStack(spacing: 8) {
-            Text(phaseTitle)
-                .font(ABY.Font.title2)
-                .foregroundStyle(palette.textPrimary)
-            Text(phaseSubtitle)
-                .font(ABY.Font.callout)
-                .foregroundStyle(palette.textSecondary)
-                .multilineTextAlignment(.center)
+    private var recordingLayout: some View {
+        VStack(spacing: 0) {
+            ABYVoiceEntryTopBar(
+                sessionTime: sessionStartedAt.formatted(date: .omitted, time: .shortened),
+                onDismiss: cancelRecording,
+                onDone: finishRecording
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 16)
+            .opacity(appeared ? 1 : 0)
+
+            Text(liveCaption)
+                .font(ABY.Font.body)
+                .foregroundStyle(
+                    liveCaption == placeholderCaption ? palette.textTertiary : palette.textPrimary
+                )
+                .multilineTextAlignment(.leading)
+                .lineSpacing(6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 28)
+                .animation(AppTheme.springGentle, value: liveCaption)
+                .opacity(appeared ? 1 : 0)
+
+            Spacer()
+
+            ABYVoiceCaptureCard(
+                timerText: cardTimerText,
+                isListening: transcription.isListening,
+                onCancel: cancelRecording,
+                onSubmit: finishRecording
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.bottom, 28)
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 24)
         }
-        .opacity(appeared ? 1 : 0)
     }
 
-    @ViewBuilder
-    private var centerContent: some View {
-        switch phase {
-        case .recording:
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(ABY.Color.pillOrange.opacity(0.12))
-                        .frame(width: 120, height: 120)
-                        .scaleEffect(transcription.isListening ? 1.08 : 1)
-                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: transcription.isListening)
+    private var reviewLayout: some View {
+        VStack(spacing: 0) {
+            ABYVoiceEntryTopBar(
+                sessionTime: sessionStartedAt.formatted(date: .omitted, time: .shortened),
+                onDismiss: { dismiss() },
+                onDone: { if phase == .editing { save() } }
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 16)
 
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 36, weight: .medium))
-                        .foregroundStyle(ABY.Color.pillOrange)
-                }
-
-                Text(formattedTime)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundStyle(palette.textTertiary)
-
-                liveTranscriptPreview
-            }
-
-        case .revealing, .editing:
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label("Transcript", systemImage: "text.quote")
+                    Text(phase == .revealing ? "Revealing your words" : "Review & save")
                         .font(ABY.Font.captionMedium)
                         .foregroundStyle(palette.textSecondary)
                     Spacer()
                     if phase == .editing {
-                        Button("Re-record") {
-                            resetRecording()
-                        }
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(ABY.Color.pillOrange)
+                        Button("Re-record", action: resetRecording)
+                            .font(ABY.Font.captionMedium)
+                            .foregroundStyle(ABY.Color.pillOrange)
                     }
                 }
 
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                        .fill(palette.surface)
+                if phase == .revealing {
+                    ProgressView("Transcribing…")
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                } else {
+                    TextEditor(text: $editedText)
+                        .font(ABY.Font.body)
+                        .foregroundStyle(palette.textPrimary)
+                        .scrollContentBackground(.hidden)
+                        .padding(16)
+                        .frame(minHeight: 220)
+                        .background(palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
                                 .stroke(palette.divider, lineWidth: 1)
                         }
+                }
+            }
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 28)
 
-                    if phase == .editing {
-                        TextEditor(text: $editedText)
-                            .font(.system(size: 17, weight: .regular, design: .serif))
-                            .foregroundStyle(palette.textPrimary)
-                            .scrollContentBackground(.hidden)
-                            .padding(16)
-                            .frame(minHeight: 200)
-                    } else {
-                        Text(editedText)
-                            .font(.system(size: 17, weight: .regular, design: .serif))
-                            .foregroundStyle(palette.textPrimary)
-                            .lineSpacing(5)
-                            .padding(16)
-                            .frame(maxWidth: .infinity, minHeight: 200, alignment: .topLeading)
-                            .blur(radius: 16 * revealProgress)
-                            .opacity(Double(1.1 - revealProgress * 0.35))
+            Spacer()
+
+            if phase == .editing {
+                VStack(spacing: 12) {
+                    ABYPrimaryButton(title: "Save to journal", icon: "checkmark", action: save)
+                        .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .opacity(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+
+                    Button(action: continueWithChaplain) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text("Continue with Chaplain")
+                        }
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(ABY.Color.pillPurple)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 32)
             }
         }
     }
 
-    private var liveTranscriptPreview: some View {
-        let spoken = transcription.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        return Text(spoken.isEmpty ? "Your words will appear here as you speak…" : spoken)
-            .font(.system(size: 16, weight: .regular, design: .serif))
-            .foregroundStyle(spoken.isEmpty ? palette.textTertiary : palette.textSecondary)
-            .multilineTextAlignment(.center)
-            .lineSpacing(4)
-            .padding(.horizontal, 12)
-            .blur(radius: spoken.isEmpty ? 0 : (transcription.isListening ? 2 : 0))
-            .animation(AppTheme.springGentle, value: spoken)
-            .frame(maxWidth: .infinity)
+    private func cancelRecording() {
+        _ = transcription.stop()
+        dismiss()
     }
 
-    @ViewBuilder
-    private var bottomControls: some View {
-        switch phase {
-        case .recording:
-            Button(action: finishRecording) {
-                HStack(spacing: 8) {
-                    VoiceWaveformIcon(active: transcription.isListening)
-                    Text("Done speaking")
-                        .font(ABY.Font.button)
-                }
-                .foregroundStyle(palette.buttonForeground)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(palette.buttonFill)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(ScaleButtonStyle())
-
-        case .revealing:
-            ProgressView("Transcribing…")
-                .font(ABY.Font.callout)
-                .foregroundStyle(palette.textSecondary)
-
-        case .editing:
-            VStack(spacing: 12) {
-                Button(action: save) {
-                    Text("Save to journal")
-                        .font(ABY.Font.button)
-                        .foregroundStyle(palette.buttonForeground)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(palette.buttonFill)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(ScaleButtonStyle())
-                .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                Button {
-                    continueWithChaplain()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                        Text("Continue with Chaplain")
-                    }
-                    .font(ABY.Font.callout.weight(.semibold))
-                    .foregroundStyle(ABY.Color.pillPurple)
-                }
-                .buttonStyle(.plain)
-                .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+    private var cardTimerText: String {
+        let seconds = Int(elapsed)
+        if seconds < 60 {
+            return String(format: "0:%02d", seconds)
         }
-    }
-
-    private var phaseTitle: String {
-        switch phase {
-        case .recording: "Voice note"
-        case .revealing: "Revealing your words"
-        case .editing: "Review & save"
-        }
-    }
-
-    private var phaseSubtitle: String {
-        switch phase {
-        case .recording: "Speak freely — no perfect words needed."
-        case .revealing: "Taking a breath while your note settles in."
-        case .editing: "Edit anything before saving to your journal."
-        }
-    }
-
-    private var formattedTime: String {
-        String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60)
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func beginRecording() async {
@@ -549,6 +439,7 @@ struct VoiceJournalView: View {
         elapsed = 0
         speechStarted = false
         revealProgress = 1
+        sessionStartedAt = Date()
         phase = .recording
         Task { await beginRecording() }
     }

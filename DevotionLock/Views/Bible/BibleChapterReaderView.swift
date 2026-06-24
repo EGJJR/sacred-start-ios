@@ -75,7 +75,7 @@ struct BibleChapterReaderView: View {
 
                         if highlightReference == nil {
                             Text("Chapter \(content.chapter)")
-                                .font(.system(size: 28, weight: .bold, design: .serif))
+                                .font(ABY.Font.editorialTitle)
                                 .foregroundStyle(palette.textPrimary)
                                 .blurRevealOnAppear(index: 1, stagger: 0.04)
                         }

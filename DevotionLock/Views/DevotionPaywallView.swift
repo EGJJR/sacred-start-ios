@@ -1,8 +1,8 @@
 //
 //  DevotionPaywallView.swift
-//  test1
+//  DevotionLock
 //
-//  Mobbin refs: Tide trial timeline, Open plan cards, Ten Percent Happier bottom sheet, Calm CTA.
+//  Premium paywall — dark navy layout (Beside / Grok / FocusFlight synthesis).
 //
 
 import InAppKit
@@ -15,7 +15,7 @@ struct DevotionPaywallView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var inAppKit = InAppKit.shared
-    @State private var selectedProduct: Product?
+    @State private var selectedProductID: String = DevotionProducts.annual
     @State private var isRestoring = false
     @State private var showTerms = false
     @State private var showPrivacy = false
@@ -30,107 +30,93 @@ struct DevotionPaywallView: View {
         } + products.filter { !DevotionProducts.displayOrder.contains($0.id) }
     }
 
+    private var selectedProduct: Product? {
+        sortedProducts.first(where: { $0.id == selectedProductID }) ?? sortedProducts.first
+    }
+
+    private var usesMockPlans: Bool {
+        #if DEBUG
+        sortedProducts.isEmpty && (context.triggeredBy == "design-tour" || DesignTour.isActive)
+        #else
+        false
+        #endif
+    }
+
+    private var planOptions: [PaywallPlanOption] {
+        if usesMockPlans {
+            return PaywallPlanOption.mockPair
+        }
+        let pairIDs = [DevotionProducts.monthly, DevotionProducts.annual]
+        return pairIDs.compactMap { id in
+            guard let product = sortedProducts.first(where: { $0.id == id }) else { return nil }
+            let promo = inAppKit.promoText(for: id) ?? discountPromo(for: product) ?? annualBadge(for: product)
+            return PaywallPlanOption.from(product: product, promo: promo)
+        }
+    }
+
     private var selectedHasTrial: Bool {
         selectedProduct?.subscription?.introductoryOffer?.paymentMode == .freeTrial
+            || (usesMockPlans && selectedProductID == DevotionProducts.annual)
+    }
+
+    private var hasWeeklyPlan: Bool {
+        usesMockPlans || sortedProducts.contains(where: { $0.id == DevotionProducts.weekly })
     }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            ABYOnboardingMeshBackground()
+            ABYPaywallBackground()
 
             VStack(spacing: 0) {
-                heroSection
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 52)
-                    .padding(.bottom, 16)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 28) {
+                        Color.clear.frame(height: 44)
 
-                paywallSheet
+                        PaywallBrandMark()
+
+                        PaywallHeroBlock()
+
+                        PaywallBenefitsCard(benefits: PaywallBenefit.premium)
+
+                        planSection
+                    }
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 16)
+                }
+
+                PaywallPurchaseFooter(
+                    ctaTitle: subscribeTitle,
+                    pricingNote: pricingNote,
+                    isPurchasing: inAppKit.isPurchasing,
+                    isDisabled: inAppKit.isPurchasing || (planOptions.isEmpty && !usesMockPlans),
+                    isRestoring: isRestoring,
+                    purchase: { Task { await purchaseSelected() } },
+                    restore: { Task { await restore() } },
+                    showTerms: { showTerms = true },
+                    showPrivacy: { showPrivacy = true }
+                )
             }
 
             closeButton
         }
-        .preferredColorScheme(.light)
         .sheet(isPresented: $showTerms) {
-            NavigationStack {
-                LegalDocumentView(document: .termsOfService)
-            }
+            NavigationStack { LegalDocumentView(document: .termsOfService) }
         }
         .sheet(isPresented: $showPrivacy) {
-            NavigationStack {
-                LegalDocumentView(document: .privacyPolicy)
-            }
+            NavigationStack { LegalDocumentView(document: .privacyPolicy) }
         }
         .onAppear {
-            if selectedProduct == nil {
-                selectedProduct = products.first(where: { $0.id == DevotionProducts.annual }) ?? sortedProducts.first
+            if let annual = sortedProducts.first(where: { $0.id == DevotionProducts.annual }) {
+                selectedProductID = annual.id
+            } else if let first = planOptions.first {
+                selectedProductID = first.id
             }
-        }
-    }
-
-    // MARK: - Hero
-
-    private var heroSection: some View {
-        VStack(spacing: 14) {
-            VoiceOrb(state: .idle, size: 64)
-
-            Text("Start your sacred rhythm")
-                .font(ABY.Font.onboardingTitle)
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-
-            Text("Morning devotion, AI Chaplain, prayer circles, and app shield — all in one peaceful subscription.")
-                .font(ABY.Font.callout)
-                .foregroundStyle(ABY.Color.onboardingTextSecondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
-
-            HStack(spacing: 4) {
-                ForEach(0..<5, id: \.self) { _ in
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(ABY.Color.accentDot)
-                }
-                Text("Built for daily devotion")
-                    .font(ABY.Font.captionMedium)
-                    .foregroundStyle(ABY.Color.onboardingTextMuted)
+            #if DEBUG
+            if usesMockPlans {
+                selectedProductID = DevotionProducts.annual
             }
+            #endif
         }
-    }
-
-    // MARK: - Bottom sheet
-
-    private var paywallSheet: some View {
-        VStack(spacing: 0) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Ready to begin?")
-                        .font(ABY.Font.title2)
-                        .foregroundStyle(ABY.Color.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-
-                    PaywallFeatureChecklist()
-
-                    if selectedHasTrial {
-                        PaywallTrialTimeline(trialDays: 5)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    plansSection
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 28)
-                .padding(.bottom, 16)
-            }
-
-            bottomBar
-        }
-        .background {
-            UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28)
-                .fill(ABY.Color.gradientTop)
-                .shadow(color: .black.opacity(0.12), radius: 24, y: -8)
-                .ignoresSafeArea(edges: .bottom)
-        }
-        .animation(.easeInOut(duration: 0.2), value: selectedHasTrial)
     }
 
     private var closeButton: some View {
@@ -139,10 +125,10 @@ struct DevotionPaywallView: View {
             dismiss()
         } label: {
             Image(systemName: "xmark")
-                .font(ABY.Font.iconMedium)
-                .foregroundStyle(.white.opacity(0.9))
+                .font(ABY.Font.bodyMedium)
+                .foregroundStyle(ABY.Color.paywallTextPrimary)
                 .frame(width: 36, height: 36)
-                .background(.white.opacity(0.18))
+                .background(ABY.Color.paywallCloseFill)
                 .clipShape(Circle())
         }
         .accessibilityLabel("Close paywall")
@@ -151,25 +137,33 @@ struct DevotionPaywallView: View {
     }
 
     @ViewBuilder
-    private var plansSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Choose your plan")
-                .font(ABY.Font.section)
-                .foregroundStyle(ABY.Color.textTertiary)
-                .textCase(.uppercase)
-                .tracking(0.6)
+    private var planSection: some View {
+        if planOptions.isEmpty && !usesMockPlans {
+            loadingPlans
+        } else {
+            VStack(spacing: 14) {
+                Text("Choose your plan")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(ABY.Color.paywallTextTertiary)
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            if sortedProducts.isEmpty {
-                loadingPlans
-            } else {
-                ForEach(sortedProducts, id: \.id) { product in
-                    SacredPaywallPlanCard(
-                        product: product,
-                        isSelected: selectedProduct?.id == product.id,
-                        badge: inAppKit.badge(for: product.id),
-                        badgeColor: inAppKit.badgeColor(for: product.id),
-                        promoText: inAppKit.promoText(for: product.id) ?? discountPromo(for: product),
-                        onSelect: { selectedProduct = product }
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(planOptions) { option in
+                        PaywallPlanCard(
+                            option: option,
+                            isSelected: selectedProductID == option.id,
+                            onSelect: { selectedProductID = option.id }
+                        )
+                    }
+                }
+                .padding(.top, 4)
+
+                if hasWeeklyPlan {
+                    PaywallWeeklyOptionLink(
+                        isWeeklySelected: selectedProductID == DevotionProducts.weekly,
+                        action: { selectedProductID = DevotionProducts.weekly }
                     )
                 }
             }
@@ -180,15 +174,18 @@ struct DevotionPaywallView: View {
     private var loadingPlans: some View {
         VStack(spacing: 12) {
             ProgressView()
+                .tint(ABY.Color.paywallTextPrimary)
             Text("Loading plans…")
                 .font(ABY.Font.footnote)
-                .foregroundStyle(ABY.Color.textSecondary)
-            #if DEBUG
-            debugPlanFallback
-            #endif
+                .foregroundStyle(ABY.Color.paywallTextSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
+    }
+
+    private func annualBadge(for product: Product) -> String? {
+        guard product.id == DevotionProducts.annual else { return nil }
+        return inAppKit.badge(for: product.id) ?? "Best value"
     }
 
     @MainActor
@@ -214,127 +211,47 @@ struct DevotionPaywallView: View {
         case .week: max(1, period.value / 4)
         case .month: period.value
         case .year: period.value * 12
-        @unknown default: period.value
+        default: period.value
         }
     }
 
-    #if DEBUG
-    private var debugPlanFallback: some View {
-        VStack(spacing: 8) {
-            Text("StoreKit products unavailable in simulator.")
-                .font(ABY.Font.caption)
-                .foregroundStyle(ABY.Color.textTertiary)
-                .multilineTextAlignment(.center)
-            Text("Enable “Bypass paywall” in You → Developer, or add DevotionLock.storekit to the scheme.")
-                .font(ABY.Font.caption)
-                .foregroundStyle(ABY.Color.textTertiary)
-                .multilineTextAlignment(.center)
-        }
-    }
-    #endif
-
-    // MARK: - Bottom bar
-
-    private var bottomBar: some View {
-        VStack(spacing: 10) {
-            if let product = selectedProduct {
-                ABYPrimaryButton(
-                    title: purchaseTitle(for: product),
-                    icon: inAppKit.isPurchasing ? nil : (selectedHasTrial ? "gift.fill" : "checkmark")
-                ) {
-                    Task { await purchase(product) }
-                }
-                .disabled(inAppKit.isPurchasing || inAppKit.isPurchased(product.id))
-                .opacity(inAppKit.isPurchasing ? 0.7 : 1)
-
-                Text(ctaSubtitle(for: product))
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(ABY.Color.textSecondary)
-                    .multilineTextAlignment(.center)
-            } else {
-                ABYPrimaryButton(title: "Continue") {
-                    #if DEBUG
-                    PaywallBypass.setEnabled(true)
-                    closePaywall()
-                    #endif
-                }
-            }
-
-            HStack(spacing: 16) {
-                Button("Restore") {
-                    Task { await restore() }
-                }
-                .disabled(isRestoring)
-
-                Text("·").foregroundStyle(ABY.Color.textTertiary)
-
-                Button("Terms") { showTerms = true }
-
-                Text("·").foregroundStyle(ABY.Color.textTertiary)
-
-                Button("Privacy") { showPrivacy = true }
-            }
-            .font(ABY.Font.caption.weight(.medium))
-            .foregroundStyle(ABY.Color.textSecondary)
-
-            subscriptionDisclosure
-        }
-        .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 12)
-        .padding(.bottom, 24)
-        .background(.ultraThinMaterial)
-    }
-
-    private func ctaSubtitle(for product: Product) -> String {
-        if selectedHasTrial {
-            return "5 days free, then \(product.displayPrice)/year. Cancel anytime."
-        }
-        guard let subscription = product.subscription else {
-            return "Billed \(product.displayPrice). Cancel anytime."
-        }
-        switch subscription.subscriptionPeriod.unit {
-        case .week:
-            return "Billed \(product.displayPrice) weekly. Cancel anytime."
-        case .month:
-            return "Billed \(product.displayPrice) monthly. Cancel anytime."
-        case .year:
-            return "Billed \(product.displayPrice) yearly. Cancel anytime."
-        default:
-            return "Cancel anytime in Settings."
-        }
-    }
-
-    private var subscriptionDisclosure: some View {
-        VStack(spacing: 6) {
-            Text("Payment is charged to your Apple ID. Subscriptions auto-renew unless canceled at least 24 hours before the end of the current period. Free trial converts to a paid subscription unless canceled before the trial ends.")
-                .font(.system(size: 10))
-                .foregroundStyle(ABY.Color.textTertiary)
-                .multilineTextAlignment(.center)
-            Link("Manage subscriptions", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                .font(.system(size: 10, weight: .medium))
-        }
-    }
-
-    private func purchaseTitle(for product: Product) -> String {
-        if inAppKit.isPurchased(product.id) { return "Subscribed" }
+    private var subscribeTitle: String {
         if inAppKit.isPurchasing { return "Processing…" }
-        if product.subscription?.introductoryOffer != nil {
-            return "Start free trial"
+        if selectedHasTrial { return "Start free trial" }
+        return "Subscribe to Plus"
+    }
+
+    private var pricingNote: String? {
+        if usesMockPlans {
+            if selectedProductID == DevotionProducts.annual {
+                return "5-day free trial, then $39.99/year. Cancel anytime."
+            }
+            return "$9.99/month. Cancel anytime."
         }
-        return "Subscribe · \(product.displayPrice)"
+        guard let product = selectedProduct else { return nil }
+        if selectedHasTrial {
+            return "5-day free trial, then \(product.displayPrice). Cancel anytime."
+        }
+        return "\(product.displayPrice). Cancel anytime."
     }
 
     @MainActor
-    private func purchase(_ product: Product) async {
+    private func purchaseSelected() async {
+        #if DEBUG
+        if usesMockPlans {
+            PaywallBypass.setEnabled(true)
+            closePaywall()
+            return
+        }
+        #endif
+        guard let product = selectedProduct else { return }
         do {
             try await inAppKit.purchase(product)
             if inAppKit.hasAnyPurchase {
                 await UserPreferencesSync.shared.updatePremium(true)
                 closePaywall()
             }
-        } catch {
-            // StoreKit surfaces errors via inAppKit.purchaseError
-        }
+        } catch {}
     }
 
     @MainActor

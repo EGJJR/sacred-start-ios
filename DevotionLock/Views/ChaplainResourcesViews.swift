@@ -135,7 +135,7 @@ struct SpiritualResourceCard: View {
                     Spacer()
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(ABY.Font.calloutMedium)
                             .foregroundStyle(.white.opacity(0.85))
                     }
                     .buttonStyle(.plain)
@@ -143,12 +143,12 @@ struct SpiritualResourceCard: View {
                 .padding(.bottom, 16)
 
                 Text("“")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
+                    .font(ABY.Font.editorialTitle)
                     .foregroundStyle(.white.opacity(0.35))
                     .offset(y: 4)
 
                 Text(resource.text)
-                    .font(.system(size: 17, weight: .regular, design: .serif))
+                    .font(ABY.Font.editorialBody)
                     .foregroundStyle(.white)
                     .lineSpacing(5)
                     .multilineTextAlignment(.leading)
@@ -232,11 +232,11 @@ struct SpiritualResourceDetailView: View {
 
                     VStack(spacing: 20) {
                         Text("“")
-                            .font(.system(size: 48, weight: .bold, design: .serif))
+                            .font(ABY.Font.editorialLargeTitle)
                             .foregroundStyle(resource.topic.tint.opacity(0.45))
 
                         Text(resource.text)
-                            .font(.system(size: 24, weight: .regular, design: .serif))
+                            .font(ABY.Font.editorialTitle)
                             .foregroundStyle(palette.textPrimary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(8)

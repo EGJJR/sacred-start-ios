@@ -182,11 +182,11 @@ struct SoftLightFieldView: View {
     @State private var dots: [SoftLightDot] = []
 
     private let palette: [Color] = [
-        ABY.Color.pillTeal,
-        ABY.Color.pillPurple,
-        ABY.Color.orbSage,
-        ABY.Color.meshPeriwinkle,
-        ABY.Color.meshSky,
+        ABY.Color.pillTeal.opacity(0.85),
+        ABY.Color.pillPurple.opacity(0.8),
+        ABY.Color.orbSage.opacity(0.75),
+        ABY.Color.meshLilac.opacity(0.7),
+        ABY.Color.meshPeriwinkle.opacity(0.65),
     ]
 
     var body: some View {
@@ -260,30 +260,21 @@ struct SanctuarySplashBackground: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.90, green: 0.88, blue: 0.97),
-                    Color(red: 0.96, green: 0.94, blue: 0.99),
-                    Color(red: 0.98, green: 0.95, blue: 0.91),
+                    Color(red: 0.93, green: 0.90, blue: 0.97),
+                    Color(red: 0.95, green: 0.92, blue: 0.98),
+                    Color(red: 0.94, green: 0.91, blue: 0.97),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             RadialGradient(
                 colors: [
-                    ABY.Color.meshLilac.opacity(0.35),
+                    ABY.Color.meshLilac.opacity(0.22),
                     Color.clear,
                 ],
                 center: .center,
                 startRadius: 20,
-                endRadius: 320
-            )
-            RadialGradient(
-                colors: [
-                    Color.clear,
-                    ABY.Color.meshPeriwinkle.opacity(0.12),
-                ],
-                center: .top,
-                startRadius: 80,
-                endRadius: 420
+                endRadius: 300
             )
         }
     }

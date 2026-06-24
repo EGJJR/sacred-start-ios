@@ -24,7 +24,7 @@ struct StreakBornView: View {
                         .frame(width: 120, height: 120)
                         .scaleEffect(appeared ? 1 : 0.6)
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 52, weight: .semibold))
+                        .font(ABY.Font.largeTitle)
                         .foregroundStyle(StreakPalette.orange)
                         .scaleEffect(appeared ? 1 : 0.4)
                 }
@@ -113,7 +113,7 @@ struct StreakCelebrationView: View {
                         .scaleEffect(appeared ? 1.05 : 0.5)
                     VStack(spacing: 2) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 34, weight: .semibold))
+                            .font(ABY.Font.largeTitle)
                             .foregroundStyle(StreakPalette.orange)
                         AnimatedStreakNumber(target: result.streak, color: ABY.Color.textPrimary)
                             .font(ABY.Font.largeTitle)

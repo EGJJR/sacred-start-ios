@@ -2,6 +2,11 @@
 //  GuidedJournalFlowView.swift
 //  DevotionLock
 //
+//  Mobbin ABY refs:
+//  - Mad-libs flow: https://mobbin.com/screens/5c0e4735-be8c-426b-9e69-83c2c7ca148e
+//  - Field sheet: https://mobbin.com/screens/639a07c0-20f4-427f-9421-913a03694448
+//  - Guided entry + voice: https://mobbin.com/screens/652fd5c2-e81e-4fd8-ad5a-10f650b04f12
+//
 
 import SwiftUI
 
@@ -44,6 +49,15 @@ enum MadLibField: String, Identifiable, CaseIterable {
         }
     }
 
+    var inlinePlaceholder: String {
+        switch self {
+        case .emotion: "emotion"
+        case .reason: "reason for emotion"
+        case .onMind: "something on your mind"
+        case .plans: "future plans"
+        }
+    }
+
     var cardTitle: String {
         switch self {
         case .emotion: "Right now, I'm feeling…"
@@ -74,6 +88,39 @@ enum MadLibField: String, Identifiable, CaseIterable {
             ["time with family", "a walk outside", "quiet prayer", "finishing a task", "rest tonight"]
         }
     }
+
+    var sheetTitle: String {
+        switch self {
+        case .emotion: "Current emotional state"
+        case .reason: "What's behind the feeling"
+        case .onMind: "On your mind"
+        case .plans: "Future plans"
+        }
+    }
+
+    var sheetPlaceholder: String {
+        switch self {
+        case .emotion: "Add something personal to you"
+        case .reason: "Name what's shaping today"
+        case .onMind: "What's been circling"
+        case .plans: "One thing ahead"
+        }
+    }
+}
+
+extension GuidedJournalStep {
+    var stepTitle: String {
+        switch self {
+        case .mood: "Check in"
+        case .focusTags: "Focus"
+        case .madLibs: "This moment"
+        case .gratitude: "Gratitude"
+        case .affirmation: "Intention"
+        case .scripture: "Scripture"
+        case .voice: "Reflection"
+        case .complete: "Complete"
+        }
+    }
 }
 
 struct GuidedJournalFlowView: View {
@@ -81,19 +128,20 @@ struct GuidedJournalFlowView: View {
     @Binding var isPresented: Bool
     var streakManager: StreakManager
     var userName: String
+    var initialStep: GuidedJournalStep = .mood
     var onDevotionFinished: ((DevotionFinishResult) -> Void)? = nil
     var onOpenChaplainChat: ((String) -> Void)? = nil
 
     @AppStorage("intentionMood") private var intentionMood = "Peaceful"
 
-    @State private var step: GuidedJournalStep = .mood
+    @State private var step: GuidedJournalStep
     @State private var draft = JournalDraft()
-    @State private var contentAppeared = false
+    @State private var stepRevealed = false
     @State private var completedStreak = 0
     @State private var finishResult: DevotionFinishResult?
     @State private var shouldCelebrate = false
     @State private var journalStartedAt = Date()
-    @FocusState private var focusedField: MadLibField?
+    @State private var editingMadLibField: MadLibField?
 
     private var journalElapsedSeconds: Int {
         Int(Date().timeIntervalSince(journalStartedAt))
@@ -104,6 +152,23 @@ struct GuidedJournalFlowView: View {
 
     private var flowProgress: CGFloat {
         CGFloat(step.progressIndex + 1) / CGFloat(totalSteps)
+    }
+
+    init(
+        isPresented: Binding<Bool>,
+        streakManager: StreakManager,
+        userName: String,
+        initialStep: GuidedJournalStep = .mood,
+        onDevotionFinished: ((DevotionFinishResult) -> Void)? = nil,
+        onOpenChaplainChat: ((String) -> Void)? = nil
+    ) {
+        _isPresented = isPresented
+        self.streakManager = streakManager
+        self.userName = userName
+        self.initialStep = initialStep
+        self.onDevotionFinished = onDevotionFinished
+        self.onOpenChaplainChat = onOpenChaplainChat
+        _step = State(initialValue: initialStep)
     }
 
     var body: some View {
@@ -117,14 +182,16 @@ struct GuidedJournalFlowView: View {
                 )
             } else if step == .complete {
                 ZStack {
-                    ABYOnboardingMeshBackground()
+                    ABYBackground()
                     DevotionCompletionView(
                         streak: completedStreak,
                         mood: draft.mood,
+                        insight: draft.completionInsight,
                         onContinue: dismissFlow
                     )
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .abyScreen()
+                .transition(.opacity)
             } else {
                 journalChrome
             }
@@ -133,17 +200,15 @@ struct GuidedJournalFlowView: View {
         .onAppear {
             draft.mood = intentionMood
             draft.applyMoodDefaults()
-            animateIn()
+            withAnimation(AppTheme.onboardingStepIn) { stepRevealed = true }
             // Lock screen Live Activity disabled for now — re-enable when layout is finalized.
             // JournalLiveActivityManager.startIfAvailable()
         }
         .onDisappear {
             // JournalLiveActivityManager.end()
         }
-        .onChange(of: step) { _, newStep in
-            focusedField = nil
-            animateIn()
-            // JournalLiveActivityManager.update(step: newStep, elapsedSeconds: journalElapsedSeconds)
+        .onChange(of: step) { _, _ in
+            editingMadLibField = nil
         }
     }
 
@@ -156,11 +221,7 @@ struct GuidedJournalFlowView: View {
 
     private var journalChrome: some View {
         ZStack {
-            if step == .madLibs {
-                ABYJournalGradientBackground()
-            } else {
-                ABYBackground()
-            }
+            ABYCleanGradientBackground()
 
             VStack(spacing: 0) {
                 flowTopBar
@@ -177,57 +238,65 @@ struct GuidedJournalFlowView: View {
                         }
                         .scrollDismissesKeyboard(.interactively)
 
-                        ABYPrimaryButton(title: "Finished!", action: advance)
-                            .opacity(draft.isMadLibsComplete ? 1 : 0.4)
-                            .disabled(!draft.isMadLibsComplete)
-                            .padding(.horizontal, ABY.Spacing.screen)
-                            .padding(.bottom, 32)
+                        ABYLightOnboardingPrimaryButton(
+                            title: "Finished!",
+                            isEnabled: draft.isMadLibsComplete,
+                            action: advance
+                        )
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .padding(.bottom, 32)
                     }
-                    .opacity(contentAppeared ? 1 : 0)
-                    .offset(y: contentAppeared ? 0 : 12)
+                    .onboardingStepReveal(stepRevealed)
                 } else if step == .gratitude || step == .affirmation {
                     VStack(spacing: 0) {
                         ScrollView(showsIndicators: false) {
                             stepContent
                                 .padding(.horizontal, ABY.Spacing.screen)
                                 .padding(.bottom, 16)
-                                .opacity(contentAppeared ? 1 : 0)
-                                .offset(y: contentAppeared ? 0 : 14)
+                                .onboardingStepReveal(stepRevealed)
                         }
                         .scrollDismissesKeyboard(.interactively)
 
                         flowBottomCTA
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.bottom, 32)
+                            .onboardingStepReveal(stepRevealed)
                     }
                 } else {
                     ScrollView(showsIndicators: false) {
                         stepContent
                             .padding(.horizontal, ABY.Spacing.screen)
                             .padding(.bottom, 24)
-                            .opacity(contentAppeared ? 1 : 0)
-                            .offset(y: contentAppeared ? 0 : 14)
+                            .onboardingStepReveal(stepRevealed)
                     }
 
                     flowBottomCTA
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.bottom, 32)
+                        .onboardingStepReveal(stepRevealed)
                 }
             }
         }
+        .environment(\.onboardingSurface, .light)
+        .environment(\.abyJournalOnboardingStyle, .warmSunset)
         .abyScreen()
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { focusedField = nil }
-                    .font(ABY.Font.body.weight(.medium))
-            }
+        .sheet(item: $editingMadLibField) { field in
+            ABYMadLibEditSheet(
+                field: field,
+                text: binding(for: field),
+                onDone: { editingMadLibField = nil }
+            )
         }
     }
 
     private var flowTopBar: some View {
         VStack(spacing: 14) {
             ABYThinProgressBar(progress: flowProgress)
+            ABYGuidedJournalStepLabel(
+                stepTitle: step.stepTitle,
+                stepIndex: step.progressIndex + 1,
+                totalSteps: totalSteps
+            )
             HStack {
                 if step != .mood {
                     ABYIconButton(icon: "chevron.left") { goBack() }
@@ -237,7 +306,7 @@ struct GuidedJournalFlowView: View {
                 Spacer()
                 Button(action: dismissFlow) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(palette.textSecondary)
                         .frame(width: 36, height: 36)
                 }
@@ -252,13 +321,13 @@ struct GuidedJournalFlowView: View {
         case .mood:
             moodStep
         case .focusTags:
-            FocusTagsStepView(selectedTags: $draft.focusTags, appeared: contentAppeared)
+            FocusTagsStepView(selectedTags: $draft.focusTags, appeared: stepRevealed)
         case .madLibs:
             madLibsStep
         case .gratitude:
-            GratitudeStepView(items: $draft.gratitudeItems, appeared: contentAppeared)
+            GratitudeStepView(items: $draft.gratitudeItems, appeared: stepRevealed)
         case .affirmation:
-            AffirmationStepView(affirmation: $draft.affirmation, appeared: contentAppeared)
+            AffirmationStepView(affirmation: $draft.affirmation, appeared: stepRevealed)
         case .scripture:
             scriptureStep
         case .voice, .complete:
@@ -270,22 +339,14 @@ struct GuidedJournalFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             ABYHeadline(
                 title: "How are you this morning?",
-                subtitle: "About 5 minutes · scripture, gratitude, and optional voice with your Chaplain."
+                subtitle: "No perfect words needed. Just what's true right now."
             )
-            VStack(spacing: 8) {
-                ForEach(Array(MoodCatalog.options.enumerated()), id: \.offset) { index, mood in
-                    JournalMoodChip(
-                        label: mood.label,
-                        icon: mood.icon,
-                        isSelected: draft.mood == mood.label
-                    ) {
-                        withAnimation(AppTheme.springSnappy) {
-                            draft.mood = mood.label
-                            draft.emotion = mood.label.lowercased()
-                            intentionMood = mood.label
-                        }
-                    }
-                    .animation(AppTheme.springGentle.delay(0.04 + Double(index) * 0.03), value: contentAppeared)
+
+            ABYGuidedMoodGrid(selectedMood: $draft.mood) { label in
+                withAnimation(AppTheme.springSnappy) {
+                    draft.mood = label
+                    draft.emotion = label.lowercased()
+                    intentionMood = label
                 }
             }
         }
@@ -308,21 +369,11 @@ struct GuidedJournalFlowView: View {
                     .lineSpacing(4)
             }
             .padding(.top, 8)
-            .padding(.bottom, 20)
+            .padding(.bottom, 28)
 
-            MadLibLivePreview(draft: draft)
-                .padding(.bottom, 24)
-
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(MadLibField.allCases) { field in
-                    MadLibFieldCard(
-                        field: field,
-                        text: binding(for: field),
-                        focusedField: $focusedField
-                    )
-                }
+            MadLibInlineSentence(draft: $draft) { field in
+                editingMadLibField = field
             }
-            .padding(.bottom, 8)
         }
     }
 
@@ -330,24 +381,18 @@ struct GuidedJournalFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             ABYHeadline(
                 title: "Pause with Scripture",
-                subtitle: "Tap the words that speak to you, then breathe before you speak."
+                subtitle: "Tap the words that speak to you — then share a short reflection."
             )
-
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Today's focus")
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(ABY.Color.textSecondary)
-                    Spacer()
-                    MoodPill(label: draft.mood)
-                }
-            }
-            .abyCard()
 
             BlackoutVerseView(
                 verse: dailyFocus.verse,
                 reference: dailyFocus.reference,
                 savedPhrase: $draft.savedVersePhrase
+            )
+
+            ABYGuidedVoiceHandoffCard(
+                savedPhrase: draft.savedVersePhrase,
+                mood: draft.mood
             )
         }
         .padding(.top, 8)
@@ -371,7 +416,11 @@ struct GuidedJournalFlowView: View {
                 .opacity(draft.isAffirmationComplete ? 1 : 0.4)
                 .disabled(!draft.isAffirmationComplete)
         case .scripture:
-            ABYPrimaryButton(title: "Talk with Chaplain", icon: "waveform", action: advance)
+            ABYPrimaryButton(
+                title: "Speak your reflection",
+                icon: "mic.fill",
+                action: advance
+            )
         case .voice, .complete:
             EmptyView()
         }
@@ -421,13 +470,8 @@ struct GuidedJournalFlowView: View {
         }
     }
 
-    private func animateIn() {
-        contentAppeared = false
-        withAnimation(AppTheme.springGentle) { contentAppeared = true }
-    }
-
     private func goBack() {
-        withAnimation(AppTheme.springSnappy) {
+        OnboardingStepTransition.animateChange(revealed: $stepRevealed) {
             if let previous = GuidedJournalStep(rawValue: step.rawValue - 1) {
                 step = previous
             }
@@ -435,8 +479,8 @@ struct GuidedJournalFlowView: View {
     }
 
     private func advance() {
-        focusedField = nil
-        withAnimation(AppTheme.springSnappy) {
+        editingMadLibField = nil
+        OnboardingStepTransition.animateChange(revealed: $stepRevealed) {
             if let next = GuidedJournalStep(rawValue: step.rawValue + 1) {
                 step = next
             }
@@ -488,153 +532,72 @@ struct GuidedJournalFlowView: View {
 
 // MARK: - Subviews
 
-struct JournalMoodChip: View {
+/// ABY mad-libs: inline sentence with solid / dashed pills (Mobbin ref).
+struct MadLibInlineSentence: View {
     @Environment(\.sanctuaryPalette) private var palette
-    let label: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
+    @Binding var draft: JournalDraft
+    var onEditField: (MadLibField) -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(ABY.Font.iconMedium)
-                    .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
-                    .frame(width: 28)
-                Text(label)
-                    .font(ABY.Font.body)
+        VStack(alignment: .leading, spacing: 14) {
+            inlineLine(field: .emotion, value: draft.emotion)
+            inlineLine(field: .reason, value: draft.reason)
+            inlineLine(field: .onMind, value: draft.onMind)
+            inlineLine(field: .plans, value: draft.plans)
+        }
+        .font(ABY.Font.body)
+        .foregroundStyle(palette.textPrimary)
+        .lineSpacing(8)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func inlineLine(field: MadLibField, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(field.prefix)
+                .foregroundStyle(palette.textPrimary)
+
+            MadLibInlinePill(field: field, value: value, onTap: { onEditField(field) })
+
+            if field != .plans {
+                Text(".")
                     .foregroundStyle(palette.textPrimary)
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(palette.textPrimary)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(isSelected ? palette.surfaceElevated : palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.card)
-                    .stroke(isSelected ? palette.textSecondary : palette.divider, lineWidth: isSelected ? 1.5 : 1)
             }
         }
-        .buttonStyle(ScaleButtonStyle())
-    }
-}
-
-struct MadLibLivePreview: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    let draft: JournalDraft
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            previewLine(prefix: "Right now, I'm feeling ", value: draft.emotion, color: MadLibField.emotion.color)
-            previewLine(prefix: "because I ", value: draft.reason, color: MadLibField.reason.color)
-            previewLine(prefix: "I've also been thinking about ", value: draft.onMind, color: MadLibField.onMind.color)
-            previewLine(prefix: "One thing I have planned is ", value: draft.plans, color: MadLibField.plans.color)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.surface.opacity(palette.isNight ? 0.88 : 0.72))
-        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
-        .overlay(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge).stroke(palette.divider, lineWidth: 1))
-    }
-
-    private func previewLine(prefix: String, value: String, color: Color) -> some View {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(prefix)
-                .foregroundStyle(palette.textSecondary)
-            Text(trimmed.isEmpty ? "…" : value)
-                .foregroundStyle(trimmed.isEmpty ? palette.textTertiary : color)
-                .fontWeight(.medium)
-                .contentTransition(.opacity)
-                .animation(AppTheme.springSnappy, value: value)
-            Text(".")
-                .foregroundStyle(palette.textSecondary)
-        }
-        .font(ABY.Font.callout)
         .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-struct MadLibFieldCard: View {
-    @Environment(\.sanctuaryPalette) private var palette
+private struct MadLibInlinePill: View {
     let field: MadLibField
-    @Binding var text: String
-    var focusedField: FocusState<MadLibField?>.Binding
+    let value: String
+    let onTap: () -> Void
 
-    private var isFocused: Bool { focusedField.wrappedValue == field }
+    private var trimmed: String { value.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isFilled: Bool { !trimmed.isEmpty }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(field.cardTitle)
-                .font(ABY.Font.body.weight(.semibold))
-                .foregroundStyle(palette.textPrimary)
-
-            TextField(field.placeholder, text: $text, axis: .vertical)
-                .lineLimit(1...4)
-                .font(ABY.Font.body)
-                .foregroundStyle(palette.textPrimary)
-                .tint(field.color)
-                .textInputAutocapitalization(.sentences)
-                .autocorrectionDisabled(false)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(palette.surfaceMuted)
-                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
+        Button(action: onTap) {
+            Text(isFilled ? trimmed : field.inlinePlaceholder)
+                .font(ABY.Font.bodyMedium)
+                .foregroundStyle(isFilled ? field.color : field.color)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background {
+                    Capsule()
+                        .fill(isFilled ? field.color.opacity(0.14) : field.color.opacity(0.08))
+                }
                 .overlay {
-                    RoundedRectangle(cornerRadius: ABY.Radius.card)
-                        .stroke(isFocused ? field.color.opacity(0.85) : palette.divider, lineWidth: isFocused ? 2 : 1)
+                    Capsule()
+                        .strokeBorder(
+                            field.color.opacity(isFilled ? 0.9 : 0.75),
+                            style: isFilled
+                                ? StrokeStyle(lineWidth: 1.5)
+                                : StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                        )
                 }
-                .focused(focusedField, equals: field)
-                .contentShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
-
-            if !field.suggestions.isEmpty {
-                MadLibQuickPicks(field: field, text: $text)
-            }
         }
-    }
-}
-
-struct MadLibQuickPicks: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    let field: MadLibField
-    @Binding var text: String
-
-    private let columns = [GridItem(.adaptive(minimum: 96), spacing: 8)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Quick picks")
-                .font(ABY.Font.section)
-                .foregroundStyle(palette.textSecondary)
-                .tracking(0.4)
-
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(field.suggestions, id: \.self) { suggestion in
-                    Button {
-                        text = field == .emotion ? suggestion.lowercased() : suggestion
-                    } label: {
-                        Text(suggestion)
-                            .font(ABY.Font.captionMedium)
-                            .foregroundStyle(field.color)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(field.color.opacity(text == suggestion || (field == .emotion && text == suggestion.lowercased()) ? 0.2 : 0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.chip))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: ABY.Radius.chip)
-                                    .stroke(field.color.opacity(0.35), lineWidth: 1)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -165,8 +165,33 @@ final class PrayerCircleStore {
         }
     }
 
+    func latestPost(for circleId: UUID) -> CirclePost? {
+        posts(for: circleId, sort: .newest).first
+    }
+
     @discardableResult
-    func createCircle(name: String) -> PrayerCircle {
+    private func createCircleLocal(name: String) -> PrayerCircle {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = Self.generateInviteCode()
+        var memberIds: [UUID] = []
+        if let me = currentMember {
+            memberIds.append(me.id)
+        }
+        let circle = PrayerCircle(
+            id: UUID(),
+            name: trimmed.isEmpty ? "Prayer Circle" : trimmed,
+            inviteCode: code,
+            createdAt: Date(),
+            memberIds: memberIds,
+            coverPaletteIndex: circles.count
+        )
+        circles.insert(circle, at: 0)
+        persist()
+        return circle
+    }
+
+    @discardableResult
+    func createCircle(name: String) async -> PrayerCircle {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let code = Self.generateInviteCode()
         var memberIds: [UUID] = []
@@ -184,8 +209,21 @@ final class PrayerCircleStore {
         circles.insert(circle, at: 0)
         persist()
 
-        if AuthManager.shared.isAuthenticated, let memberId = currentMemberId {
-            CircleRepository.shared.enqueueCreateCircle(circle, memberId: memberId)
+        if AuthManager.shared.isAuthenticated,
+           let memberId = currentMemberId,
+           let userId = AuthManager.shared.userId {
+            do {
+                try await CircleRepository.shared.createCircleRemote(
+                    circle,
+                    creatorMembershipId: memberId,
+                    userId: userId
+                )
+            } catch {
+                #if DEBUG
+                print("createCircle remote sync failed, queueing: \(error)")
+                #endif
+                CircleRepository.shared.enqueueCreateCircle(circle, memberId: memberId)
+            }
         }
         return circle
     }
@@ -215,13 +253,13 @@ final class PrayerCircleStore {
         let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalized.isEmpty else { return nil }
 
-        if let local = circles.first(where: { $0.inviteCode.uppercased() == normalized }) {
-            _ = joinCircle(code: normalized)
-            return local
-        }
-
         guard AuthManager.shared.isAuthenticated else {
             return joinCircle(code: normalized)
+        }
+
+        if let local = circles.first(where: { $0.inviteCode.uppercased() == normalized }),
+           local.memberIds.contains(where: { $0 == currentMemberId }) {
+            return local
         }
 
         guard let circleId = await CircleRepository.shared.joinCircleRemote(code: normalized) else {
@@ -229,7 +267,24 @@ final class PrayerCircleStore {
         }
 
         await refreshFromRemote()
-        return circles.first { $0.id == circleId }
+        if let joined = circles.first(where: { $0.id == circleId }) {
+            return joined
+        }
+
+        if let row = await CircleRepository.shared.fetchCircle(id: circleId),
+           let userId = AuthManager.shared.userId {
+            mergeRemoteSnapshot(
+                circles: [row],
+                memberships: [],
+                posts: [],
+                encouragements: [],
+                currentUserId: userId
+            )
+            _ = joinCircle(code: normalized)
+            return circles.first { $0.id == circleId }
+        }
+
+        return nil
     }
 
     func shareNote(
@@ -612,7 +667,7 @@ final class PrayerCircleStore {
               !UserDefaults.standard.bool(forKey: Keys.didSeed),
               circles.isEmpty else { return }
 
-        let circle = createCircle(name: "Family Circle")
+        let circle = createCircleLocal(name: "Family Circle")
 
         let maria = CircleMember(id: UUID(), displayName: "Maria", avatarHue: 0.08, isCurrentUser: false)
         let james = CircleMember(id: UUID(), displayName: "James", avatarHue: 0.55, isCurrentUser: false)

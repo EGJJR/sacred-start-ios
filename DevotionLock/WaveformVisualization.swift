@@ -91,12 +91,12 @@ struct LiveTranscriptionText: View {
 
     var body: some View {
         Text(attributedTranscript)
-            .font(.system(size: 22, weight: .regular))
+            .font(ABY.Font.title2)
             .multilineTextAlignment(.center)
             .lineSpacing(4)
             .overlay {
                 Text("this day before you,")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(ABY.Font.title2)
                     .foregroundStyle(.clear)
                     .background(
                         LinearGradient(

@@ -57,7 +57,7 @@ struct ChaplainPrayerWallSection: View {
                     if store.previewNotes.isEmpty {
                         VStack(spacing: 10) {
                             Image(systemName: "note.text.badge.plus")
-                                .font(.system(size: 28, weight: .light))
+                                .font(ABY.Font.title)
                                 .foregroundStyle(ABY.Color.pillPurple.opacity(0.7))
                             Text("Pin your first prayer")
                                 .font(ABY.Font.callout)
@@ -82,7 +82,7 @@ struct ChaplainPrayerWallSection: View {
                             .font(ABY.Font.captionMedium)
                             .foregroundStyle(palette.textPrimary)
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(ABY.Font.emojiSmall)
                             .foregroundStyle(palette.textSecondary)
                     }
                     .padding(.horizontal, 14)
@@ -153,14 +153,14 @@ struct ChaplainPrayerWallSection: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: note.kind.icon)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(ABY.Font.microBold)
                 Text(note.kind.shortLabel)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(ABY.Font.microBold)
             }
             .foregroundStyle(note.kind.tint)
 
             Text(note.text)
-                .font(.system(size: 11, weight: .regular, design: .serif))
+                .font(ABY.Font.caption)
                 .foregroundStyle(PrayerWallNote.inkColor)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
@@ -183,7 +183,7 @@ struct ChaplainPrayerWallSection: View {
     private func wallStat(count: Int, icon: String, tint: Color) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(ABY.Font.paywallPromoBadge)
             Text("\(count)")
                 .font(ABY.Font.captionMedium)
         }
@@ -397,7 +397,7 @@ struct PrayerWallView: View {
                         HStack(spacing: 5) {
                             if item != .all {
                                 Image(systemName: item.kind?.icon ?? "")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(ABY.Font.paywallPromoBadge)
                             }
                             Text(item.label)
                                 .font(ABY.Font.captionMedium)
@@ -480,7 +480,7 @@ struct PrayerWallView: View {
                 DevotionHaptics.light()
             } label: {
                 Image(systemName: showAddMenu ? "xmark" : "plus")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(ABY.Font.title2)
                     .foregroundStyle(.white)
                     .frame(width: 58, height: 58)
                     .background {
@@ -506,7 +506,7 @@ struct PrayerWallView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(kind.tint)
                     .frame(width: 32, height: 32)
                     .background(kind.tint.opacity(0.14))
@@ -591,7 +591,7 @@ struct PrayerWallNoteCard: View {
 
                 HStack(spacing: 5) {
                     Image(systemName: note.kind.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(ABY.Font.paywallPromoBadge)
                     Text(note.kind.shortLabel)
                         .font(ABY.Font.captionMedium)
                     Spacer()
@@ -603,7 +603,7 @@ struct PrayerWallNoteCard: View {
                 .padding(.bottom, 10)
 
                 Text(note.text)
-                    .font(.system(size: 15, weight: .regular, design: .serif))
+                    .font(ABY.Font.editorialCallout)
                     .foregroundStyle(PrayerWallNote.inkColor)
                     .multilineTextAlignment(.leading)
                     .lineSpacing(4)
@@ -612,7 +612,7 @@ struct PrayerWallNoteCard: View {
                 if note.kind == .answered, let answeredAt = note.answeredAt {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 10))
+                            .font(ABY.Font.paywallPromoBadge)
                         Text("Answered \(answeredAt.formatted(.relative(presentation: .named)))")
                             .font(ABY.Font.caption)
                     }
@@ -712,7 +712,7 @@ struct PrayerWallSparkleBurst: View {
         ZStack {
             ForEach(0..<8, id: \.self) { index in
                 Image(systemName: "sparkle")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(ABY.Font.paywallPromoBadge)
                     .foregroundStyle(ABY.Color.accentDot)
                     .offset(
                         x: burst ? cos(Double(index) / 8 * .pi * 2) * 52 : 0,
@@ -758,7 +758,7 @@ struct PrayerWallComposeSheet: View {
                 }
 
                 TextEditor(text: $text)
-                    .font(.system(size: 17, design: .serif))
+                    .font(ABY.Font.editorialBody)
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .frame(minHeight: 140)
@@ -767,7 +767,7 @@ struct PrayerWallComposeSheet: View {
                     .overlay {
                         if text.isEmpty {
                             Text(placeholder)
-                                .font(.system(size: 17, design: .serif))
+                                .font(ABY.Font.editorialBody)
                                 .foregroundStyle(palette.textTertiary)
                                 .padding(16)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -827,7 +827,7 @@ struct PrayerWallDetailSheet: View {
                     }
 
                     Text(note.text)
-                        .font(.system(size: 22, weight: .regular, design: .serif))
+                        .font(ABY.Font.editorialHeadline)
                         .foregroundStyle(palette.textPrimary)
                         .lineSpacing(6)
                         .frame(maxWidth: .infinity, alignment: .leading)

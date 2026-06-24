@@ -17,7 +17,7 @@ struct PersonalInsightCard: View {
                         .fill(insight.accent.opacity(palette.isNight ? 0.2 : 0.12))
                         .frame(width: 32, height: 32)
                     Image(systemName: insight.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(insight.accent)
                 }
 
@@ -39,7 +39,11 @@ struct PersonalInsightCard: View {
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .abyCard()
+        .padding(ABY.Spacing.card)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
     }
 
     private var localBadge: String {

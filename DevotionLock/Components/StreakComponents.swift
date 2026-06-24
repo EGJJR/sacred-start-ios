@@ -79,7 +79,7 @@ struct ABYFlameBadge: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(StreakPalette.orange)
                     .scaleEffect(pulse ? 1.06 : 1.0)
                 Text("\(streak)")
@@ -196,7 +196,7 @@ struct StreakCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(weekdayHeaders, id: \.self) { label in
                     Text(label)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(ABY.Font.captionMedium)
                         .foregroundStyle(palette.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 18)
@@ -214,7 +214,7 @@ struct StreakCalendarGrid: View {
         HStack {
             Button(action: onPreviousMonth) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(palette.textSecondary)
                     .frame(width: 32, height: 32)
             }
@@ -225,7 +225,7 @@ struct StreakCalendarGrid: View {
             Spacer()
             Button(action: onNextMonth) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(palette.textSecondary)
                     .frame(width: 32, height: 32)
             }
@@ -276,7 +276,7 @@ struct StreakCalendarGrid: View {
     private func dayLabel(for day: StreakCalendarDay) -> some View {
         if day.isToday {
             Text("\(day.day)")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(ABY.Font.captionSemibold)
                 .foregroundStyle(StreakPalette.orange)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
@@ -284,7 +284,7 @@ struct StreakCalendarGrid: View {
                 .clipShape(Capsule())
         } else {
             Text("\(day.day)")
-                .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .font(ABY.Font.caption)
                 .foregroundStyle(day.isFuture ? palette.textTertiary : palette.textSecondary)
         }
     }
@@ -321,7 +321,7 @@ struct StreakChallengeBar: View {
                         .frame(width: max(6, geo.size.width * animatedProgress), height: 6)
 
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(ABY.Font.paywallPromoBadge)
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
                         .background(StreakPalette.orange)
@@ -363,7 +363,7 @@ struct AnimatedStreakNumber: View {
 
     var body: some View {
         Text("\(displayed)")
-            .font(.system(size: 56, weight: .bold, design: .rounded))
+            .font(ABY.Font.displayHero)
             .foregroundStyle(color)
             .contentTransition(.numericText())
             .onAppear { animateCount() }

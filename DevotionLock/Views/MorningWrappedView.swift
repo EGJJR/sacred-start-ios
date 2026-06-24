@@ -152,7 +152,7 @@ struct MorningWrappedView: View {
                     .fill(wrapped.tint.opacity(palette.isNight ? 0.22 : 0.16))
                     .frame(width: 110, height: 110)
                 Image(systemName: wrapped.symbol)
-                    .font(.system(size: 40, weight: .semibold))
+                    .font(ABY.Font.largeTitle)
                     .foregroundStyle(wrapped.tint)
             }
             .scaleEffect(appeared ? 1 : 0.7)

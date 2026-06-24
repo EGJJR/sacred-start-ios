@@ -83,10 +83,10 @@ struct StreakRing: View {
 
                 VStack(spacing: 2) {
                     Text("\(data.currentStreak)")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(ABY.Font.title2)
                         .foregroundStyle(AppTheme.textPrimary)
                     Text("days")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(ABY.Font.micro)
                         .foregroundStyle(AppTheme.textTertiary)
                 }
             }
@@ -107,7 +107,7 @@ struct StreakRing: View {
             }
 
             Text("Morning streak")
-                .font(.system(size: 11, weight: .medium))
+                .font(ABY.Font.captionMedium)
                 .foregroundStyle(AppTheme.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -131,13 +131,13 @@ struct DailyFocusCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Today's focus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ABY.Font.captionSemibold)
                     .foregroundStyle(DevotionTheme.sage)
                     .textCase(.uppercase)
                     .tracking(0.6)
                 Spacer()
                 Text(focus.mood)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(ABY.Font.captionMedium)
                     .foregroundStyle(AppTheme.textSecondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -146,21 +146,21 @@ struct DailyFocusCard: View {
             }
 
             Text("\"\(focus.verse)\"")
-                .font(.system(size: 14, weight: .regular))
+                .font(ABY.Font.callout)
                 .italic()
                 .foregroundStyle(AppTheme.textPrimary.opacity(0.9))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(focus.reference)
-                .font(.system(size: 12, weight: .medium))
+                .font(ABY.Font.captionMedium)
                 .foregroundStyle(DevotionTheme.teal.opacity(0.9))
 
             HStack(spacing: 4) {
                 Text("Begin morning devotion")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(ABY.Font.captionMedium)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(ABY.Font.paywallPromoBadge)
             }
             .foregroundStyle(DevotionTheme.sage.opacity(0.85))
             .padding(.top, 4)
@@ -206,16 +206,16 @@ struct ChaplainReflectionCard: View {
                         .frame(width: 40, height: 40)
                         .shadow(color: insight.accent.opacity(0.15), radius: 8, y: 2)
                     Image(systemName: insight.icon)
-                        .font(.system(size: 16))
+                        .font(ABY.Font.body)
                         .foregroundStyle(insight.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(insight.title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(ABY.Font.bodySemibold)
                         .foregroundStyle(AppTheme.textPrimary)
                     Text(insight.body)
-                        .font(.system(size: 14))
+                        .font(ABY.Font.callout)
                         .foregroundStyle(AppTheme.textSecondary)
                         .lineSpacing(3)
                 }
@@ -236,20 +236,20 @@ struct SpiritualThemeRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: theme.icon)
-                    .font(.system(size: 13))
+                    .font(ABY.Font.footnote)
                     .foregroundStyle(theme.color.opacity(0.8))
                     .frame(width: 24, height: 24)
                     .background(theme.color.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 Text(theme.label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(ABY.Font.calloutMedium)
                     .foregroundStyle(AppTheme.textPrimary.opacity(0.85))
 
                 Spacer()
 
                 Text(theme.depth.rawValue)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(ABY.Font.captionMedium)
                     .foregroundStyle(theme.color.opacity(0.9))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)

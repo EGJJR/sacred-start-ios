@@ -281,6 +281,17 @@ final class StreakManager {
         save()
     }
 
+    #if DEBUG
+    /// Clears only today's devotion completion so shield + home "locked" UI can be tested.
+    func clearTodayForTesting() {
+        let key = dateKey(calendar.startOfDay(for: Date()))
+        completionDates.remove(key)
+        moodByDate.removeValue(forKey: key)
+        daySummaries.removeValue(forKey: key)
+        save()
+    }
+    #endif
+
     private func dateKey(_ date: Date) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
@@ -400,5 +411,14 @@ struct JournalDraft {
         if emotion.isEmpty {
             emotion = mood.lowercased()
         }
+    }
+
+    var completionInsight: String {
+        let feeling = emotion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let because = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !feeling.isEmpty, !because.isEmpty {
+            return "Today you named feeling \(feeling) because \(because). Showing up with honesty is already a sacred start."
+        }
+        return "Today you paused before the noise. That quiet honesty is the heart of a morning devotion."
     }
 }

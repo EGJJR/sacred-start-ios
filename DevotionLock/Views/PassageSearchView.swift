@@ -10,11 +10,12 @@ import SwiftUI
 
 struct PassageSearchView: View {
     var initialTopics: Set<PassageTopic> = []
+    var initialTab: ScriptureTab = .discover
     var onSelect: ((SpiritualPassage) -> Void)? = nil
 
     var body: some View {
         if FeatureFlags.bibleReaderEnabled {
-            SanctuaryBibleView(initialTopics: initialTopics, onSelect: onSelect)
+            SanctuaryBibleView(initialTopics: initialTopics, initialTab: initialTab, onSelect: onSelect)
         } else {
             LegacyPassageSearchView(initialTopics: initialTopics, onSelect: onSelect)
         }
@@ -149,7 +150,7 @@ private struct LegacyPassageSearchView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 40, weight: .light))
+                .font(ABY.Font.heroIcon)
                 .foregroundStyle(palette.textTertiary)
             Text("No passages found")
                 .font(ABY.Font.headline)
@@ -176,7 +177,7 @@ private struct LegacyTopicPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ABY.Font.captionSemibold)
                 Text(label)
                     .font(ABY.Font.captionMedium)
             }

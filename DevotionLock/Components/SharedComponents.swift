@@ -16,7 +16,7 @@ struct ConversationCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Text(conversation.tag)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(ABY.Font.captionMedium)
                         .foregroundStyle(DevotionTheme.sage.opacity(0.9))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -25,24 +25,24 @@ struct ConversationCard: View {
                         .overlay(Capsule().stroke(DevotionTheme.sage.opacity(0.2), lineWidth: 0.5))
 
                     Text(conversation.timeAgo)
-                        .font(.system(size: 12))
+                        .font(ABY.Font.caption)
                         .foregroundStyle(AppTheme.textTertiary)
 
                     Spacer()
 
                     Text(conversation.duration)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(ABY.Font.captionMedium)
                         .foregroundStyle(AppTheme.textTertiary)
                 }
 
                 Text(conversation.title)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(ABY.Font.headline)
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 Text(conversation.preview)
-                    .font(.system(size: 15))
+                    .font(ABY.Font.body)
                     .foregroundStyle(AppTheme.textTertiary.opacity(1.15))
                     .lineLimit(2)
                     .lineSpacing(2)
@@ -80,10 +80,10 @@ struct SearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .font(ABY.Font.bodyMedium)
                 .foregroundStyle(AppTheme.textTertiary)
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(AppTheme.textTertiary))
-                .font(.system(size: 15))
+                .font(ABY.Font.body)
                 .foregroundStyle(AppTheme.textPrimary)
                 .focused($focused)
             if !text.isEmpty {
@@ -109,7 +109,7 @@ struct FilterIconButton: View {
 
     var body: some View {
         Image(systemName: icon)
-            .font(.system(size: 17, weight: .regular))
+            .font(ABY.Font.bodyMedium)
             .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
             .frame(width: 40, height: 40)
             .darkGlass(cornerRadius: 12)

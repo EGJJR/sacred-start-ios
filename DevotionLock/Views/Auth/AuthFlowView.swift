@@ -19,31 +19,32 @@ struct AuthFlowView: View {
             case .welcome:
                 AuthWelcomeView(
                     onContinue: {
-                        withAnimation(AppTheme.springSnappy) {
+                        withAnimation(AppTheme.onboardingStepOut) {
                             step = .authenticate(.signUp)
                         }
                     },
                     onSignIn: {
-                        withAnimation(AppTheme.springSnappy) {
+                        withAnimation(AppTheme.onboardingStepOut) {
                             step = .authenticate(.signIn)
                         }
                     }
                 )
-                .transition(.opacity.combined(with: .offset(y: 8)))
+                .transition(.opacity.combined(with: .offset(y: 6)))
 
             case .authenticate(let intent):
                 AuthSocialView(intent: intent) {
-                    withAnimation(AppTheme.springSnappy) {
+                    withAnimation(AppTheme.onboardingStepOut) {
                         step = .welcome
                     }
                 }
-                .transition(.opacity.combined(with: .offset(x: 20)))
+                .transition(.opacity.combined(with: .offset(y: 6)))
             }
         }
-        .animation(AppTheme.springSnappy, value: step)
+        .animation(AppTheme.onboardingStepIn, value: step)
     }
 }
 
 #Preview {
     AuthFlowView()
+        .environment(\.authManager, AuthManager.shared)
 }

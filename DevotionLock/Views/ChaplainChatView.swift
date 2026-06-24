@@ -2,28 +2,29 @@
 //  ChaplainChatView.swift
 //  DevotionLock
 //
+//  Mobbin Gemini chat: https://mobbin.com/screens/8cb0be56-3634-46eb-bc04-7fd121164726
+//
 
 import SwiftUI
 
-struct ChaplainMessage: Identifiable, Equatable {
+struct ChaplainMessage: Identifiable, Equatable, Hashable {
     enum Role { case user, chaplain }
 
     let id: UUID
     var role: Role
     var text: String
+    var sentAt: Date?
 
-    init(id: UUID = UUID(), role: Role, text: String) {
+    init(id: UUID = UUID(), role: Role, text: String, sentAt: Date? = nil) {
         self.id = id
         self.role = role
         self.text = text
+        self.sentAt = sentAt
     }
 }
 
 struct ChaplainChatView: View {
-    static let defaultGreeting = "What's on your heart right now? You can write freely — no perfect words needed."
-
-    @Environment(\.sanctuaryPalette) private var palette
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     var voice: ChaplainVoice
     var seedMessages: [ChaplainMessage]
     var starterText: String
@@ -37,28 +38,50 @@ struct ChaplainChatView: View {
     @State private var conversationID: UUID?
     @State private var errorMessage: String?
     @State private var savedBanner: String?
+    @State private var revealedMessageIDs: Set<UUID> = []
+    @State private var showChatHistory = false
     @FocusState private var inputFocused: Bool
+
+    private var showSuggestions: Bool {
+        messages.isEmpty && !isReplying
+    }
 
     var body: some View {
         ZStack {
-            ABYBackground()
+            ABYCleanGradientBackground()
 
             VStack(spacing: 0) {
-                chatHeader
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
+                ABYChatScreenHeader(
+                    voiceName: voice.name,
+                    onClose: { dismiss() },
+                    onHistory: { showChatHistory = true },
+                    geminiStyle: true
+                )
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
 
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: .leading, spacing: 20) {
-                            ForEach(messages) { message in
-                                ChaplainChatBubble(message: message)
-                                    .id(message.id)
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            if showSuggestions {
+                                GeminiChatGreeting()
                             }
+
+                            ForEach(messages) { message in
+                                ChaplainChatBubble(
+                                    message: message,
+                                    timestamp: message.role == .chaplain ? formattedTime(message.sentAt) : nil,
+                                    isRevealed: revealedMessageIDs.contains(message.id)
+                                )
+                                .id(message.id)
+                            }
+
                             if isReplying {
                                 ChaplainTypingIndicator()
+                                    .id("typing")
                             }
+
                             if let errorMessage {
                                 Text(errorMessage)
                                     .font(ABY.Font.footnote)
@@ -66,6 +89,7 @@ struct ChaplainChatView: View {
                                     .multilineTextAlignment(.center)
                                     .frame(maxWidth: .infinity)
                             }
+
                             if let savedBanner {
                                 Text(savedBanner)
                                     .font(ABY.Font.footnote)
@@ -80,50 +104,117 @@ struct ChaplainChatView: View {
                         }
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.top, 8)
-                        .padding(.bottom, 16)
+                        .padding(.bottom, messages.isEmpty ? 12 : 24)
+                        .frame(maxWidth: .infinity)
                     }
+                    .defaultScrollAnchor(messages.isEmpty ? .top : .bottom)
+                    .scrollDismissesKeyboard(.interactively)
+                    .abyScrollEdgeFades(bottom: false)
                     .onChange(of: messages.count) { _, _ in
-                        if let last = messages.last {
-                            withAnimation(AppTheme.springGentle) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
+                        scrollToBottom(proxy: proxy)
                     }
                     .onChange(of: messages.last?.text) { _, _ in
-                        if let last = messages.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
+                        scrollToBottom(proxy: proxy)
+                    }
+                    .onChange(of: isReplying) { _, replying in
+                        if replying {
+                            scrollToBottom(proxy: proxy, anchor: "typing")
+                        } else {
+                            scrollToBottom(proxy: proxy)
                         }
                     }
                 }
-
-                ChaplainMessageBar(
-                    text: $draft,
-                    onSend: sendDraft,
-                    onVoice: onVoice
-                )
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 12)
-                .disabled(isReplying)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                chatComposer
             }
         }
         .abyScreen()
+        .sheet(isPresented: $showChatHistory) {
+            ChaplainChatHistoryView()
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+        }
         .onAppear(perform: beginSession)
         .task(id: resumeConversationID) {
             await hydrateResumeConversationIfNeeded()
         }
     }
 
-    private static func initialMessages(from seeds: [ChaplainMessage]) -> [ChaplainMessage] {
-        if seeds.isEmpty {
-            return [ChaplainMessage(role: .chaplain, text: defaultGreeting)]
+    private var chatComposer: some View {
+        VStack(spacing: 8) {
+            if showSuggestions {
+                GeminiChatSuggestionRail { prompt in
+                    inputFocused = false
+                    draft = prompt
+                    sendDraft()
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            GeminiChatInputBar(
+                text: $draft,
+                placeholder: "Ask Chaplain",
+                onSend: sendDraft,
+                onVoice: onVoice,
+                focused: $inputFocused
+            )
+            .padding(.horizontal, ABY.Spacing.screen)
+            .disabled(isReplying)
+
+            if showSuggestions, !inputFocused {
+                ABYChatDisclaimer()
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .transition(.opacity)
+            }
         }
-        return seeds
+        .padding(.top, inputFocused ? 10 : (messages.isEmpty ? 10 : 6))
+        .padding(.bottom, inputFocused ? 6 : 10)
+        .background {
+            if messages.isEmpty {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea(edges: .bottom)
+                    .allowsHitTesting(false)
+            } else if inputFocused {
+                VStack(spacing: 0) {
+                    Divider().opacity(0.35)
+                    Rectangle()
+                        .fill(Color.white.opacity(0.94))
+                }
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+            }
+        }
+        .animation(AppTheme.springSnappy, value: showSuggestions)
+        .animation(.easeOut(duration: 0.2), value: inputFocused)
+        .animation(.easeOut(duration: 0.2), value: messages.isEmpty)
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, anchor: String? = nil) {
+        withAnimation(AppTheme.springGentle) {
+            if let anchor {
+                proxy.scrollTo(anchor, anchor: .bottom)
+            } else if let last = messages.last {
+                proxy.scrollTo(last.id, anchor: .bottom)
+            }
+        }
+    }
+
+    private func formattedTime(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    private static func initialMessages(from seeds: [ChaplainMessage]) -> [ChaplainMessage] {
+        seeds
     }
 
     private func beginSession() {
         errorMessage = nil
         isReplying = false
         draft = ""
+        revealedMessageIDs = []
 
         if resumeConversationID == nil {
             conversationID = nil
@@ -132,14 +223,22 @@ struct ChaplainChatView: View {
             messages = Self.initialMessages(from: seedMessages)
         }
 
+        for message in messages {
+            revealMessage(message.id, delay: 0.12)
+        }
+
         if !starterText.isEmpty {
             draft = starterText
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 sendDraft()
             }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                inputFocused = true
+        }
+    }
+
+    private func revealMessage(_ id: UUID, delay: Double = 0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(.easeOut(duration: 0.32)) {
+                _ = revealedMessageIDs.insert(id)
             }
         }
     }
@@ -150,6 +249,9 @@ struct ChaplainChatView: View {
 
         let conversation = await ConversationRepository.shared.loadTranscript(for: resumeConversationID)
             ?? ConversationRepository.shared.conversation(for: resumeConversationID)
+            ?? ConversationMerger.mergedTimeline().first {
+                $0.id == resumeConversationID || $0.remoteID == resumeConversationID
+            }
 
         guard let conversation else {
             messages = Self.initialMessages(from: seedMessages)
@@ -166,43 +268,9 @@ struct ChaplainChatView: View {
         if messages.isEmpty {
             messages = Self.initialMessages(from: seedMessages)
         }
-    }
-
-    private func clearChat() {
-        guard !isReplying else { return }
-        messages = [ChaplainMessage(role: .chaplain, text: Self.defaultGreeting)]
-        conversationID = nil
-        draft = ""
-        errorMessage = nil
-        inputFocused = true
-    }
-
-    private var chatHeader: some View {
-        HStack {
-            ABYIconButton(icon: "xmark") {
-                isPresented = false
-            }
-            Spacer()
-            VStack(spacing: 2) {
-                Text("Chaplain \(voice.name)")
-                    .font(ABY.Font.headline)
-                    .foregroundStyle(palette.textPrimary)
-                Text("AI spiritual companion · not a licensed counselor")
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textSecondary)
-            }
-            Spacer()
-            HStack(spacing: 8) {
-                ABYIconButton(icon: "square.and.arrow.down") { saveChat() }
-                    .disabled(messages.count < 2 || isReplying)
-                    .opacity(messages.count < 2 || isReplying ? 0.4 : 1)
-                ABYIconButton(icon: "trash") { clearChat() }
-                    .disabled(isReplying)
-                    .opacity(isReplying ? 0.4 : 1)
-                if let onVoice {
-                    ABYIconButton(icon: "waveform", action: onVoice)
-                }
-            }
+        revealedMessageIDs = []
+        for (index, message) in messages.enumerated() {
+            revealMessage(message.id, delay: 0.06 + Double(index) * 0.04)
         }
     }
 
@@ -213,7 +281,9 @@ struct ChaplainChatView: View {
         draft = ""
         inputFocused = false
         errorMessage = nil
-        messages.append(ChaplainMessage(role: .user, text: trimmed))
+        let userMessage = ChaplainMessage(role: .user, text: trimmed, sentAt: Date())
+        messages.append(userMessage)
+        revealMessage(userMessage.id)
         isReplying = true
 
         Task {
@@ -225,10 +295,13 @@ struct ChaplainChatView: View {
     private func streamChaplainReply() async {
         let apiMessages = messages
         let chaplainIndex = messages.count
-        messages.append(ChaplainMessage(role: .chaplain, text: ""))
+        let chaplainMessage = ChaplainMessage(role: .chaplain, text: "", sentAt: Date())
+        messages.append(chaplainMessage)
+        revealMessage(chaplainMessage.id, delay: 0.2)
 
         do {
-            let context = ChaplainContextBuilder.build(intent: contextIntent)
+            let intent = resolvedIntent(for: apiMessages.last(where: { $0.role == .user })?.text)
+            let context = ChaplainContextBuilder.build(intent: intent)
             let stream = try await ChaplainService.shared.streamReply(
                 conversationID: conversationID,
                 messages: apiMessages,
@@ -264,32 +337,29 @@ struct ChaplainChatView: View {
             errorMessage = error.localizedDescription
             if messages[chaplainIndex].text.isEmpty {
                 messages.remove(at: chaplainIndex)
+                revealedMessageIDs.remove(chaplainMessage.id)
             }
         }
 
         isReplying = false
     }
 
-    private func saveChat() {
-        guard let entry = JournalLocalStore.shared.saveChaplainChat(
-            messages: messages,
-            conversationID: conversationID
-        ) else { return }
-        savedBanner = "Saved to Journal · \(entry.title)"
-        DevotionHaptics.success()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            savedBanner = nil
+    private func resolvedIntent(for userText: String?) -> String? {
+        if let contextIntent { return contextIntent }
+        guard let userText else { return nil }
+        let lower = userText.lowercased()
+        if lower.contains("bible") || lower.contains("scripture") || lower.contains("verse") {
+            return "bible_question"
         }
+        return nil
     }
 }
 
 #Preview {
     ChaplainChatView(
-        isPresented: .constant(true),
         voice: ChaplainVoice.options[0],
-        seedMessages: [
-            ChaplainMessage(role: .chaplain, text: "What's on your heart this morning?")
-        ],
+        seedMessages: [],
         starterText: ""
     )
+    .environment(\.authManager, AuthManager.shared)
 }

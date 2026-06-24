@@ -170,9 +170,13 @@ final class AuthManager {
     func deleteAccount() async throws {
         guard isAuthenticated else { throw ProfileError.notAuthenticated }
 
+        let deletingUserId = userId
         try await ProfileRepository.shared.deleteAccount()
         try? await SupabaseManager.client.auth.signOut()
         clearCachedUsername()
+        if let deletingUserId {
+            JournalLocalStore.shared.clearAll(for: deletingUserId)
+        }
         clearSessionState()
         ConversationRepository.shared.clear()
         AppShieldManager.shared.unlockForCompletedDevotion()
@@ -189,6 +193,8 @@ final class AuthManager {
         ConversationRepository.shared.clear()
         AppShieldManager.shared.unlockForCompletedDevotion()
         UserDefaults.standard.set(false, forKey: "hasDismissedPaywall")
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.set(true, forKey: "showOnboardingAfterSignOut")
     }
 
     func clearMessages() {
@@ -205,6 +211,7 @@ final class AuthManager {
                 hasResolvedInitialSession = true
                 if let session, !session.isExpired {
                     applySession(session)
+                    Task { await SyncCoordinator.shared.onAuthenticated() }
                 } else if session == nil {
                     clearSessionState()
                 }
@@ -228,12 +235,14 @@ final class AuthManager {
         email = nil
         username = nil
         avatarURL = nil
+        JournalLocalStore.shared.activateAccount(userId: nil)
     }
 
     private func applySession(_ session: Session, fallbackUsername: String? = nil) {
         guard !session.isExpired else { return }
         isAuthenticated = true
         userId = session.user.id
+        JournalLocalStore.shared.activateAccount(userId: session.user.id)
         email = session.user.email
         username = username(from: session.user) ?? fallbackUsername ?? cachedUsername(for: session.user.id)
         if let username {
@@ -324,6 +333,11 @@ final class AuthManager {
         }
         if message.contains("username_taken") || message.contains("duplicate key") {
             return ProfileError.usernameTaken.localizedDescription
+        }
+        if message.contains("hostname could not be found")
+            || message.contains("could not connect to the server")
+            || message.contains("network connection was lost") {
+            return "Can't reach the DevotionLock server. Check your internet connection and try again."
         }
         return error.localizedDescription
     }

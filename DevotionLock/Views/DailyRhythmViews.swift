@@ -86,11 +86,11 @@ private struct StoryRingButton: View {
 
                     if isComplete {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(ABY.Font.bodySemibold)
                             .foregroundStyle(ringColor)
                     } else {
                         Image(systemName: ring.icon)
-                            .font(.system(size: 18, weight: .medium))
+                            .font(ABY.Font.headline)
                             .foregroundStyle(ringColor.opacity(0.85))
                     }
                 }
@@ -130,16 +130,16 @@ struct DailyVerseSheet: View {
 
                     VStack(spacing: 16) {
                         Text(passage.source.label.uppercased())
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(ABY.Font.captionSemibold)
                             .foregroundStyle(ABY.Color.pillPurple)
                             .tracking(1.2)
 
                         Text("“")
-                            .font(.system(size: 48, weight: .light, design: .serif))
+                            .font(ABY.Font.editorialLargeTitle)
                             .foregroundStyle(ABY.Color.pillPurple.opacity(0.35))
 
                         Text(passage.text)
-                            .font(.system(size: 22, weight: .regular, design: .serif))
+                            .font(ABY.Font.editorialHeadline)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(palette.textPrimary)
                             .lineSpacing(6)
@@ -284,7 +284,7 @@ struct EveningReflectionSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(Color.white.opacity(0.65))
                 Text(dateLabel)
                     .font(ABY.Font.captionMedium)
@@ -356,14 +356,14 @@ struct EveningReflectionSheet: View {
 
                 if highlight.isEmpty {
                     Text("A quiet moment, a kindness, a small mercy…")
-                        .font(.system(size: 17, weight: .regular, design: .serif))
+                        .font(ABY.Font.editorialBody)
                         .foregroundStyle(Color.white.opacity(0.35))
                         .padding(18)
                 }
 
                 TextEditor(text: $highlight)
                     .focused($editorFocused)
-                    .font(.system(size: 17, weight: .regular, design: .serif))
+                    .font(ABY.Font.editorialBody)
                     .foregroundStyle(.white.opacity(0.95))
                     .scrollContentBackground(.hidden)
                     .padding(14)

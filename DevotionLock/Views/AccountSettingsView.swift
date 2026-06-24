@@ -2,6 +2,8 @@
 //  AccountSettingsView.swift
 //  DevotionLock
 //
+//  Mobbin ABY account editing pattern
+//
 
 import PhotosUI
 import SwiftUI
@@ -15,11 +17,6 @@ struct AccountSettingsView: View {
     @State private var usernameStatus: UsernameStatus = .idle
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var isSaving = false
-    @State private var isDeleting = false
-    @State private var showDeleteConfirmation = false
-    @State private var showDeleteFinalConfirmation = false
-    @State private var showSignOutConfirmation = false
-    @State private var isSigningOut = false
     @State private var localError: String?
     @State private var availabilityTask: Task<Void, Never>?
 
@@ -61,8 +58,8 @@ struct AccountSettingsView: View {
         ABYScreenContainer {
             VStack(alignment: .leading, spacing: 0) {
                 ABYDetailHeader(
-                    title: "Edit account",
-                    subtitle: "Update your profile photo and username."
+                    title: "Edit profile",
+                    subtitle: "Update your photo and how Sacred Start greets you."
                 )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.top, 8)
@@ -72,51 +69,29 @@ struct AccountSettingsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 28)
 
+                ABYSectionHeader(title: "Account")
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 8)
+
                 ABYSettingsGroup {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Username")
-                            .font(ABY.Font.footnote)
-                            .foregroundStyle(palette.textSecondary)
-                            .padding(.horizontal, ABY.Spacing.card)
-                            .padding(.top, 14)
-
-                        TextField("Username", text: $usernameDraft)
-                            .font(ABY.Font.body)
-                            .foregroundStyle(palette.textPrimary)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .padding(.horizontal, ABY.Spacing.card)
-                            .padding(.bottom, 4)
-                            .onChange(of: usernameDraft) { _, _ in
-                                scheduleUsernameCheck()
-                            }
-
-                        Text(usernameStatusMessage)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(usernameStatusColor)
-                            .padding(.horizontal, ABY.Spacing.card)
-                            .padding(.bottom, 14)
+                    ABYSettingsTextFieldGroup(
+                        label: "Username",
+                        text: $usernameDraft,
+                        placeholder: "Username",
+                        helperText: usernameStatusMessage,
+                        helperColor: usernameStatusColor
+                    )
+                    .onChange(of: usernameDraft) { _, _ in
+                        scheduleUsernameCheck()
                     }
 
                     ABYSettingsDivider()
 
-                    HStack(spacing: 12) {
-                        Image(systemName: "envelope")
-                            .font(ABY.Font.iconMedium)
-                            .foregroundStyle(palette.textSecondary)
-                            .frame(width: 28, height: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Email")
-                                .font(ABY.Font.body)
-                                .foregroundStyle(palette.textPrimary)
-                            Text(auth.email ?? "—")
-                                .font(ABY.Font.footnote)
-                                .foregroundStyle(palette.textSecondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, ABY.Spacing.card)
-                    .padding(.vertical, 14)
+                    ABYSettingsReadOnlyRow(
+                        icon: "envelope",
+                        title: "Email",
+                        value: auth.email ?? "—"
+                    )
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
 
@@ -125,73 +100,26 @@ struct AccountSettingsView: View {
                         .font(ABY.Font.footnote)
                         .foregroundStyle(.red.opacity(0.85))
                         .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.top, 12)
+                        .padding(.top, 16)
                 }
 
-                Button(action: saveChanges) {
-                    HStack {
-                        Spacer()
-                        if isSaving {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text("Save changes")
-                                .font(ABY.Font.button)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 14)
-                    .background(canSave ? palette.textPrimary : palette.textPrimary.opacity(0.35))
-                    .foregroundStyle(palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
-                }
-                .buttonStyle(.plain)
-                .disabled(!canSave)
+                ABYSettingsPrimaryButton(
+                    title: "Save changes",
+                    isEnabled: canSave,
+                    isLoading: isSaving,
+                    action: saveChanges
+                )
                 .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 24)
+                .padding(.top, 28)
 
-                Button(action: { showSignOutConfirmation = true }) {
-                    HStack {
-                        Spacer()
-                        if isSigningOut {
-                            ProgressView()
-                        } else {
-                            Text("Sign out")
-                                .font(ABY.Font.button)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 14)
-                    .background(palette.surface)
-                    .foregroundStyle(palette.textPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: ABY.Radius.cardLarge)
-                            .stroke(palette.divider, lineWidth: 1)
-                    }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sign out and delete account are in Settings → Danger zone.")
+                        .font(ABY.Font.footnote)
+                        .foregroundStyle(palette.textTertiary)
+                        .lineSpacing(3)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sign out")
                 .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 16)
-
-                Button(role: .destructive, action: { showDeleteConfirmation = true }) {
-                    HStack {
-                        Spacer()
-                        if isDeleting {
-                            ProgressView()
-                        } else {
-                            Text("Delete account")
-                                .font(ABY.Font.button)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 14)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red.opacity(0.85))
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 12)
+                .padding(.top, 20)
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -207,50 +135,24 @@ struct AccountSettingsView: View {
             guard item != nil else { return }
             localError = nil
         }
-        .confirmationDialog(
-            "Delete your account?",
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Continue", role: .destructive) {
-                showDeleteFinalConfirmation = true
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently removes your account, journal sync, and profile photo. This cannot be undone.")
-        }
-        .alert("Are you absolutely sure?", isPresented: $showDeleteFinalConfirmation) {
-            Button("Delete account", role: .destructive) {
-                Task { await deleteAccount() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("All of your data will be permanently deleted.")
-        }
-        .confirmationDialog(
-            "Sign out?",
-            isPresented: $showSignOutConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Sign out", role: .destructive) {
-                Task { await signOut() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You can sign back in anytime with your email and password.")
-        }
     }
 
     private var photoSection: some View {
-        PhotosPicker(selection: $selectedPhoto, matching: .images) {
-            ProfileAvatarView(
-                name: auth.displayName,
-                avatarURL: auth.avatarURL,
-                size: 96,
-                showsEditBadge: true
-            )
+        VStack(spacing: 12) {
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                ProfileAvatarView(
+                    name: auth.displayName,
+                    avatarURL: auth.avatarURL,
+                    size: 96,
+                    showsEditBadge: true
+                )
+            }
+            .buttonStyle(.plain)
+
+            Text("Tap to change photo")
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textTertiary)
         }
-        .buttonStyle(.plain)
     }
 
     private var usernameStatusMessage: String {
@@ -332,28 +234,6 @@ struct AccountSettingsView: View {
                     self.selectedPhoto = nil
                 }
 
-                dismiss()
-            } catch {
-                localError = error.localizedDescription
-            }
-        }
-    }
-
-    private func signOut() async {
-        isSigningOut = true
-        defer { isSigningOut = false }
-        await auth.signOut()
-        dismiss()
-    }
-
-    private func deleteAccount() {
-        Task {
-            isDeleting = true
-            localError = nil
-            defer { isDeleting = false }
-
-            do {
-                try await auth.deleteAccount()
                 dismiss()
             } catch {
                 localError = error.localizedDescription

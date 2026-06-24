@@ -317,17 +317,46 @@ final class CircleRepository {
         Task { await flushPending() }
     }
 
+    func createCircleRemote(
+        _ circle: PrayerCircle,
+        creatorMembershipId: UUID,
+        userId: UUID
+    ) async throws {
+        try await insertCircle(circle, creatorMembershipId: creatorMembershipId, userId: userId)
+    }
+
     func joinCircleRemote(code: String) async -> UUID? {
         guard AuthManager.shared.isAuthenticated else { return nil }
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return nil }
         do {
             let result: UUID? = try await SupabaseManager.client
-                .rpc("join_prayer_circle", params: ["invite_code_param": code.uppercased()])
+                .rpc("join_prayer_circle", params: ["invite_code_param": normalized])
                 .execute()
                 .value
             return result
         } catch {
             #if DEBUG
             print("join_prayer_circle failed: \(error)")
+            #endif
+            return nil
+        }
+    }
+
+    func fetchCircle(id: UUID) async -> DBCircle? {
+        guard AuthManager.shared.isAuthenticated else { return nil }
+        do {
+            let rows: [DBCircle] = try await SupabaseManager.client
+                .from("prayer_circles")
+                .select()
+                .eq("id", value: id.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            return rows.first
+        } catch {
+            #if DEBUG
+            print("fetchCircle failed: \(error)")
             #endif
             return nil
         }
@@ -345,7 +374,7 @@ final class CircleRepository {
                     try await insertCircle(circle, creatorMembershipId: memberId, userId: userId)
                 case .joinCircle:
                     guard let code = op.inviteCode else { continue }
-                    _ = try await joinCircleRemote(code: code)
+                    guard await joinCircleRemote(code: code) != nil else { continue }
                 case .createPost:
                     guard let post = op.post else { continue }
                     try await insertPost(post)
@@ -585,29 +614,27 @@ final class CircleRepository {
 
         try await SupabaseManager.client
             .from("prayer_circles")
-            .upsert(
+            .insert(
                 CircleInsert(
                     id: circle.id,
                     name: circle.name,
-                    inviteCode: circle.inviteCode,
+                    inviteCode: circle.inviteCode.uppercased(),
                     coverPaletteIndex: circle.coverPaletteIndex,
                     createdBy: userId
-                ),
-                onConflict: "id"
+                )
             )
             .execute()
 
         try await SupabaseManager.client
             .from("circle_memberships")
-            .upsert(
+            .insert(
                 MembershipInsert(
                     id: creatorMembershipId,
                     circleId: circle.id,
                     userId: userId,
                     displayName: displayName,
                     avatarHue: avatarHue
-                ),
-                onConflict: "id"
+                )
             )
             .execute()
     }

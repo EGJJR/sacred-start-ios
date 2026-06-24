@@ -4,9 +4,13 @@
 <dict>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Fonts/InterTight-VariableFont_wght.ttf</string>
-		<string>Fonts/InterTight-SemiBold.ttf</string>
-		<string>Fonts/InterTight-Bold.ttf</string>
+		<string>InterTight-VariableFont_wght.ttf</string>
+		<string>InterTight-Regular.ttf</string>
+		<string>InterTight-Medium.ttf</string>
+		<string>InterTight-SemiBold.ttf</string>
+		<string>InterTight-Bold.ttf</string>
+		<string>InstrumentSerif-Regular.ttf</string>
+		<string>InstrumentSerif-Italic.ttf</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

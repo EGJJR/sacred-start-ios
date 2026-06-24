@@ -60,7 +60,7 @@ struct SanctuaryAppearanceSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ABY.Font.captionSemibold)
                         Text(mode.label)
                             .font(ABY.Font.headline)
                     }
@@ -76,7 +76,7 @@ struct SanctuaryAppearanceSettingsView: View {
 
                 if selectedMode == mode {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(ABY.Font.title2)
                         .foregroundStyle(ABY.Color.orbSage)
                 }
             }

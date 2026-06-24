@@ -2,95 +2,222 @@
 //  DevotionCompletionView.swift
 //  DevotionLock
 //
+//  Mobbin ABY Journal: quiet insight card on sanctuary background.
+//
 
 import SwiftUI
 
 struct DevotionCompletionView: View {
     let streak: Int
     let mood: String
+    var insight: String? = nil
     var onContinue: () -> Void
 
+    @Environment(\.sanctuaryPalette) private var palette
     @State private var appeared = false
-    @State private var orbScale: CGFloat = 0.6
+
+    private var bodyText: String {
+        insight ?? "Today you showed up with a \(mood.lowercased()) heart. Sacred Start noticed the honesty in your reflection."
+    }
 
     var body: some View {
-        ZStack {
-            ConfettiView(isActive: appeared)
+        VStack(spacing: 0) {
+            Spacer()
 
-            VStack(spacing: 28) {
-                Spacer()
+            VStack(spacing: 24) {
+                DevotionCompletionHero()
+                    .completionReveal(appeared, delay: 0)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 140, height: 140)
-                        .scaleEffect(orbScale)
-                    Text("🐣")
-                        .font(.system(size: 64))
-                        .scaleEffect(appeared ? 1 : 0.5)
+                DevotionCompletionInsightCard(
+                    moodLabel: mood,
+                    bodyText: bodyText
+                )
+                .completionReveal(appeared, delay: 0.08)
+
+                if streak > 0 {
+                    DevotionCompletionStreakChip(streak: streak)
+                        .completionReveal(appeared, delay: 0.16)
                 }
-
-                VStack(spacing: 10) {
-                    Text("You showed up")
-                        .font(ABY.Font.onboardingTitle)
-                        .foregroundStyle(ABY.Color.onboardingText)
-                    Text("That's what matters most. Your \(mood.lowercased()) morning is logged.")
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(ABY.Color.onboardingTextSecondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                }
-                .padding(.horizontal, 24)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 12)
-
-                HStack(spacing: 8) {
-                    Image(systemName: "flame.fill")
-                        .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.22))
-                        .symbolEffect(.pulse, options: .repeating, value: appeared)
-                    AnimatedStreakNumber(target: streak, color: ABY.Color.onboardingText)
-                        .font(ABY.Font.headline)
-                    Text("day morning streak")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(ABY.Color.onboardingText)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(ABY.Color.glassFill)
-                .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(ABY.Color.glassStroke, lineWidth: 1))
-                .scaleEffect(appeared ? 1 : 0.9)
-                .opacity(appeared ? 1 : 0)
-
-                Spacer()
-
-                ABYOnboardingPrimaryButton(title: "Return home", icon: "arrow.right") {
-                    DevotionHaptics.light()
-                    onContinue()
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 32)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 20)
             }
+            .padding(.horizontal, 24)
+
+            Spacer()
+
+            ABYPrimaryButton(title: "Continue", icon: "arrow.right") {
+                DevotionHaptics.light()
+                onContinue()
+            }
+            .completionCTAReveal(appeared)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 32)
         }
         .onAppear {
             DevotionHaptics.success()
-            withAnimation(AppTheme.springGentle) {
+            withAnimation(AppTheme.onboardingStepIn) {
                 appeared = true
-                orbScale = 1.05
-            }
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
-                orbScale = 1.12
             }
         }
     }
 }
 
+// MARK: - Hero
+
+private struct DevotionCompletionHero: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                VoiceOrb(state: .listening, size: 72)
+                Image(systemName: "checkmark")
+                    .font(ABY.Font.checkmarkLarge)
+                    .foregroundStyle(.white.opacity(0.95))
+            }
+
+            Text("Morning devotion complete")
+                .font(ABY.Font.title2)
+                .foregroundStyle(palette.textPrimary)
+                .multilineTextAlignment(.center)
+        }
+    }
+}
+
+// MARK: - Insight card
+
+private struct DevotionCompletionInsightCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let moodLabel: String
+    let bodyText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Sacred Start noticed…")
+                .font(ABY.Font.captionSemibold)
+                .foregroundStyle(ABY.Color.meshPeriwinkle)
+                .textCase(.none)
+
+            HStack {
+                MoodPill(label: moodLabel)
+                Spacer()
+                Text("Just now")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+            }
+
+            Text(bodyText)
+                .font(ABY.Font.body)
+                .foregroundStyle(palette.textSecondary)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(ABY.Spacing.card)
+        .background {
+            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            ABY.Color.meshSky.opacity(0.55),
+                            ABY.Color.meshPeriwinkle.opacity(0.45),
+                            ABY.Color.meshLilac.opacity(0.35)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
+        }
+        .overlay(alignment: .topTrailing) {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ABY.Color.meshSky.opacity(0.18),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 48
+                    )
+                )
+                .frame(width: 96, height: 96)
+                .offset(x: 24, y: -24)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+    }
+}
+
+// MARK: - Streak
+
+private struct DevotionCompletionStreakChip: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let streak: Int
+
+    private var label: String {
+        streak == 1 ? "1 day morning streak" : "\(streak) day morning streak"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "flame.fill")
+                .font(ABY.Font.iconSmall)
+                .foregroundStyle(ABY.Color.pillOrange)
+            Text(label)
+                .font(ABY.Font.calloutSemibold)
+                .foregroundStyle(palette.textPrimary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .background {
+            Capsule()
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            ABY.Color.pillOrange.opacity(0.35),
+                            ABY.Color.meshPeriwinkle.opacity(0.25)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+    }
+}
+
+// MARK: - Reveal
+
+private extension View {
+    func completionReveal(_ isRevealed: Bool, delay: Double) -> some View {
+        opacity(isRevealed ? 1 : 0)
+            .offset(y: isRevealed ? 0 : 8)
+            .animation(AppTheme.onboardingStepIn.delay(delay), value: isRevealed)
+    }
+
+    func completionCTAReveal(_ isRevealed: Bool) -> some View {
+        opacity(isRevealed ? 1 : 0)
+            .scaleEffect(isRevealed ? 1 : 0.88)
+            .animation(
+                .spring(response: 0.52, dampingFraction: 0.72).delay(0.24),
+                value: isRevealed
+            )
+    }
+}
+
 #Preview {
     ZStack {
-        ABYOnboardingMeshBackground()
+        ABYBackground()
         DevotionCompletionView(streak: 6, mood: "Peaceful", onContinue: {})
     }
-    .preferredColorScheme(.dark)
+    .abyScreen()
 }

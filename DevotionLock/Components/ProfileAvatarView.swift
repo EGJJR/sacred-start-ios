@@ -67,7 +67,7 @@ struct ProfileAvatarView: View {
             Circle()
                 .fill(Color(hue: fallbackHue, saturation: 0.35, brightness: 0.92))
             Text(initials)
-                .font(.system(size: size * 0.34, weight: .semibold, design: .rounded))
+                .font(AppFont.font(size: size * 0.34, weight: .semibold))
                 .foregroundStyle(palette.textPrimary.opacity(0.85))
         }
     }

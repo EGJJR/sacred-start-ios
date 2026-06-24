@@ -121,7 +121,7 @@ struct CircleChallengeStartSheet: View {
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: template.kind == .gratitude ? "heart.fill" : "book.fill")
-                                    .font(.system(size: 18))
+                                    .font(ABY.Font.headline)
                                     .foregroundStyle(ABY.Color.pillTeal)
                                     .frame(width: 36, height: 36)
                                     .background(ABY.Color.pillTeal.opacity(0.12))
@@ -281,7 +281,7 @@ struct CircleChallengeArchiveView: View {
                                     .font(ABY.Font.captionMedium)
                                     .foregroundStyle(palette.textSecondary)
                                 Text(reflection.text)
-                                    .font(.system(size: 17, weight: .regular, design: .serif))
+                                    .font(ABY.Font.editorialBody)
                                     .foregroundStyle(palette.textPrimary)
                                     .lineSpacing(5)
                             }

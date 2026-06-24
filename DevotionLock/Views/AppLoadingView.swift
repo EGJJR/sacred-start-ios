@@ -48,12 +48,12 @@ struct AppLoadingView: View {
 
                 VStack(spacing: 18) {
                     Text("“")
-                        .font(.system(size: 34, weight: .light, design: .serif))
+                        .font(ABY.Font.editorialLargeTitle)
                         .foregroundStyle(ABY.Color.pillPurple.opacity(0.35))
                         .opacity(quoteRevealed ? 1 : 0)
 
                     Text(quote.text)
-                        .font(.system(size: 24, weight: .regular, design: .serif))
+                        .font(ABY.Font.editorialTitle)
                         .foregroundStyle(ABY.Color.textPrimary.opacity(0.92))
                         .multilineTextAlignment(.center)
                         .lineSpacing(8)
@@ -71,21 +71,15 @@ struct AppLoadingView: View {
 
                 VStack(spacing: 14) {
                     Capsule()
-                        .fill(ABY.Color.track)
+                        .fill(Color.black.opacity(0.08))
                         .frame(width: 120, height: 3)
                         .overlay(alignment: .leading) {
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [ABY.Color.pillTeal, ABY.Color.pillPurple],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
+                                .fill(Color(red: 0.42, green: 0.62, blue: 0.88))
                                 .frame(width: max(8, 120 * progress))
                         }
 
-                    Text("Devotion Lock")
+                    Text("Sacred Start")
                         .font(ABY.Font.captionMedium)
                         .foregroundStyle(ABY.Color.textTertiary)
                         .opacity(referenceRevealed ? 0.8 : 0)
@@ -122,11 +116,22 @@ struct AppLoadingView: View {
 struct AppRootView: View {
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var showSplash = true
+    @State private var showSplash: Bool
     @State private var splashProgress: CGFloat = 0
     @State private var backgroundEnteredAt: Date?
-    @State private var hasFinishedLaunchSplash = false
+    @State private var hasFinishedLaunchSplash: Bool
     @State private var isRefreshSplash = false
+
+    init() {
+        #if DEBUG
+        let skipSplash = DesignTour.isActive
+        _showSplash = State(initialValue: !skipSplash)
+        _hasFinishedLaunchSplash = State(initialValue: skipSplash)
+        #else
+        _showSplash = State(initialValue: true)
+        _hasFinishedLaunchSplash = State(initialValue: false)
+        #endif
+    }
 
     private let launchDuration = SplashTiming.launchDuration
     private let refreshDuration = SplashTiming.refreshDuration

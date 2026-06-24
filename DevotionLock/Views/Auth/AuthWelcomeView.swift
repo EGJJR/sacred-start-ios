@@ -2,6 +2,8 @@
 //  AuthWelcomeView.swift
 //  DevotionLock
 //
+//  Pool-style welcome: sanctuary gradient + floating card with value carousel.
+//
 
 import SwiftUI
 
@@ -9,60 +11,65 @@ struct AuthWelcomeView: View {
     var onContinue: () -> Void
     var onSignIn: () -> Void
 
-    @State private var appeared = false
+    @State private var carouselIndex = 0
+
+    private let slides: [OnboardingValueSlide] = [
+        OnboardingValueSlide(
+            title: "Begin each morning in Scripture",
+            subtitle: "A guided devotion with mood, gratitude, and today's verse.",
+            systemImage: "sun.horizon.fill"
+        ),
+        OnboardingValueSlide(
+            title: "Journal what matters",
+            subtitle: "Capture reflections and conversations with your Chaplain.",
+            systemImage: "book.closed.fill"
+        ),
+    ]
 
     var body: some View {
-        AuthMeshScreen {
-            VStack(spacing: 0) {
-                Spacer(minLength: 32)
+        ZStack {
+            ABYWarmSanctuaryBackground()
 
-                VStack(spacing: 28) {
-                    AuthSunriseHero()
-                        .opacity(appeared ? 1 : 0)
-                        .scaleEffect(appeared ? 1 : 0.92)
-
-                    VStack(spacing: 10) {
-                        Text("Begin each day\nwith intention.")
-                            .font(ABY.Font.largeTitle)
-                            .foregroundStyle(ABY.Color.onboardingText)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(2)
-
-                        Text("Morning devotion, gentle guidance, and prayer with others.")
-                            .font(ABY.Font.callout)
-                            .foregroundStyle(ABY.Color.onboardingTextSecondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(3)
-                            .padding(.horizontal, 12)
+            OnboardingFloatingCard {
+                VStack(spacing: 0) {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 20) {
+                            OnboardingValueCarousel(slides: slides, selectedIndex: $carouselIndex)
+                                .padding(.top, 24)
+                        }
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .padding(.bottom, 12)
                     }
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 12)
+
+                    VStack(spacing: 12) {
+                        AuthPrimaryCapsuleButton(title: "Continue with email", action: onContinue)
+
+                        Button(action: onSignIn) {
+                            HStack(spacing: 4) {
+                                Text("Already have an account?")
+                                    .foregroundStyle(ABY.Color.textSecondary)
+                                Text("Sign in")
+                                    .font(ABY.Font.footnoteSemibold)
+                                    .underline()
+                                    .foregroundStyle(ABY.Color.textPrimary)
+                            }
+                            .font(ABY.Font.footnote)
+                        }
+                        .buttonStyle(.plain)
+
+                        AuthTermsFooter()
+                            .padding(.top, 4)
+                    }
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 28)
                 }
-                .padding(.horizontal, ABY.Spacing.screen)
-
-                Spacer()
-
-                AuthBottomPanel {
-                    AuthPrimaryCapsuleButton(title: "Get started", action: onContinue)
-
-                    AuthSecondaryTextLink(
-                        prompt: "Already have an account?",
-                        actionLabel: "Log in",
-                        action: onSignIn
-                    )
-
-                    AuthTermsFooter()
-                }
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 20)
             }
         }
-        .onAppear {
-            withAnimation(AppTheme.springGentle.delay(0.08)) { appeared = true }
-        }
+        .preferredColorScheme(.light)
     }
 }
 
 #Preview {
     AuthWelcomeView(onContinue: {}, onSignIn: {})
+        .environment(\.authManager, AuthManager.shared)
 }

@@ -6,11 +6,40 @@
 import SwiftUI
 
 enum ChaplainStarterPrompt: String, CaseIterable, Identifiable {
-    case weighing = "What's weighing on me"
-    case pray = "Help me pray"
     case peace = "I need peace"
+    case pray = "Help me pray"
+    case bibleQuestion = "I have a Bible question"
+    case bibleVerse = "What does this verse mean?"
+    case biblePeace = "Find a verse about peace"
+    case distracted = "I'm feeling distracted"
+    case alone = "I feel alone today"
+    case gratitude = "What am I grateful for?"
+    case scripture = "Help me understand Scripture"
+    case weighing = "What's weighing on me"
 
     var id: String { rawValue }
+
+    struct GeminiChip: Identifiable {
+        let id = UUID()
+        let emoji: String
+        let prompt: String
+    }
+
+    static var hubSuggestions: [String] {
+        [Self.peace, Self.pray, Self.bibleQuestion, Self.gratitude, Self.scripture].map(\.rawValue)
+    }
+
+    static var chatSuggestions: [String] {
+        [Self.peace, Self.pray, Self.bibleQuestion].map(\.rawValue)
+    }
+
+    static var geminiChips: [GeminiChip] {
+        [
+            GeminiChip(emoji: "📖", prompt: Self.bibleQuestion.rawValue),
+            GeminiChip(emoji: "🙏", prompt: Self.pray.rawValue),
+            GeminiChip(emoji: "🕊️", prompt: Self.peace.rawValue),
+        ]
+    }
 }
 
 struct ChaplainHeroCard: View {
@@ -270,7 +299,7 @@ struct FlowLayoutChips: Layout {
 struct ChaplainMessageBar: View {
     @Environment(\.sanctuaryPalette) private var palette
     @Binding var text: String
-    var placeholder: String = "Add your thoughts…"
+    var placeholder: String = "Say something to your Chaplain…"
     var onSend: () -> Void
     var onVoice: (() -> Void)?
     @FocusState private var focused: Bool
@@ -280,17 +309,28 @@ struct ChaplainMessageBar: View {
     }
 
     var body: some View {
+        if FeatureFlags.voiceChatEnabled, let onVoice {
+            voiceEnabledBar(onVoice: onVoice)
+        } else {
+            ABYChatComposerBar(
+                text: $text,
+                placeholder: placeholder,
+                onSend: onSend,
+                enablesDictation: true
+            )
+        }
+    }
+
+    private func voiceEnabledBar(onVoice: @escaping () -> Void) -> some View {
         HStack(spacing: 10) {
-            if let onVoice {
-                Button(action: onVoice) {
-                    Image(systemName: "mic")
-                        .font(ABY.Font.iconMedium)
-                        .foregroundStyle(palette.textSecondary)
-                        .frame(width: 36, height: 36)
-                        .overlay(Circle().stroke(palette.divider, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
+            Button(action: onVoice) {
+                Image(systemName: "mic")
+                    .font(ABY.Font.iconMedium)
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 36, height: 36)
+                    .overlay(Circle().stroke(palette.divider, lineWidth: 1))
             }
+            .buttonStyle(.plain)
 
             TextField(placeholder, text: $text, axis: .vertical)
                 .lineLimit(1...4)
@@ -302,7 +342,7 @@ struct ChaplainMessageBar: View {
 
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(canSend ? palette.buttonForeground : palette.textTertiary)
                     .frame(width: 32, height: 32)
                     .background(canSend ? palette.buttonFill : palette.surfaceMuted)
@@ -310,7 +350,6 @@ struct ChaplainMessageBar: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
-            .accessibilityLabel("Send message")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -322,30 +361,23 @@ struct ChaplainMessageBar: View {
 }
 
 struct ChaplainChatBubble: View {
-    @Environment(\.sanctuaryPalette) private var palette
     let message: ChaplainMessage
+    var timestamp: String? = nil
+    var useSerifStyle: Bool = false
+    var isRevealed: Bool = true
 
     var body: some View {
         switch message.role {
         case .user:
-            Text(message.text)
-                .font(ABY.Font.body)
-                .foregroundStyle(palette.textPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(palette.isNight ? palette.surfaceElevated : ABY.Color.moodPeach.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
-                .overlay {
-                    RoundedRectangle(cornerRadius: ABY.Radius.card)
-                        .stroke(palette.isNight ? palette.divider : Color.clear, lineWidth: 1)
-                }
+            ABYUserMessageBubble(text: message.text)
+                .blurReveal(isRevealed, blurRadius: 6, scale: 1.004)
         case .chaplain:
-            Text(message.text)
-                .font(ABY.Font.body)
-                .foregroundStyle(palette.isNight ? palette.textSecondary : ABY.Color.moodPeachText)
-                .lineSpacing(5)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            ABYChaplainMessageCard(
+                text: message.text,
+                timestamp: timestamp,
+                useSerifStyle: useSerifStyle,
+                isRevealed: isRevealed
+            )
         }
     }
 }
@@ -355,14 +387,30 @@ struct ChaplainTypingIndicator: View {
     @State private var phase = 0
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(ABY.Color.moodPeachText.opacity(phase == index ? 0.9 : 0.35))
-                    .frame(width: 6, height: 6)
+        HStack(alignment: .top, spacing: 10) {
+            ABYChaplainAvatar(size: 28)
+                .padding(.top, 2)
+
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(palette.textTertiary.opacity(phase == index ? 0.85 : 0.3))
+                        .frame(width: 7, height: 7)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
+
+            Spacer(minLength: 0)
         }
-        .padding(.leading, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { _ in
                 phase = (phase + 1) % 3

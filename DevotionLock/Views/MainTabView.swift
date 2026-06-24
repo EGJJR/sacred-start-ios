@@ -2,58 +2,29 @@
 //  MainTabView.swift
 //  DevotionLock
 //
-//  Tab shell + modal presentations (devotion, Chaplain, prayer wall, streaks, etc.).
-//  Premium-gated actions call PaywallAccess.guardPremium before opening flows.
-//  DeepLinkRouter and widget intents land here.
+//  Tab shell + item-driven modal presentations.
 //
 
 import SwiftUI
 
 struct MainTabView: View {
     @Environment(\.presentDevotionPaywall) private var presentPaywall
+    @Environment(\.authManager) private var auth
 
-    @State private var selectedTab: AppTab = .home
-    @State private var showVoiceSession = false
-    @State private var voiceStarterPrompt: String?
-    @State private var voiceTranscriptHandoff: String?
-    @State private var showChaplainChat = false
-    @State private var chaplainChatSessionID = UUID()
-    @State private var chatStarterText = ""
-    @State private var chatSeedMessages: [ChaplainMessage] = []
-    @State private var chatContextIntent: String?
-    @State private var resumeConversationID: UUID?
-    @State private var showGuidedJournal = false
-    @State private var showStreakScreen = false
-    @State private var showStreakBorn = false
-    @State private var showMorningWrapped = false
-    @State private var showPrayerWall = false
-    @State private var prayerWallAddKind: PrayerNoteKind?
-    @State private var prayerWallInitialTab: PrayerWallTab = .myWall
-    @State private var prayerWallJoinCode: String?
-    @State private var showWidgetOnboarding = false
-    @State private var showJourneyTimeline = false
-    @State private var pendingCelebration: DevotionFinishResult?
-    @State private var pendingMilestone: MilestonePresentation?
-    @State private var selectedConversation: Conversation?
-    @State private var streakManager = StreakManager.shared
-    @State private var auth = AuthManager.shared
+    @State private var coordinator = MainTabCoordinator()
+    private let streakManager = StreakManager.shared
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            ABYBackground()
+            MainTabShellBackground(selectedTab: coordinator.selectedTab)
 
-            tabContent
-                .id(selectedTab)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .offset(y: 8)),
-                    removal: .opacity.combined(with: .offset(y: -4))
-                ))
-                .animation(AppTheme.springSnappy, value: selectedTab)
+            tabShell
+                .animation(AppTheme.springSnappy, value: coordinator.selectedTab)
 
-            BottomNavigationBar(selectedTab: $selectedTab) {
-                if selectedTab == .conversations {
+            BottomNavigationBar(selectedTab: $coordinator.selectedTab) {
+                if coordinator.selectedTab == .conversations {
                     PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                        JournalPresentationStore.shared.presentEntryHub = true
+                        coordinator.openJournalEntryHub()
                     }
                 } else {
                     openGuidedJournalIfAllowed()
@@ -61,217 +32,39 @@ struct MainTabView: View {
             }
         }
         .abyScreen()
-        .fullScreenCover(isPresented: $showVoiceSession) {
-            RecordingSessionView(
-                isPresented: $showVoiceSession,
-                initialPrompt: voiceStarterPrompt,
-                onComplete: { _ in
-                    showVoiceSession = false
-                },
-                onSwitchToChat: { transcript in
-                    showVoiceSession = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        openChaplainChatIfAllowed(
-                            starter: VoiceChatHandoff.starter(from: transcript),
-                            seedMessages: VoiceChatHandoff.seedMessages(for: transcript)
-                        )
-                    }
-                },
-                voiceTranscript: voiceTranscriptHandoff,
-                saveOnlyLabel: "Close without chat"
-            )
-            .presentationBackground {
-                ABYCleanGradientBackground()
+        .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
+        .modifier(MainTabVoiceSessionModifier(coordinator: coordinator, onSwitchToChat: { transcript in
+            coordinator.closeVoiceSession()
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
+                openChaplainChatIfAllowed(
+                    starter: VoiceChatHandoff.starter(from: transcript),
+                    seedMessages: VoiceChatHandoff.seedMessages(for: transcript)
+                )
             }
-        }
-        .onChange(of: showVoiceSession) { _, isShowing in
-            if !isShowing {
-                voiceStarterPrompt = nil
-                voiceTranscriptHandoff = nil
-            }
-        }
-        .fullScreenCover(isPresented: $showChaplainChat) {
-            ChaplainChatView(
-                isPresented: $showChaplainChat,
-                voice: selectedChaplainVoice,
-                seedMessages: chatSeedMessages,
-                starterText: chatStarterText,
-                contextIntent: chatContextIntent,
-                resumeConversationID: resumeConversationID,
-                onVoice: {
-                    showChaplainChat = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        openVoiceIfAllowed(prompt: nil)
-                    }
-                }
-            )
-            .id(chaplainChatSessionID)
-        }
-        .onChange(of: showChaplainChat) { _, isShowing in
-            if !isShowing {
-                chatStarterText = ""
-                chatSeedMessages = []
-                chatContextIntent = nil
-                resumeConversationID = nil
-            }
-        }
-        .fullScreenCover(isPresented: $showGuidedJournal) {
-            MorningFlowView(
-                isPresented: $showGuidedJournal,
-                streakManager: streakManager,
-                userName: auth.displayName,
-                onDevotionFinished: handleDevotionFinished,
-                onOpenChaplainChat: { transcript in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        openChaplainChatIfAllowed(
-                            starter: VoiceChatHandoff.starter(from: transcript, context: "my morning devotion"),
-                            seedMessages: VoiceChatHandoff.seedMessages(for: transcript)
-                        )
-                    }
-                }
-            )
-        }
-        .fullScreenCover(isPresented: $showStreakBorn) {
-            StreakBornView {
-                showStreakBorn = false
-            }
-        }
-        .fullScreenCover(item: $pendingCelebration) { result in
-            StreakCelebrationView(
-                result: result,
-                weekFlags: streakManager.weekCompletionFlags
-            ) {
-                pendingCelebration = nil
-                if streakManager.shouldCelebrateMilestone(days: result.streak) {
-                    pendingMilestone = MilestonePresentation(days: result.streak)
-                }
-            }
-        }
-        .fullScreenCover(item: $pendingMilestone) { presentation in
-            StreakMilestoneCelebrationView(
-                milestoneDays: presentation.days,
-                identity: StreakIdentity.identity(for: presentation.days)
-            ) {
-                streakManager.markMilestoneSeen(presentation.days)
-                pendingMilestone = nil
-            }
-        }
-        .fullScreenCover(isPresented: $showMorningWrapped) {
-            MorningWrappedContainerView(baseStats: streakManager.wrappedStats()) {
-                showMorningWrapped = false
-            }
-        }
-        .sheet(isPresented: $showStreakScreen) {
-            StreakScreenView(streakManager: streakManager)
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
-        }
-        .sheet(item: $selectedConversation) { conversation in
-            ConversationDetailView(conversation: conversation)
-        }
-        .environment(\.openConversation) { selectedConversation = $0 }
-        .environment(\.openVoiceSession, openVoiceIfAllowed)
-        .environment(\.openChaplainChat, openChaplainChatIfAllowed)
-        .environment(\.openGuidedJournal, openGuidedJournalIfAllowed)
-        .environment(\.openStreakScreen) {
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                showStreakScreen = true
-            }
-        }
-        .environment(\.openMorningWrapped) {
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                showMorningWrapped = true
-            }
-        }
-        .environment(\.openPrayerWall) { kind in
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                prayerWallAddKind = kind
-                showPrayerWall = true
-            }
-        }
-        .environment(\.openJourneyTimeline) {
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                showJourneyTimeline = true
-            }
-        }
-        .environment(\.streakManager, streakManager)
+        }))
+        .mainTabPresentations(coordinator: coordinator, streakManager: streakManager, auth: auth)
         .handleDevotionDeepLinks { route in
             handleDeepLink(route)
-        }
-        .sheet(isPresented: $showPrayerWall) {
-            PrayerWallView(
-                store: PrayerWallStore.shared,
-                onReflect: { prompt in
-                    showPrayerWall = false
-                    selectedTab = .insights
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        openChaplainChatIfAllowed(starter: prompt, seedMessages: [])
-                    }
-                },
-                initialAddKind: prayerWallAddKind,
-                initialTab: prayerWallInitialTab,
-                initialJoinCode: prayerWallJoinCode
-            )
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(28)
-            .presentationBackground {
-                ABYCleanGradientBackground()
-            }
-            .onDisappear {
-                prayerWallAddKind = nil
-                prayerWallInitialTab = .myWall
-                prayerWallJoinCode = nil
-            }
-        }
-        .fullScreenCover(isPresented: $showWidgetOnboarding) {
-            WidgetOnboardingView {
-                showWidgetOnboarding = false
-                selectedTab = .profile
-            }
-        }
-        .fullScreenCover(isPresented: $showJourneyTimeline) {
-            NavigationStack {
-                JourneyTimelineView(store: JourneyTimelineStore.shared)
-            }
-        }
-    }
-
-    private func handleDeepLink(_ route: DeepLinkRouter.DeepLinkRoute) {
-        switch route {
-        case .home:
-            selectedTab = .home
-        case .journal:
-            openGuidedJournalIfAllowed()
-        case .chaplain(let prompt):
-            selectedTab = .insights
-            openChaplainChatIfAllowed(starter: prompt, seedMessages: [])
-        case .prayerWall(let kind, let openCircles, let joinCode):
-            selectedTab = .insights
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                prayerWallAddKind = kind.flatMap(PrayerNoteKind.init(rawValue:))
-                prayerWallInitialTab = openCircles ? .circles : .myWall
-                prayerWallJoinCode = joinCode
-                showPrayerWall = true
-            }
-        case .streak:
-            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                showStreakScreen = true
-            }
         }
     }
 
     @ViewBuilder
-    private var tabContent: some View {
-        switch selectedTab {
-        case .home:
-            HomeView()
-        case .conversations:
-            ConversationsListView()
-        case .insights:
-            AIInsightsView()
-        case .profile:
-            ProfileView()
+    private var tabShell: some View {
+        ZStack {
+            tabLayer(.home) { HomeView().abyTabShell() }
+            tabLayer(.conversations) { ConversationsListView().abyTabShell() }
+            tabLayer(.insights) { AIInsightsView().abyTabShell() }
+            tabLayer(.profile) { ProfileView().abyTabShell() }
         }
+    }
+
+    @ViewBuilder
+    private func tabLayer<Content: View>(_ tab: AppTab, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .opacity(coordinator.selectedTab == tab ? 1 : 0)
+            .allowsHitTesting(coordinator.selectedTab == tab)
+            .accessibilityHidden(coordinator.selectedTab != tab)
     }
 
     private var selectedChaplainVoice: ChaplainVoice {
@@ -279,130 +72,399 @@ struct MainTabView: View {
         return ChaplainVoice.options.first { $0.id == id } ?? ChaplainVoice.options[0]
     }
 
-    private func handleDevotionFinished(_ result: DevotionFinishResult) {
-        if result.isFirstCompletionEver {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                showStreakBorn = true
+    private func handleDeepLink(_ route: DeepLinkRouter.DeepLinkRoute) {
+        switch route {
+        case .home:
+            coordinator.selectedTab = .home
+        case .journal:
+            openGuidedJournalIfAllowed()
+        case .chaplain(let prompt):
+            coordinator.selectedTab = .insights
+            openChaplainChatIfAllowed(starter: prompt, seedMessages: [])
+        case .prayerWall(let kind, let openCircles, let joinCode):
+            coordinator.selectedTab = .insights
+            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                coordinator.openPrayerWall(
+                    addKind: kind.flatMap(PrayerNoteKind.init(rawValue:)),
+                    initialTab: openCircles ? .circles : .myWall,
+                    joinCode: joinCode
+                )
             }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                pendingCelebration = result
-            }
-            if result.streak >= 2,
-               !UserDefaults.standard.bool(forKey: "hasSeenWidgetOnboarding") {
-                UserDefaults.standard.set(true, forKey: "hasSeenWidgetOnboarding")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    showWidgetOnboarding = true
-                }
+        case .streak:
+            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                coordinator.openStreakScreen()
             }
         }
     }
 
     private func openVoiceIfAllowed(prompt: String? = nil) {
+        guard FeatureFlags.voiceChatEnabled else { return }
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            voiceStarterPrompt = prompt
-            withAnimation(AppTheme.springGentle) { showVoiceSession = true }
+            withAnimation(AppTheme.springGentle) {
+                coordinator.openVoiceSession(prompt: prompt)
+            }
         }
     }
 
-    private func openChaplainChatIfAllowed(
-        starter: String?,
-        seedMessages: [ChaplainMessage]
-    ) {
+    private func openChaplainChatIfAllowed(starter: String?, seedMessages: [ChaplainMessage]) {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            chaplainChatSessionID = UUID()
-            chatStarterText = starter ?? ""
-            chatSeedMessages = seedMessages
-            resumeConversationID = ChaplainSessionStore.shared.consumePendingResumeID()
-            chatContextIntent = starter?.localizedCaseInsensitiveContains("expand this reflection") == true
-                ? "expand_reflection"
-                : nil
-            withAnimation(AppTheme.springGentle) { showChaplainChat = true }
+            withAnimation(AppTheme.springGentle) {
+                coordinator.openChaplainChat(starter: starter, seedMessages: seedMessages)
+            }
+        }
+    }
+
+    private func resumeChaplainChatIfAllowed(_ conversation: Conversation) {
+        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+            withAnimation(AppTheme.springGentle) {
+                coordinator.resumeChaplainChat(conversation)
+            }
         }
     }
 
     private func openGuidedJournalIfAllowed() {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            withAnimation(AppTheme.springGentle) { showGuidedJournal = true }
+            withAnimation(AppTheme.springGentle) {
+                coordinator.openGuidedJournal()
+            }
         }
     }
 }
 
-private struct OpenConversationKey: EnvironmentKey {
-    static let defaultValue: (Conversation) -> Void = { _ in }
-}
+// MARK: - Tab shell background
 
-private struct OpenChaplainChatKey: EnvironmentKey {
-    static let defaultValue: (String?, [ChaplainMessage]) -> Void = { _, _ in }
-}
+/// Flat wash on browse tabs; full sanctuary gradient on Journal (Mobbin ABY / Alan Mind pattern).
+private struct MainTabShellBackground: View {
+    let selectedTab: AppTab
 
-private struct OpenVoiceSessionKey: EnvironmentKey {
-    static let defaultValue: (String?) -> Void = { _ in }
-}
-
-private struct OpenGuidedJournalKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-private struct OpenStreakScreenKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-private struct OpenMorningWrappedKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-private struct OpenPrayerWallKey: EnvironmentKey {
-    static let defaultValue: (PrayerNoteKind?) -> Void = { _ in }
-}
-
-private struct OpenJourneyTimelineKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-private struct StreakManagerKey: EnvironmentKey {
-    static let defaultValue = StreakManager.shared
-}
-
-extension EnvironmentValues {
-    var openConversation: (Conversation) -> Void {
-        get { self[OpenConversationKey.self] }
-        set { self[OpenConversationKey.self] = newValue }
+    private var usesImmersiveGradient: Bool {
+        selectedTab == .conversations
     }
-    var openChaplainChat: (String?, [ChaplainMessage]) -> Void {
-        get { self[OpenChaplainChatKey.self] }
-        set { self[OpenChaplainChatKey.self] = newValue }
+
+    var body: some View {
+        ZStack {
+            ABYFlatTabWashBackground()
+            if usesImmersiveGradient {
+                ABYCleanGradientBackground()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.28), value: selectedTab)
     }
-    var openVoiceSession: (String?) -> Void {
-        get { self[OpenVoiceSessionKey.self] }
-        set { self[OpenVoiceSessionKey.self] = newValue }
+}
+
+// MARK: - Environment wiring
+
+private extension View {
+    func installMainTabEnvironment(
+        coordinator: MainTabCoordinator,
+        streakManager: StreakManager
+    ) -> some View {
+        environment(\.openConversation, coordinator.openConversation)
+            .environment(\.streakManager, streakManager)
+            .modifier(MainTabActionEnvironmentModifier(coordinator: coordinator))
     }
-    var openGuidedJournal: () -> Void {
-        get { self[OpenGuidedJournalKey.self] }
-        set { self[OpenGuidedJournalKey.self] = newValue }
+
+    /// Sheets/full-screen covers are hosted outside the tab tree — re-apply shell environment.
+    func mainTabModalEnvironment(coordinator: MainTabCoordinator) -> some View {
+        abyScreen()
+            .modifier(MainTabActionEnvironmentModifier(coordinator: coordinator))
     }
-    var openStreakScreen: () -> Void {
-        get { self[OpenStreakScreenKey.self] }
-        set { self[OpenStreakScreenKey.self] = newValue }
+}
+
+private struct MainTabActionEnvironmentModifier: ViewModifier {
+    @Environment(\.presentDevotionPaywall) private var presentPaywall
+    let coordinator: MainTabCoordinator
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.openChaplainChat) { starter, seeds in
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.openChaplainChat(starter: starter, seedMessages: seeds)
+                    }
+                }
+            }
+            .environment(\.resumeChaplainChat) { conversation in
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.resumeChaplainChat(conversation)
+                    }
+                }
+            }
+            .environment(\.openGuidedJournal) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.openGuidedJournal()
+                    }
+                }
+            }
+            .environment(\.openJournalEntryHub) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openJournalEntryHub()
+                }
+            }
+            .environment(\.openAssistedJournal) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.openAssistedJournal()
+                    }
+                }
+            }
+            .environment(\.openVoiceJournal) {
+                guard FeatureFlags.voiceChatEnabled else { return }
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.openVoiceJournal()
+                    }
+                }
+            }
+            .environment(\.openStreakScreen) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openStreakScreen()
+                }
+            }
+            .environment(\.openMorningWrapped) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openMorningWrapped()
+                }
+            }
+            .environment(\.openPrayerWall) { kind in
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openPrayerWall(addKind: kind)
+                }
+            }
+            .environment(\.openJourneyTimeline) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openJourneyTimeline()
+                }
+            }
+            .environment(\.selectTab) { tab in
+                withAnimation(AppTheme.springSnappy) {
+                    coordinator.selectedTab = tab
+                }
+            }
+            .environment(\.openVoiceSession) { prompt in
+                guard FeatureFlags.voiceChatEnabled else { return }
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    withAnimation(AppTheme.springGentle) {
+                        coordinator.openVoiceSession(prompt: prompt)
+                    }
+                }
+            }
     }
-    var openMorningWrapped: () -> Void {
-        get { self[OpenMorningWrappedKey.self] }
-        set { self[OpenMorningWrappedKey.self] = newValue }
+}
+
+// MARK: - Presentations
+
+private struct MainTabPresentationsModifier: ViewModifier {
+    @Environment(\.presentDevotionPaywall) private var presentPaywall
+    let coordinator: MainTabCoordinator
+    let streakManager: StreakManager
+    let auth: AuthManager
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: Bindable(coordinator).sheet) { presentation in
+                sheetContent(for: presentation)
+            }
+            .fullScreenCover(item: Bindable(coordinator).fullScreen) { presentation in
+                fullScreenContent(for: presentation)
+            }
     }
-    var openPrayerWall: (PrayerNoteKind?) -> Void {
-        get { self[OpenPrayerWallKey.self] }
-        set { self[OpenPrayerWallKey.self] = newValue }
+
+    @ViewBuilder
+    private func sheetContent(for presentation: MainSheetPresentation) -> some View {
+        Group {
+            switch presentation {
+            case .streakScreen:
+                StreakScreenView(streakManager: streakManager)
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
+            case .conversation(let conversation):
+                ConversationDetailView(conversation: conversation)
+            case .prayerWall(let launch):
+                PrayerWallView(
+                    store: PrayerWallStore.shared,
+                    onReflect: { prompt in
+                        coordinator.sheet = nil
+                        coordinator.selectedTab = .insights
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openChaplainChat(starter: prompt, seedMessages: [])
+                            }
+                        }
+                    },
+                    initialAddKind: launch.addKind,
+                    initialTab: launch.initialTab,
+                    initialJoinCode: launch.joinCode
+                )
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+                .presentationBackground {
+                    ABYCleanGradientBackground()
+                }
+            case .journalEntryHub:
+                JournalEntryHubSheet(
+                    onAssisted: {
+                        coordinator.sheet = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openAssistedJournal()
+                            }
+                        }
+                    },
+                    onVoice: {
+                        guard FeatureFlags.voiceChatEnabled else { return }
+                        coordinator.sheet = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openVoiceJournal()
+                            }
+                        }
+                    }
+                )
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+            }
+        }
+        .mainTabModalEnvironment(coordinator: coordinator)
     }
-    var openJourneyTimeline: () -> Void {
-        get { self[OpenJourneyTimelineKey.self] }
-        set { self[OpenJourneyTimelineKey.self] = newValue }
+
+    @ViewBuilder
+    private func fullScreenContent(for presentation: MainFullScreenPresentation) -> some View {
+        Group {
+            switch presentation {
+            case .chaplain(let launch):
+                ChaplainChatView(
+                    voice: selectedChaplainVoice,
+                    seedMessages: launch.seedMessages,
+                    starterText: launch.starterText,
+                    contextIntent: launch.contextIntent,
+                    resumeConversationID: launch.resumeConversationID,
+                    onVoice: FeatureFlags.voiceChatEnabled ? {
+                        coordinator.fullScreen = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            guard FeatureFlags.voiceChatEnabled else { return }
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openVoiceSession(prompt: nil)
+                            }
+                        }
+                    } : nil
+                )
+                .id(launch.sessionID)
+            case .guidedJournal:
+                MorningFlowView(
+                    streakManager: streakManager,
+                    userName: auth.displayName,
+                    onDevotionFinished: { coordinator.handleDevotionFinished($0) },
+                    onOpenChaplainChat: { transcript in
+                        coordinator.fullScreen = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openChaplainChat(
+                                    starter: VoiceChatHandoff.starter(from: transcript, context: "my morning devotion"),
+                                    seedMessages: VoiceChatHandoff.seedMessages(for: transcript)
+                                )
+                            }
+                        }
+                    }
+                )
+            case .assistedJournal:
+                AssistedJournalView()
+            case .voiceJournal:
+                VoiceJournalView()
+            case .streakBorn:
+                StreakBornView {
+                    coordinator.fullScreen = nil
+                }
+            case .morningWrapped:
+                MorningWrappedContainerView(baseStats: streakManager.wrappedStats()) {
+                    coordinator.fullScreen = nil
+                }
+            case .widgetOnboarding:
+                WidgetOnboardingView {
+                    coordinator.fullScreen = nil
+                    coordinator.selectedTab = .profile
+                }
+            case .journeyTimeline:
+                NavigationStack {
+                    JourneyTimelineView(store: JourneyTimelineStore.shared)
+                }
+            case .celebration(let result):
+                StreakCelebrationView(
+                    result: result,
+                    weekFlags: streakManager.weekCompletionFlags
+                ) {
+                    coordinator.handleCelebrationDismissed(result: result, streakManager: streakManager)
+                }
+            case .milestone(let presentation):
+                StreakMilestoneCelebrationView(
+                    milestoneDays: presentation.days,
+                    identity: StreakIdentity.identity(for: presentation.days)
+                ) {
+                    streakManager.markMilestoneSeen(presentation.days)
+                    coordinator.fullScreen = nil
+                }
+            }
+        }
+        .mainTabModalEnvironment(coordinator: coordinator)
     }
-    var streakManager: StreakManager {
-        get { self[StreakManagerKey.self] }
-        set { self[StreakManagerKey.self] = newValue }
+
+    private var selectedChaplainVoice: ChaplainVoice {
+        let id = UserDefaults.standard.string(forKey: "selectedChaplainVoice") ?? "grace"
+        return ChaplainVoice.options.first { $0.id == id } ?? ChaplainVoice.options[0]
+    }
+}
+
+private extension View {
+    func mainTabPresentations(
+        coordinator: MainTabCoordinator,
+        streakManager: StreakManager,
+        auth: AuthManager
+    ) -> some View {
+        modifier(MainTabPresentationsModifier(
+            coordinator: coordinator,
+            streakManager: streakManager,
+            auth: auth
+        ))
+    }
+}
+
+// MARK: - Voice session
+
+private struct MainTabVoiceSessionModifier: ViewModifier {
+    let coordinator: MainTabCoordinator
+    let onSwitchToChat: (String) -> Void
+
+    func body(content: Content) -> some View {
+        if FeatureFlags.voiceChatEnabled {
+            content
+                .fullScreenCover(isPresented: Bindable(coordinator).isVoiceSessionPresented) {
+                    RecordingSessionView(
+                        isPresented: Bindable(coordinator).isVoiceSessionPresented,
+                        initialPrompt: coordinator.voiceSessionPrompt,
+                        onComplete: { _ in coordinator.closeVoiceSession() },
+                        onSwitchToChat: onSwitchToChat,
+                        voiceTranscript: coordinator.voiceTranscriptHandoff,
+                        saveOnlyLabel: "Close without chat"
+                    )
+                    .presentationBackground {
+                        ABYCleanGradientBackground()
+                    }
+                }
+        } else {
+            content
+        }
     }
 }
 
 #Preview {
     MainTabView()
+        .environment(\.authManager, .shared)
 }

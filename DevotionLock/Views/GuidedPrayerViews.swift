@@ -44,7 +44,7 @@ private struct GuidedPrayerCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: prayer.icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ABY.Font.headline)
                     .foregroundStyle(tint)
                     .frame(width: 36, height: 36)
                     .background(tint.opacity(0.12))
@@ -82,7 +82,7 @@ struct PassageBrowseCard: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ABY.Font.bodySemibold)
                     .foregroundStyle(ABY.Color.pillPurple)
                     .frame(width: 40, height: 40)
                     .background(ABY.Color.pillPurple.opacity(0.12))
@@ -98,7 +98,7 @@ struct PassageBrowseCard: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ABY.Font.footnoteSemibold)
                     .foregroundStyle(palette.textTertiary)
             }
             .padding(14)
@@ -142,7 +142,7 @@ struct GuidedPrayerFlowView: View {
 
                     VStack(spacing: 12) {
                         Image(systemName: prayer.icon)
-                            .font(.system(size: 28, weight: .medium))
+                            .font(ABY.Font.title)
                             .foregroundStyle(tint)
                             .frame(width: 64, height: 64)
                             .background(tint.opacity(0.12))
@@ -158,7 +158,7 @@ struct GuidedPrayerFlowView: View {
                     }
 
                     Text(prayer.steps[stepIndex])
-                        .font(.system(size: 22, weight: .regular, design: .serif))
+                        .font(ABY.Font.editorialHeadline)
                         .foregroundStyle(palette.textPrimary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(8)

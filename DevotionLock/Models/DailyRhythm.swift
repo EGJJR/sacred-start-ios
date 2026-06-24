@@ -114,6 +114,16 @@ final class DailyRhythmStore {
         }
     }
 
+    #if DEBUG
+    func clearTodayCompletions() {
+        let key = dateKey(for: Date())
+        completionsByDate.removeValue(forKey: key)
+        revision += 1
+        persist()
+        NotificationCenter.default.post(name: .devotionRhythmDidUpdate, object: nil)
+    }
+    #endif
+
     private func completions(for date: Date) -> Set<String> {
         completionsByDate[dateKey(for: date)] ?? []
     }

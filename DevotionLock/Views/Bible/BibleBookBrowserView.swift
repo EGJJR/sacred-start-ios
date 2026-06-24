@@ -105,7 +105,7 @@ struct BibleBookBrowserView: View {
                         Image(systemName: "chevron.left")
                         Text(testament.label)
                     }
-                    .font(ABY.Font.callout.weight(.medium))
+                    .font(ABY.Font.calloutMedium)
                     .foregroundStyle(palette.textPrimary)
                 }
                 .buttonStyle(.plain)
@@ -174,7 +174,7 @@ struct BibleBookBrowserView: View {
         VStack(spacing: 10) {
             Spacer()
             Image(systemName: "book.closed")
-                .font(.system(size: 36, weight: .light))
+                .font(ABY.Font.largeTitle)
                 .foregroundStyle(palette.textTertiary)
             Text("No books match")
                 .font(ABY.Font.headline)

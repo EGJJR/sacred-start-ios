@@ -86,7 +86,7 @@ struct ScriptureLibraryView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "bookmark")
-                .font(.system(size: 40, weight: .light))
+                .font(ABY.Font.heroIcon)
                 .foregroundStyle(palette.textTertiary)
             Text("Nothing saved yet")
                 .font(ABY.Font.headline)

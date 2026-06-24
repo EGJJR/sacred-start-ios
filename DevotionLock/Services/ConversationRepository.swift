@@ -242,8 +242,9 @@ final class ConversationRepository {
         messageCount: Int,
         includeTranscript: Bool
     ) -> Conversation {
-        let preview = messages.last(where: { $0.role == "chaplain" })?.content
-            ?? messages.last?.content
+        let preview = messages.last(where: { $0.role == "user" })?.content
+            ?? messages.first?.content
+            ?? row.title
             ?? "A conversation with your Chaplain."
 
         let transcript = includeTranscript
@@ -259,7 +260,7 @@ final class ConversationRepository {
         return Conversation(
             id: row.id,
             remoteID: row.id,
-            tag: row.mood ?? "Reflection",
+            tag: "Chaplain",
             timeAgo: relativeTime(from: row.createdAt),
             timelineTime: timelineTime(from: row.createdAt),
             emoji: "🙏",

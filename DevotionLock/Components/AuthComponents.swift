@@ -2,174 +2,101 @@
 //  AuthComponents.swift
 //  DevotionLock
 //
+//  Fabric-inspired auth: white surface, social providers, gray fields, black CTA.
+//
 
 import SwiftUI
 
 // MARK: - Screen shell
 
-struct AuthMeshScreen<Content: View>: View {
+enum AuthScreenStyle {
+    case welcome
+    case credentials
+}
+
+private struct AuthScreenStyleKey: EnvironmentKey {
+    static let defaultValue: AuthScreenStyle = .welcome
+}
+
+extension EnvironmentValues {
+    var authScreenStyle: AuthScreenStyle {
+        get { self[AuthScreenStyleKey.self] }
+        set { self[AuthScreenStyleKey.self] = newValue }
+    }
+}
+
+struct AuthScreen<Content: View>: View {
+    let style: AuthScreenStyle
     @ViewBuilder let content: Content
 
-    var body: some View {
-        ZStack {
-            ABYOnboardingMeshBackground()
-            AuthAmbientOrbs()
-            content
+    private var surface: OnboardingSurface {
+        switch style {
+        case .welcome, .credentials: .light
         }
-        .preferredColorScheme(.dark)
     }
-}
-
-struct AuthAmbientOrbs: View {
-    @State private var drift = false
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(Color.white.opacity(0.10))
-                .frame(width: 220, height: 220)
-                .blur(radius: 2)
-                .offset(x: drift ? -90 : -110, y: drift ? -280 : -300)
-
-            Circle()
-                .fill(ABY.Color.meshSage.opacity(0.22))
-                .frame(width: 160, height: 160)
-                .blur(radius: 1)
-                .offset(x: drift ? 120 : 140, y: drift ? -180 : -200)
-
-            Circle()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: 280, height: 280)
-                .blur(radius: 4)
-                .offset(x: drift ? 40 : 20, y: drift ? 320 : 340)
-        }
-        .allowsHitTesting(false)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
-                drift = true
+            ABYWarmSanctuaryBackground()
+            ABYJournalScreen(surface: .plain) {
+                content
             }
         }
+        .environment(\.authScreenStyle, style)
     }
 }
 
-// MARK: - Welcome
+// MARK: - Headlines & links
 
-struct AuthSunriseHero: View {
-    @State private var glow = false
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.05), .clear],
-                        center: .center,
-                        startRadius: 8,
-                        endRadius: 90
-                    )
-                )
-                .frame(width: 160, height: 160)
-                .scaleEffect(glow ? 1.05 : 0.95)
-
-            Circle()
-                .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                .frame(width: 96, height: 96)
-
-            Image(systemName: "sun.horizon.fill")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.white.opacity(0.95))
-                .offset(y: 6)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                glow = true
-            }
-        }
-    }
-}
-
-struct AuthBottomPanel<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(spacing: 14) {
-            content
-        }
-        .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 20)
-        .padding(.bottom, 28)
-        .frame(maxWidth: .infinity)
-        .background {
-            UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32)
-                .fill(Color.white.opacity(0.12))
-                .background {
-                    UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32)
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.65)
-                }
-                .overlay {
-                    UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32)
-                        .strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
-                }
-                .ignoresSafeArea(edges: .bottom)
-        }
-    }
-}
-
-// MARK: - Credentials layout
-
-struct AuthCredentialsHeader: View {
+struct AuthFormHeadline: View {
     let intent: AuthIntent
-    let onBack: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            AuthBackButton(action: onBack)
-
-            Spacer(minLength: 0)
-
-            VStack(spacing: 4) {
-                Text(intent == .signUp ? "Create account" : "Log in")
-                    .font(ABY.Font.title2)
-                    .foregroundStyle(ABY.Color.onboardingText)
-                Text(intent == .signUp ? "Join your morning sanctuary" : "Welcome back")
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(ABY.Color.onboardingTextSecondary)
-            }
-
-            Spacer(minLength: 0)
-
-            Color.clear
-                .frame(width: 36, height: 36)
-        }
-        .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        Text(intent == .signUp ? "Sign up" : "Welcome back!")
+            .font(ABY.Font.largeTitle)
+            .foregroundStyle(ABY.Color.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
-struct AuthFormCard<Content: View>: View {
-    @ViewBuilder let content: Content
+struct AuthIntentToggle: View {
+    @Binding var intent: AuthIntent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            content
+        HStack(spacing: 0) {
+            segment(title: "Sign in", isSelected: intent == .signIn) {
+                guard intent != .signIn else { return }
+                withAnimation(AppTheme.springSnappy) { intent = .signIn }
+            }
+            segment(title: "Sign up", isSelected: intent == .signUp) {
+                guard intent != .signUp else { return }
+                withAnimation(AppTheme.springSnappy) { intent = .signUp }
+            }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.10))
+        .padding(4)
+        .background(ABY.Color.fieldFill)
+        .clipShape(Capsule())
+        .accessibilityElement(children: .contain)
+    }
+
+    private func segment(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(ABY.Font.footnoteSemibold)
+                .foregroundStyle(isSelected ? ABY.Color.textPrimary : ABY.Color.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
                 .background {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.55)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                    if isSelected {
+                        Capsule()
+                            .fill(ABY.Color.surface)
+                            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                    }
                 }
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -177,20 +104,30 @@ struct AuthSecondaryTextLink: View {
     let prompt: String
     let actionLabel: String
     let action: () -> Void
+    @Environment(\.authScreenStyle) private var screenStyle
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Text(prompt)
-                    .foregroundStyle(ABY.Color.onboardingTextSecondary)
+                    .foregroundStyle(promptColor)
                 Text(actionLabel)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(ABY.Color.onboardingText)
+                    .font(ABY.Font.footnoteSemibold)
+                    .underline(screenStyle == .credentials)
+                    .foregroundStyle(linkColor)
             }
             .font(ABY.Font.footnote)
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var promptColor: Color {
+        screenStyle == .welcome ? ABY.Color.textSecondary : ABY.Color.textSecondary
+    }
+
+    private var linkColor: Color {
+        screenStyle == .welcome ? ABY.Color.textPrimary : ABY.Color.linkBlue
     }
 }
 
@@ -207,38 +144,130 @@ struct AuthSwitchIntentLink: View {
     }
 
     private var prompt: String {
-        intent == .signUp ? "Already have an account?" : "New to Devotion Lock?"
+        intent == .signUp ? "Already have an account?" : "No account?"
     }
 
     private var actionLabel: String {
-        intent == .signUp ? "Log in" : "Create account"
+        intent == .signUp ? "Sign in" : "Sign up"
+    }
+}
+
+struct AuthTextLink: View {
+    let title: String
+    var alignment: Alignment = .leading
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ABY.Font.footnote)
+                .foregroundStyle(ABY.Color.linkBlue)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: alignment)
+    }
+}
+
+struct AuthOrSeparator: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            Rectangle()
+                .fill(ABY.Color.divider)
+                .frame(height: 1)
+            Text("or")
+                .font(ABY.Font.footnote)
+                .foregroundStyle(ABY.Color.textTertiary)
+            Rectangle()
+                .fill(ABY.Color.divider)
+                .frame(height: 1)
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Social providers
+
+struct AuthSocialProviderButton: View {
+    enum Provider {
+        case apple
+        case google
+
+        var title: String {
+            switch self {
+            case .apple: "Sign in with Apple"
+            case .google: "Sign in with Google"
+            }
+        }
+
+        func title(for intent: AuthIntent) -> String {
+            switch (self, intent) {
+            case (.apple, .signUp): "Sign up with Apple"
+            case (.apple, .signIn): "Sign in with Apple"
+            case (.google, .signUp): "Sign up with Google"
+            case (.google, .signIn): "Sign in with Google"
+            }
+        }
+    }
+
+    let provider: Provider
+    let intent: AuthIntent
+    var isLoading = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                providerIcon
+                Text(provider.title(for: intent))
+                    .font(ABY.Font.body)
+                    .foregroundStyle(ABY.Color.textPrimary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 15)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(ABY.Color.surface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(ABY.Color.divider, lineWidth: 1)
+                    }
+            }
+            .opacity(isLoading ? 0.6 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+    }
+
+    @ViewBuilder
+    private var providerIcon: some View {
+        switch provider {
+        case .apple:
+            Image(systemName: "apple.logo")
+                .font(ABY.Font.headline)
+                .foregroundStyle(.black)
+                .frame(width: 22)
+        case .google:
+            Text("G")
+                .font(ABY.Font.headline)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.92, green: 0.26, blue: 0.21),
+                            Color(red: 0.98, green: 0.74, blue: 0.18),
+                            Color(red: 0.20, green: 0.66, blue: 0.33),
+                            Color(red: 0.26, green: 0.52, blue: 0.96),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 22)
+        }
     }
 }
 
 // MARK: - Fields
-
-struct AuthLabeledField<Content: View>: View {
-    let label: String
-    var hint: String? = nil
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(label)
-                    .font(ABY.Font.captionMedium)
-                    .foregroundStyle(ABY.Color.onboardingTextSecondary)
-                Spacer(minLength: 8)
-                if let hint {
-                    Text(hint)
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(ABY.Color.onboardingTextMuted)
-                }
-            }
-            content
-        }
-    }
-}
 
 struct AuthFieldStatus: View {
     enum Tone {
@@ -249,7 +278,7 @@ struct AuthFieldStatus: View {
 
         var color: Color {
             switch self {
-            case .neutral, .checking: ABY.Color.onboardingTextMuted
+            case .neutral, .checking: ABY.Color.textTertiary
             case .success: Color.green.opacity(0.85)
             case .error: Color.red.opacity(0.88)
             }
@@ -272,11 +301,11 @@ struct AuthFieldStatus: View {
             if tone == .checking {
                 ProgressView()
                     .scaleEffect(0.75)
-                    .tint(ABY.Color.onboardingTextMuted)
+                    .tint(tone.color)
                     .padding(.top, 1)
             } else if let icon = tone.icon {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ABY.Font.captionSemibold)
                     .foregroundStyle(tone.color)
                     .padding(.top, 1)
             }
@@ -287,98 +316,147 @@ struct AuthFieldStatus: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
     }
 }
 
 struct AuthInlineBanner: View {
     let message: String
 
+    private let tint = Color(red: 0.82, green: 0.18, blue: 0.16)
+
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.red.opacity(0.9))
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(ABY.Font.bodySemibold)
+                .foregroundStyle(tint)
             Text(message)
                 .font(ABY.Font.footnote)
-                .foregroundStyle(Color.red.opacity(0.92))
+                .foregroundStyle(tint)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.red.opacity(0.12))
+                .fill(tint.opacity(0.10))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.red.opacity(0.22), lineWidth: 1)
+                        .strokeBorder(tint.opacity(0.20), lineWidth: 1)
                 }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Error: \(message)")
     }
 }
 
-struct AuthGlassTextField: View {
+struct AuthPlainTextField: View {
     let placeholder: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
-    var autocapitalization: TextInputAutocapitalization = .never
-    var alignment: TextAlignment = .leading
+
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        TextField(placeholder, text: $text)
-            .textInputAutocapitalization(autocapitalization)
+        TextField("", text: $text, prompt: prompt)
+            .textInputAutocapitalization(.never)
             .keyboardType(keyboardType)
             .autocorrectionDisabled()
-            .multilineTextAlignment(alignment)
             .font(ABY.Font.body)
-            .foregroundStyle(ABY.Color.onboardingText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 15)
-            .background(AuthFieldBackground())
+            .foregroundStyle(ABY.Color.textPrimary)
+            .focused($isFocused)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .background(AuthFieldBackground(isFocused: isFocused))
+    }
+
+    private var prompt: Text {
+        Text(placeholder)
+            .font(ABY.Font.body)
+            .foregroundStyle(ABY.Color.textTertiary)
     }
 }
 
-private struct AuthFieldBackground: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: ABY.Radius.glass, style: .continuous)
-            .fill(Color.black.opacity(0.14))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.glass, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-            }
-    }
-}
-
-struct AuthSecureTextField: View {
+struct AuthPlainSecureField: View {
     let placeholder: String
     @Binding var text: String
+
     @State private var isVisible = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Group {
                 if isVisible {
-                    TextField(placeholder, text: $text)
+                    TextField("", text: $text, prompt: prompt)
                 } else {
-                    SecureField(placeholder, text: $text)
+                    SecureField("", text: $text, prompt: prompt)
                 }
             }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .font(ABY.Font.body)
-            .foregroundStyle(ABY.Color.onboardingText)
+            .foregroundStyle(ABY.Color.textPrimary)
+            .focused($isFocused)
 
             Button {
                 isVisible.toggle()
             } label: {
                 Image(systemName: isVisible ? "eye.slash" : "eye")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(ABY.Color.onboardingTextSecondary)
+                    .font(ABY.Font.bodyMedium)
+                    .foregroundStyle(ABY.Color.textTertiary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isVisible ? "Hide password" : "Show password")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
-        .background(AuthFieldBackground())
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(AuthFieldBackground(isFocused: isFocused))
+    }
+
+    private var prompt: Text {
+        Text(placeholder)
+            .font(ABY.Font.body)
+            .foregroundStyle(ABY.Color.textTertiary)
+    }
+}
+
+// Legacy icon fields — kept for welcome / other flows
+struct AuthIconTextField: View {
+    let icon: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+
+    var body: some View {
+        AuthPlainTextField(placeholder: placeholder, text: $text, keyboardType: keyboardType)
+    }
+}
+
+struct AuthIconSecureField: View {
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        AuthPlainSecureField(placeholder: placeholder, text: $text)
+    }
+}
+
+private struct AuthFieldBackground: View {
+    var isFocused = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(ABY.Color.fieldFill)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        isFocused ? ABY.Color.linkBlue.opacity(0.45) : Color.clear,
+                        lineWidth: 1.5
+                    )
+            }
+            .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 
@@ -395,58 +473,63 @@ struct AuthPrimaryCapsuleButton: View {
             HStack(spacing: 8) {
                 if isLoading {
                     ProgressView()
-                        .tint(ABY.Color.onboardingButtonText)
+                        .tint(.white)
                 }
                 Text(title)
                     .font(ABY.Font.button)
             }
-            .foregroundStyle(ABY.Color.onboardingButtonText)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(.white.opacity(isEnabled ? 1 : 0.55))
+            .padding(.vertical, 17)
+            .background(Color.black.opacity(isEnabled && !isLoading ? 1 : 0.45))
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(isEnabled ? 0.08 : 0), radius: 12, y: 4)
+            .shadow(color: .black.opacity(isEnabled && !isLoading ? 0.08 : 0), radius: 12, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
         .disabled(!isEnabled || isLoading)
+        .opacity(isEnabled ? 1 : 0.45)
         .accessibilityLabel(title)
     }
 }
 
 struct AuthTermsFooter: View {
+    @Environment(\.authScreenStyle) private var screenStyle
     @State private var showTerms = false
     @State private var showPrivacy = false
 
     var body: some View {
         VStack(spacing: 4) {
-            Text("By continuing, you agree to our")
+            Text(footerLine)
                 .font(ABY.Font.caption)
-                .foregroundStyle(ABY.Color.onboardingTextMuted)
-            HStack(spacing: 4) {
-                Button("Terms") { showTerms = true }
-                    .font(ABY.Font.caption.weight(.medium))
-                    .underline()
-                    .foregroundStyle(ABY.Color.onboardingTextMuted)
-                Text("and")
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(ABY.Color.onboardingTextMuted)
-                Button("Privacy Policy") { showPrivacy = true }
-                    .font(ABY.Font.caption.weight(.medium))
-                    .underline()
-                    .foregroundStyle(ABY.Color.onboardingTextMuted)
+                .foregroundStyle(ABY.Color.textTertiary)
+                .multilineTextAlignment(.center)
+
+            if screenStyle == .credentials {
+                HStack(spacing: 4) {
+                    Button("Terms") { showTerms = true }
+                        .font(ABY.Font.captionMedium)
+                        .underline()
+                    Text("and")
+                    Button("Privacy Policy") { showPrivacy = true }
+                        .font(ABY.Font.captionMedium)
+                        .underline()
+                }
+                .font(ABY.Font.caption)
+                .foregroundStyle(ABY.Color.textTertiary)
             }
         }
-        .multilineTextAlignment(.center)
         .sheet(isPresented: $showTerms) {
-            NavigationStack {
-                LegalDocumentView(document: .termsOfService)
-            }
+            NavigationStack { LegalDocumentView(document: .termsOfService) }
         }
         .sheet(isPresented: $showPrivacy) {
-            NavigationStack {
-                LegalDocumentView(document: .privacyPolicy)
-            }
+            NavigationStack { LegalDocumentView(document: .privacyPolicy) }
         }
+    }
+
+    private var footerLine: String {
+        screenStyle == .welcome
+            ? "By tapping 'Get started', you're accepting our terms and privacy policy."
+            : "By continuing, you agree to our"
     }
 }
 
@@ -457,13 +540,9 @@ struct AuthBackButton: View {
         Button(action: action) {
             Image(systemName: "chevron.left")
                 .font(ABY.Font.iconMedium)
-                .foregroundStyle(ABY.Color.onboardingText)
-                .frame(width: 36, height: 36)
-                .background {
-                    Circle()
-                        .fill(Color.white.opacity(0.10))
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-                }
+                .foregroundStyle(ABY.Color.textPrimary)
+                .frame(width: 40, height: 40)
+                .background(ABY.Color.track, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Back")

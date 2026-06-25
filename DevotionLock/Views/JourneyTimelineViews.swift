@@ -73,8 +73,7 @@ struct JourneyTimelineView: View {
             }
             .abyScrollEdgeFades()
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .onAppear {
             withAnimation(AppTheme.springGentle) { appeared = true }
         }

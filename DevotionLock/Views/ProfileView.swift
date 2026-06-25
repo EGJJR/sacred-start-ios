@@ -16,7 +16,6 @@ enum ProfileDestination: Hashable {
     case shield
     case appearance
     case search
-    case passages
     case about
     case journey
     case privacyPolicy
@@ -39,10 +38,9 @@ private enum AccountFlowSheet: Identifiable {
 }
 
 struct ProfileView: View {
+    private var auth = AuthManager.shared
     @Environment(\.sanctuaryPalette) private var palette
     @Environment(\.presentDevotionPaywall) private var presentPaywall
-    @Environment(\.authManager) private var auth
-    @Environment(\.openStreakScreen) private var openStreakScreen
     @Environment(\.openMorningWrapped) private var openMorningWrapped
     @Environment(\.streakManager) private var streakManager
 
@@ -83,6 +81,7 @@ struct ProfileView: View {
                         name: auth.displayName,
                         email: auth.email,
                         avatarURL: auth.avatarURL,
+                        localImageData: auth.localAvatarData,
                         streakDays: streakManager.currentStreak,
                         onEdit: { path.append(ProfileDestination.account) }
                     )
@@ -94,18 +93,6 @@ struct ProfileView: View {
                     ABYSettingsPremiumBanner(isActive: PaywallAccess.hasPremium) {
                         presentPaywall()
                     }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.bottom, 24)
-                    .opacity(appeared ? 1 : 0)
-
-                    Button(action: openStreakScreen) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ABYSectionHeader(title: "Your rhythm")
-                            SanctuaryIdentityCard(identity: streakManager.streakIdentity)
-                            SanctuaryGrowthBadgeRow(currentStage: streakManager.streakIdentity.stage)
-                        }
-                    }
-                    .buttonStyle(.plain)
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 24)
                     .opacity(appeared ? 1 : 0)
@@ -177,15 +164,6 @@ struct ProfileView: View {
                         ) {
                             path.append(ProfileDestination.shield)
                         }
-                        ABYSettingsDivider()
-                        ABYSettingsRow(
-                            icon: "book.closed.fill",
-                            title: "Passages & promises",
-                            detail: "Search, browse, library",
-                            value: ScriptureLibraryStore.shared.count > 0 ? "\(ScriptureLibraryStore.shared.count) saved" : nil
-                        ) {
-                            path.append(ProfileDestination.passages)
-                        }
                     }
 
                     settingsSection("More") {
@@ -249,7 +227,6 @@ struct ProfileView: View {
                 case .appearance: EmptyView()
                 case .shield: ShieldSettingsView()
                 case .search: SearchView(showsHeader: false)
-                case .passages: PassageSearchView()
                 case .about: AboutView()
                 case .journey: JourneyTimelineView(store: JourneyTimelineStore.shared)
                 case .privacyPolicy: LegalDocumentView(document: .privacyPolicy)
@@ -306,6 +283,7 @@ struct ProfileView: View {
         }
         .onAppear {
             withAnimation(AppTheme.springGentle) { appeared = true }
+            Task { await auth.refreshProfileFromServer() }
         }
     }
 

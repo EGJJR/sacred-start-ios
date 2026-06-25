@@ -26,9 +26,7 @@ enum ConversationMerger {
 
     static func isChaplainChat(_ conversation: Conversation) -> Bool {
         if isInternalChaplainRequest(conversation) { return false }
-        if conversation.tag == "Chaplain" { return true }
-        if conversation.remoteID != nil { return true }
-        return conversation.transcript.contains { $0.speaker == "Chaplain" }
+        return conversation.tag == "Chaplain"
     }
 
     /// Background AI tasks (guided prayer enrichment) must not appear in chat history.
@@ -50,22 +48,7 @@ enum ConversationMerger {
     static func isJournalTimelineEntry(_ conversation: Conversation) -> Bool {
         guard !isInternalChaplainRequest(conversation) else { return false }
         guard !isChaplainChat(conversation) else { return false }
-        return isSubstantiveReflection(conversation)
-    }
-
-    private static func isSubstantiveReflection(_ conversation: Conversation) -> Bool {
-        let userText = conversation.transcript
-            .filter { $0.speaker == "You" }
-            .map(\.text)
-            .joined(separator: " ")
-        let wordCount = userText.split(whereSeparator: \.isWhitespace).count
-
-        if conversation.tag.lowercased() == "voice" {
-            return !userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        if conversation.transcript.contains(where: { $0.speaker == "Chaplain" }) { return false }
-        if wordCount >= journalSubstanceWordThreshold { return true }
-        return conversation.transcript.count > 1
+        return conversation.isSubstantiveReflection
     }
 
     @MainActor

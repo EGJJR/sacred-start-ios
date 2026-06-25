@@ -85,6 +85,12 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
     case devotionComplete
     case splash
     case streak
+    case prayerThreshold
+    case prayerLiturgyWeave
+    case prayerLiturgyWeaving
+    case sacredOrbWeavingLab
+    case morningLiturgyBranch
+    case weekInReview
 
     var id: String { rawValue }
 
@@ -110,6 +116,12 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
         case .devotionComplete: "Devotion complete"
         case .splash: "Splash / loading"
         case .streak: "Streak sheet"
+        case .prayerThreshold: "Prayer · Threshold Chapel"
+        case .prayerLiturgyWeave: "Prayer · Liturgy Weave"
+        case .prayerLiturgyWeaving: "Prayer · Weaving overlay"
+        case .sacredOrbWeavingLab: "Sacred orb · Weaving lab"
+        case .morningLiturgyBranch: "Morning · Liturgy branch"
+        case .weekInReview: "Week in review"
         }
     }
 
@@ -119,12 +131,13 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
         case .onboardingEntry, .onboardingGoal, .onboardingIntention, .onboardingVoice, .onboardingNotifications, .onboardingRecap: "Onboarding"
         case .home, .conversations, .insights, .profile: "Main tabs"
         case .journalMood, .journalMadLibs, .journalComplete: "Guided journal"
-        case .paywall, .devotionComplete, .splash, .streak: "Other flows"
+        case .paywall, .devotionComplete, .splash, .streak, .weekInReview: "Other flows"
+        case .prayerThreshold, .prayerLiturgyWeave, .prayerLiturgyWeaving, .sacredOrbWeavingLab, .morningLiturgyBranch: "Guided prayer prototypes"
         }
     }
 
     static var grouped: [(String, [DesignTourDestination])] {
-        let order = ["Auth", "Onboarding", "Main tabs", "Guided journal", "Other flows"]
+        let order = ["Auth", "Onboarding", "Main tabs", "Guided journal", "Guided prayer prototypes", "Other flows"]
         return order.map { section in
             (section, allCases.filter { $0.section == section })
         }
@@ -331,6 +344,48 @@ private struct DesignTourScreen: View {
 
         case .streak:
             StreakScreenView(streakManager: .shared)
+
+        case .prayerThreshold:
+            GuidedPrayerFlowView(
+                prayer: GuidedPrayerCatalog.all[0],
+                style: .threshold
+            ) {}
+
+        case .prayerLiturgyWeave:
+            GuidedPrayerFlowView(
+                prayer: GuidedPrayerCatalog.all[0],
+                style: .liturgyWeave,
+                weaveContext: .preview
+            ) {}
+
+        case .prayerLiturgyWeaving:
+            LiturgyWeavePrayerView(
+                beats: LiturgyWeaveBuilder.wovenBeats(
+                    prayer: GuidedPrayerCatalog.all[0],
+                    context: .preview
+                ),
+                isEnriching: true,
+                onComplete: {}
+            )
+
+        case .sacredOrbWeavingLab:
+            DesignTourSacredOrbWeavingLab()
+
+        case .morningLiturgyBranch:
+            ThresholdPrayerFlowView(
+                prayer: GuidedPrayerCatalog.all[0],
+                prayerBeats: LiturgyWeaveBuilder.repeatablePrayerBeats(
+                    prayer: GuidedPrayerCatalog.all[0],
+                    context: .preview
+                ),
+                onComplete: {}
+            )
+
+        case .weekInReview:
+            MorningWrappedView(
+                stats: StreakManager.shared.wrappedStats(),
+                onDismiss: {}
+            )
         }
     }
 
@@ -361,6 +416,20 @@ private struct DesignTourJournalHost: View {
     }
 }
 
+private struct DesignTourMorningHost: View {
+    let path: MorningPath
+    let step: MorningStep
+
+    var body: some View {
+        MorningFlowView(
+            streakManager: .shared,
+            userName: "Alex",
+            initialMorningPath: path,
+            initialStep: step
+        )
+    }
+}
+
 private struct DesignTourTabShell: ViewModifier {
     let tab: AppTab
     @State private var tourCoordinator = MainTabCoordinator()
@@ -370,7 +439,19 @@ private struct DesignTourTabShell: ViewModifier {
             ABYBackground()
             content
                 .padding(.bottom, 88)
-            BottomNavigationBar(selectedTab: .constant(tab)) {}
+            BottomNavigationBar(
+                selectedTab: .constant(tab),
+                orbState: SacredOrbState(
+                    shortLabel: "Begin",
+                    microLabel: "Begin",
+                    accessibilityLabel: "Begin devotion",
+                    visualStyle: .pulse,
+                    destination: .guidedDevotion,
+                    showsMorningFirstNudge: false,
+                    rhythmProgress: 0.25
+                ),
+                onOrbTap: {}
+            )
         }
         .designTourTabEnvironment(openJournalEntryHub: { tourCoordinator.openJournalEntryHub() })
         .sheet(item: Bindable(tourCoordinator).sheet) { presentation in
@@ -406,6 +487,10 @@ private struct DesignTourTabShell: ViewModifier {
             )
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
+        case .eveningReflection:
+            EveningReflectionSheet(onComplete: { _ in tourCoordinator.sheet = nil })
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
         default:
             EmptyView()
         }
@@ -458,6 +543,93 @@ private extension View {
             .environment(\.openJourneyTimeline, {})
             .environment(\.presentDevotionPaywall, {})
             .abyScreen()
+    }
+}
+
+private struct DesignTourSacredOrbWeavingLab: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 28) {
+                Text("Compare loading affordances — spinner vs shared sacred shell.")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textSecondary)
+                    .lineSpacing(3)
+
+                labSection(title: "Legacy spinner") {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Tidying gently…")
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(palette.textSecondary)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+
+                labSection(title: "Mini orb · speech polish") {
+                    ABYSpeechTidyPresence(phase: .smoothing)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+
+                labSection(title: "Nav shell · 52pt weaving") {
+                    SacredOrbShell(size: 52, visualStyle: .weaving, rhythmProgress: 0.35)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                        .background(palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+
+                labSection(title: "Guided prayer · center overlay") {
+                    ZStack {
+                        Color.black.opacity(0.88)
+                        SacredOrbWeavingOverlay(shellSize: 68)
+                    }
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+
+                labSection(title: "In-card polish mock") {
+                    ZStack(alignment: .bottom) {
+                        Text("Lord today I felt anxious about work and I don't know how to slow down…")
+                            .font(ABY.Font.body)
+                            .foregroundStyle(palette.textPrimary)
+                            .lineSpacing(6)
+                            .blur(radius: 2.5)
+                            .padding(16)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+                        ABYSpeechTidyPresence(phase: .arranging)
+                            .padding(.bottom, 10)
+                    }
+                    .background(Color.white.opacity(0.98))
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(palette.divider.opacity(0.5), lineWidth: 1)
+                    }
+                }
+            }
+            .padding(ABY.Spacing.screen)
+            .padding(.bottom, 32)
+        }
+        .background(ABYBackground())
+    }
+
+    private func labSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(ABY.Font.section)
+                .tracking(0.8)
+                .foregroundStyle(palette.textTertiary)
+            content()
+        }
     }
 }
 

@@ -321,7 +321,9 @@ private struct CircleListRow: View {
 private enum CircleDiscussionSheet: Identifiable {
     case invite
     case members
-    case compose
+    case settings
+    case compose(template: CircleThoughtTemplate? = nil)
+    case lifecycleConfirm(CircleLifecycleConfirmSheet.Action)
     case startChallenge
     case reflectionCompose(challengeId: UUID)
     case challengeArchive(challengeId: UUID)
@@ -330,7 +332,9 @@ private enum CircleDiscussionSheet: Identifiable {
         switch self {
         case .invite: "invite"
         case .members: "members"
-        case .compose: "compose"
+        case .settings: "settings"
+        case .compose(let template): "compose-\(template?.id ?? "default")"
+        case .lifecycleConfirm(let action): "lifecycle-\(action == .leave ? "leave" : "delete")"
         case .startChallenge: "start-challenge"
         case .reflectionCompose(let id): "reflection-\(id)"
         case .challengeArchive(let id): "archive-\(id)"
@@ -351,6 +355,12 @@ struct CircleDiscussionView: View {
     @State private var selectedPost: CirclePost?
     @State private var appeared = false
     @State private var pendingMilestone: CircleMilestonePresentation?
+    @State private var isProcessingLifecycle = false
+    @State private var lifecycleError: String?
+
+    private var isCreator: Bool {
+        circleStore.isCreator(of: circle)
+    }
 
     private var activeChallenge: CircleChallenge? {
         circleStore.activeChallenge(for: circle.id)
@@ -404,7 +414,8 @@ struct CircleDiscussionView: View {
                         stats: collectiveStats,
                         onMembersTap: { discussionSheet = .members },
                         onBack: { dismiss() },
-                        onInvite: { discussionSheet = .invite }
+                        onInvite: { discussionSheet = .invite },
+                        onMore: { discussionSheet = .settings }
                     )
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -452,8 +463,10 @@ struct CircleDiscussionView: View {
                         }
 
                         if feedPosts.isEmpty, challengeReflections.isEmpty {
-                            emptyFeed
-                                .padding(.horizontal, ABY.Spacing.screen)
+                            CircleEmptyFeedPrompt {
+                                discussionSheet = .compose(template: nil)
+                            }
+                            .padding(.horizontal, ABY.Spacing.screen)
                         } else if !feedPosts.isEmpty {
                             LazyVStack(spacing: 14) {
                                 ForEach(Array(feedPosts.enumerated()), id: \.element.id) { index, post in
@@ -529,6 +542,30 @@ struct CircleDiscussionView: View {
                         discussionSheet = .invite
                     }
                 )
+            case .settings:
+                CircleSettingsSheet(
+                    circle: circle,
+                    circleStore: circleStore,
+                    isCreator: isCreator,
+                    onInvite: { discussionSheet = .invite },
+                    onMembers: { discussionSheet = .members },
+                    onLeave: { discussionSheet = .lifecycleConfirm(.leave) },
+                    onDelete: { discussionSheet = .lifecycleConfirm(.delete) }
+                )
+            case .lifecycleConfirm(let action):
+                CircleLifecycleConfirmSheet(
+                    circleName: circle.name,
+                    action: action,
+                    isProcessing: isProcessingLifecycle,
+                    onConfirm: {
+                        Task { await performLifecycleAction(action) }
+                    },
+                    onCancel: {
+                        if !isProcessingLifecycle {
+                            discussionSheet = .settings
+                        }
+                    }
+                )
             case .startChallenge:
                 CircleChallengeStartSheet(circleName: circle.name) { template in
                     _ = circleStore.startChallenge(template: template, circleId: circle.id)
@@ -553,9 +590,21 @@ struct CircleDiscussionView: View {
                         reflections: circleStore.reflections(for: challenge.id)
                     )
                 }
-            case .compose:
-                CircleComposeSheet(circle: circle, circleStore: circleStore)
+            case .compose(let template):
+                CircleThoughtComposeSheet(
+                    circle: circle,
+                    circleStore: circleStore,
+                    initialTemplate: template
+                )
             }
+        }
+        .alert("Couldn't complete that", isPresented: Binding(
+            get: { lifecycleError != nil },
+            set: { if !$0 { lifecycleError = nil } }
+        )) {
+            Button("OK", role: .cancel) { lifecycleError = nil }
+        } message: {
+            Text(lifecycleError ?? "")
         }
         .sheet(item: $selectedPost) { post in
             CirclePostDetailSheet(post: post, circleStore: circleStore)
@@ -579,20 +628,6 @@ struct CircleDiscussionView: View {
         }
     }
 
-    private var emptyFeed: some View {
-        VStack(spacing: 10) {
-            Text("Your circle is quiet")
-                .font(ABY.Font.headline)
-                .foregroundStyle(palette.textPrimary)
-            Text("Share a prayer from your wall or add a thought for the group.")
-                .font(ABY.Font.callout)
-                .foregroundStyle(palette.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-
     private func handleMomentAction(_ moment: CircleMoment) {
         switch moment.actionLabel {
         case "See testimonies":
@@ -602,8 +637,31 @@ struct CircleDiscussionView: View {
                 selectedPost = target
             }
         default:
-            discussionSheet = .compose
+            discussionSheet = .compose(template: nil)
         }
+    }
+
+    private func performLifecycleAction(_ action: CircleLifecycleConfirmSheet.Action) async {
+        isProcessingLifecycle = true
+        defer { isProcessingLifecycle = false }
+
+        let errorMessage: String?
+        switch action {
+        case .leave:
+            errorMessage = await circleStore.leaveCircle(circle)
+        case .delete:
+            errorMessage = await circleStore.deleteCircle(circle)
+        }
+
+        if let errorMessage {
+            lifecycleError = errorMessage
+            discussionSheet = .lifecycleConfirm(action)
+            return
+        }
+
+        discussionSheet = nil
+        DevotionHaptics.light()
+        dismiss()
     }
 
     private func checkForNewMilestones(previous: CircleCollectiveStats) {
@@ -662,7 +720,7 @@ struct CircleDiscussionView: View {
                     if let challenge = activeChallenge {
                         discussionSheet = .reflectionCompose(challengeId: challenge.id)
                     } else {
-                        discussionSheet = .compose
+                        discussionSheet = .compose(template: nil)
                     }
                 } label: {
                     Text(activeChallenge != nil ? "Add reflection" : "Add your thoughts")
@@ -685,7 +743,7 @@ struct CircleDiscussionView: View {
             } else {
                 Button {
                     circleStore.hasAcceptedGuidelines = true
-                    discussionSheet = .compose
+                    discussionSheet = .compose(template: nil)
                 } label: {
                     Text("Accept guidelines to post")
                         .font(ABY.Font.headline)
@@ -711,6 +769,7 @@ private struct HeadspaceCircleHeader: View {
     var onMembersTap: () -> Void
     var onBack: () -> Void
     var onInvite: () -> Void
+    var onMore: () -> Void
 
     private let headerHeight: CGFloat = 220
     private let waveHeight: CGFloat = 22
@@ -731,6 +790,7 @@ private struct HeadspaceCircleHeader: View {
                     HStack {
                         circleHeaderButton(icon: "chevron.left", action: onBack)
                         Spacer()
+                        circleHeaderButton(icon: "ellipsis", action: onMore)
                         circleHeaderButton(icon: "person.badge.plus", action: onInvite)
                     }
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -1562,8 +1622,13 @@ struct JoinCircleSheet: View {
                         if let circle = await circleStore.joinCircleRemote(code: code) {
                             onJoined(circle)
                             dismiss()
+                        } else if let local = circleStore.circles.first(where: {
+                            $0.inviteCode.uppercased() == code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                        }) {
+                            onJoined(local)
+                            dismiss()
                         } else {
-                            error = "We couldn't find a circle with that code."
+                            error = "We couldn't find a circle with that code. Check the code and try again."
                         }
                         isJoining = false
                     }
@@ -1718,75 +1783,6 @@ private struct CircleInviteSheet: View {
             }
         }
         .presentationDetents([.medium])
-    }
-}
-
-private struct CircleComposeSheet: View {
-    let circle: PrayerCircle
-    var circleStore: PrayerCircleStore
-
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    private var palette: SanctuaryPalette {
-        SanctuaryPalette.forMode(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                TextEditor(text: $text)
-                    .font(ABY.Font.body)
-                    .foregroundStyle(palette.textPrimary)
-                    .frame(minHeight: 120)
-                    .scrollContentBackground(.hidden)
-                    .padding(12)
-                    .background(palette.surfaceMuted)
-                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: ABY.Radius.card)
-                            .stroke(palette.divider, lineWidth: 1)
-                    }
-                    .focused($focused)
-
-                ABYPrimaryButton(title: "Post to circle", icon: "paperplane.fill") {
-                    guard let me = circleStore.currentMember else { return }
-                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    circleStore.addPost(CirclePost(
-                        id: UUID(),
-                        circleId: circle.id,
-                        authorId: me.id,
-                        authorName: me.displayName,
-                        isAnonymous: false,
-                        kind: .request,
-                        text: trimmed,
-                        createdAt: Date(),
-                        focusTag: TodayFocusStore.tags.first?.rawValue,
-                        sourceNoteId: nil,
-                        verseReference: nil,
-                        prayingMemberIds: [],
-                        encouragements: []
-                    ))
-                    dismiss()
-                }
-                .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                Spacer()
-            }
-            .padding(ABY.Spacing.screen)
-            .background(palette.background)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } }
-            }
-            .onAppear { focused = true }
-        }
-        .abyScreen()
-        .presentationDetents([.medium, .large])
-        .presentationBackground(palette.background)
     }
 }
 

@@ -365,6 +365,7 @@ struct ChaplainChatBubble: View {
     var timestamp: String? = nil
     var useSerifStyle: Bool = false
     var isRevealed: Bool = true
+    var isStreaming: Bool = false
 
     var body: some View {
         switch message.role {
@@ -373,48 +374,195 @@ struct ChaplainChatBubble: View {
                 .blurReveal(isRevealed, blurRadius: 6, scale: 1.004)
         case .chaplain:
             ABYChaplainMessageCard(
-                text: message.text,
+                text: message.displayText,
                 timestamp: timestamp,
                 useSerifStyle: useSerifStyle,
-                isRevealed: isRevealed
+                isRevealed: isRevealed,
+                isStreaming: isStreaming
             )
         }
     }
 }
 
-struct ChaplainTypingIndicator: View {
+// MARK: - Chat presence (thinking, scripture lookup, thread load)
+
+enum ChaplainPresenceMode: Equatable {
+    case thinking
+    case searchingScripture(String)
+    case loadingThread
+}
+
+struct ChaplainPresenceIndicator: View {
     @Environment(\.sanctuaryPalette) private var palette
-    @State private var phase = 0
+    let mode: ChaplainPresenceMode
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            ABYChaplainAvatar(size: 28)
-                .padding(.top, 2)
+            ChaplainPresenceAvatar()
 
-            HStack(spacing: 6) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(palette.textTertiary.opacity(phase == index ? 0.85 : 0.3))
-                        .frame(width: 7, height: 7)
+            VStack(alignment: .leading, spacing: 8) {
+                switch mode {
+                case .thinking:
+                    thinkingCard
+                case .searchingScripture(let label):
+                    scriptureCard(label)
+                case .loadingThread:
+                    threadSkeleton
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(palette.divider.opacity(0.45), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear {
-            Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { _ in
-                phase = (phase + 1) % 3
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        switch mode {
+        case .thinking: "Chaplain is reflecting"
+        case .searchingScripture(let label): label
+        case .loadingThread: "Loading conversation"
+        }
+    }
+
+    private var thinkingCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ChaplainThinkingDots()
+            Text("Reflecting…")
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textTertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(presenceCardBackground)
+    }
+
+    private func scriptureCard(_ label: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "text.book.closed")
+                .font(ABY.Font.footnoteMedium)
+                .foregroundStyle(ABY.Color.pillTeal)
+                .symbolEffect(.pulse, options: .repeating)
+
+            Text(label)
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textSecondary)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(presenceCardBackground)
+    }
+
+    private var threadSkeleton: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ChaplainSkeletonLine(widthRatio: 0.92)
+            ChaplainSkeletonLine(widthRatio: 0.74)
+            ChaplainSkeletonLine(widthRatio: 0.56)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(presenceCardBackground)
+    }
+
+    private var presenceCardBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(palette.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(palette.divider, lineWidth: 1)
+            }
+    }
+}
+
+/// Legacy name — use `ChaplainPresenceIndicator`.
+struct ChaplainTypingIndicator: View {
+    var body: some View {
+        ChaplainPresenceIndicator(mode: .thinking)
+    }
+}
+
+private struct ChaplainPresenceAvatar: View {
+    @State private var breathe = false
+
+    var body: some View {
+        ABYChaplainAvatar(size: 28)
+            .padding(.top, 2)
+            .scaleEffect(breathe ? 1.04 : 0.96)
+            .opacity(breathe ? 1 : 0.88)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+                    breathe = true
+                }
+            }
+    }
+}
+
+private struct ChaplainThinkingDots: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.34, paused: false)) { context in
+            let phase = Int(context.date.timeIntervalSinceReferenceDate / 0.34) % 3
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(palette.textTertiary.opacity(phase == index ? 0.9 : 0.28))
+                        .frame(width: 7, height: 7)
+                        .scaleEffect(phase == index ? 1.08 : 0.92)
+                }
             }
         }
+    }
+}
+
+private struct ChaplainSkeletonLine: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    var widthRatio: CGFloat
+
+    @State private var shimmer = false
+
+    var body: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(palette.surfaceMuted.opacity(0.65))
+                .frame(width: geo.size.width * widthRatio, height: 10)
+                .overlay {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.clear,
+                                    palette.surface.opacity(0.85),
+                                    Color.clear,
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .offset(x: shimmer ? geo.size.width * 0.35 : -geo.size.width * 0.35)
+                }
+                .clipShape(Capsule())
+        }
+        .frame(height: 10)
+        .onAppear {
+            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                shimmer = true
+            }
+        }
+    }
+}
+
+struct ChaplainStreamCursor: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.55, paused: false)) { context in
+            let visible = Int(context.date.timeIntervalSinceReferenceDate / 0.55) % 2 == 0
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(ABY.Color.pillPurple.opacity(visible ? 0.75 : 0.2))
+                .frame(width: 2, height: 15)
+                .padding(.leading, 1)
+        }
+        .accessibilityHidden(true)
     }
 }

@@ -184,6 +184,7 @@ final class StreakManager {
                 isInMonth: false,
                 isToday: false,
                 isFuture: false,
+                isMissed: false,
                 isCompleted: false,
                 moodEmoji: nil
             )
@@ -192,13 +193,16 @@ final class StreakManager {
         for day in range {
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) else { continue }
             let normalized = calendar.startOfDay(for: date)
+            let completed = isCompleted(on: normalized)
+            let isFuture = normalized > today
             days.append(
                 StreakCalendarDay(
                     day: day,
                     isInMonth: true,
                     isToday: normalized == today,
-                    isFuture: normalized > today,
-                    isCompleted: isCompleted(on: normalized),
+                    isFuture: isFuture,
+                    isMissed: !completed && normalized < today,
+                    isCompleted: completed,
                     moodEmoji: moodByDate[dateKey(normalized)]
                 )
             )
@@ -211,6 +215,7 @@ final class StreakManager {
                 isInMonth: false,
                 isToday: false,
                 isFuture: false,
+                isMissed: false,
                 isCompleted: false,
                 moodEmoji: nil
             )
@@ -278,6 +283,7 @@ final class StreakManager {
         moodByDate.removeAll()
         daySummaries.removeAll()
         entryCount = 0
+        UserDefaults.standard.set(false, forKey: Keys.didSeedDemo)
         save()
     }
 
@@ -321,7 +327,7 @@ final class StreakManager {
         if let data = try? JSONEncoder().encode(daySummaries) {
             UserDefaults.standard.set(data, forKey: Keys.daySummaries)
         }
-        SharedDataSync.refresh(streakManager: self, prayerWallStore: PrayerWallStore.shared)
+        SharedDataSync.scheduleRefresh(streakManager: self)
     }
 
     private func seedDemoDataIfNeeded() {
@@ -372,6 +378,7 @@ struct StreakCalendarDay: Identifiable {
     let isInMonth: Bool
     let isToday: Bool
     let isFuture: Bool
+    let isMissed: Bool
     let isCompleted: Bool
     let moodEmoji: String?
 }

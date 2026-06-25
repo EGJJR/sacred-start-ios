@@ -429,9 +429,22 @@ struct LiveActivityLockBanner: View {
     let stepIndex: Int
     let totalSteps: Int
     let elapsedSeconds: Int
+    var session: SanctuaryLiveSession = .morningDevotion
+    var breathsRemaining: Int = 0
+    var breathPhaseLabel: String = ""
 
     private var step: (icon: String, label: String) {
         WidgetPalette.devotionSteps[min(stepIndex, WidgetPalette.devotionSteps.count - 1)]
+    }
+
+    private var displayIcon: String {
+        guard session == .prayerBreath else { return step.icon }
+        switch breathPhaseLabel.lowercased() {
+        case "inhale": return "arrow.up.circle.fill"
+        case "hold": return "pause.circle.fill"
+        case "exhale": return "arrow.down.circle.fill"
+        default: return "wind"
+        }
     }
 
     var body: some View {
@@ -446,31 +459,42 @@ struct LiveActivityLockBanner: View {
     /// Forest-style single row: icon · timer + label · step badge.
     private var mainRow: some View {
         HStack(alignment: .center, spacing: 12) {
-            LiveActivityStepIcon(icon: step.icon, size: 40)
+            LiveActivityStepIcon(icon: displayIcon, size: 40)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(formattedElapsed)
-                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.primary)
-                    .minimumScaleFactor(0.8)
-                    .lineLimit(1)
+                if session == .prayerBreath {
+                    Text(breathPhaseLabel.isEmpty ? "Breathe" : breathPhaseLabel)
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(breathsRemaining > 0 ? "\(breathsRemaining) breaths left" : stepTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text(formattedElapsed)
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
 
-                ViewThatFits(in: .horizontal) {
-                    Text(stepTitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Text(step.label)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    ViewThatFits(in: .horizontal) {
+                        Text(stepTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Text(step.label)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
             Spacer(minLength: 4)
 
-            Text("\(stepIndex + 1)/\(totalSteps)")
+            Text(session == .prayerBreath ? "\(breathsRemaining)" : "\(stepIndex + 1)/\(totalSteps)")
                 .font(.caption.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(WidgetPalette.pillPurple)
@@ -488,7 +512,7 @@ struct LiveActivityLockBanner: View {
                 Text(sessionTitle)
                     .lineLimit(1)
             } icon: {
-                Image(systemName: "sparkles")
+                Image(systemName: session == .prayerBreath ? "wind" : "sparkles")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)

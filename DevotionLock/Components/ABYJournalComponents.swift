@@ -277,7 +277,17 @@ struct ABYTimelineEntryCard: View {
                 .lineSpacing(5)
                 .multilineTextAlignment(.leading)
                 .lineLimit(isEarlierCard ? 4 : 5)
-                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [cardFill.opacity(0), cardFill],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 22)
+                    .allowsHitTesting(false)
+                    .opacity(bodyText.count > 120 ? 1 : 0)
+                }
 
             if let voiceDuration {
                 ABYVoiceEntryMiniPlayer(duration: voiceDuration)
@@ -286,9 +296,13 @@ struct ABYTimelineEntryCard: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(palette.isNight ? palette.surface : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
+        .shadow(color: .black.opacity(palette.isNight ? 0.25 : 0.07), radius: 14, y: 5)
+    }
+
+    private var cardFill: Color {
+        palette.isNight ? palette.surface : Color.white
     }
 }
 
@@ -411,7 +425,7 @@ struct ABYStreakHero: View {
                         )
                     )
                 Text("day streak!")
-                    .font(ABY.Font.title2)
+                    .font(ABY.Font.editorialHeadline)
                     .foregroundStyle(StreakPalette.orange)
                 Text(statusName)
                     .font(ABY.Font.captionMedium)
@@ -466,20 +480,27 @@ struct ABYStreakScreenHeader: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
             Button(action: onDismiss) {
                 Image(systemName: "chevron.down")
                     .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(ABY.Color.textPrimary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
 
             Text("Streaks & Stats")
-                .font(ABY.Font.headline)
+                .font(ABY.Font.editorialHeadline)
                 .foregroundStyle(ABY.Color.textPrimary)
 
-            Spacer()
+            Spacer(minLength: 0)
         }
+        .frame(minHeight: 44, alignment: .center)
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.top, 4)
+        .padding(.bottom, 12)
     }
 }
 
@@ -515,7 +536,31 @@ extension View {
     }
 }
 
-// MARK: - Assisted journal (Mobbin ABY guided entry e3f97f9b, Liven 862600c1)
+// MARK: - Assisted journal (Mobbin ABY guided entry 97c44fa4 / e3f97f9b)
+
+/// Warm cream canvas — ABY guided write (not sanctuary lavender).
+struct ABYGuidedJournalBackground: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var body: some View {
+        Group {
+            if palette.isNight {
+                ABYNightSanctuaryBackground()
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.995, green: 0.992, blue: 0.984),
+                        Color(red: 0.988, green: 0.982, blue: 0.968),
+                        Color(red: 0.978, green: 0.972, blue: 0.958),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
 
 struct ABYAssistedJournalHeader: View {
     @Environment(\.sanctuaryPalette) private var palette
@@ -523,27 +568,37 @@ struct ABYAssistedJournalHeader: View {
     var onShuffle: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            if let onShuffle {
-                Button(action: onShuffle) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "dice.fill")
-                            .font(ABY.Font.footnoteSemibold)
-                            .foregroundStyle(ABY.Color.brandGreenBottom)
-                        Text("Suggest a question")
-                            .font(ABY.Font.captionMedium)
-                            .foregroundStyle(ABY.Color.brandGreenBottom)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
+        VStack(alignment: .leading, spacing: 12) {
             Text(prompt)
-                .font(ABY.Font.title2)
-                .foregroundStyle(palette.textPrimary)
-                .lineSpacing(7)
+                .font(ABY.Font.editorialHeadline)
+                .foregroundStyle(ABY.Color.journalPromptAccent)
+                .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(.opacity)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(alignment: .center, spacing: 10) {
+                Text("No perfect words needed. Just what's true right now…")
+                    .font(ABY.Font.callout)
+                    .foregroundStyle(palette.textSecondary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+
+                if let onShuffle {
+                    Button(action: onShuffle) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(ABY.Font.footnoteSemibold)
+                            .foregroundStyle(palette.textTertiary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(palette.isNight ? 0.08 : 0.72))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Suggest another question")
+                }
+            }
         }
     }
 }
@@ -555,19 +610,83 @@ struct ABYAssistedJournalFinishButton: View {
     var body: some View {
         Button(action: action) {
             Text("Finish")
-                .font(ABY.Font.captionSemibold)
+                .font(ABY.Font.calloutSemibold)
                 .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(ABY.Color.journalFinish.opacity(isEnabled ? 1 : 0.38))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(ABY.Color.journalFinish.opacity(isEnabled ? 1 : 0.35))
                 .clipShape(Capsule())
+                .shadow(color: ABY.Color.journalFinish.opacity(isEnabled ? 0.28 : 0), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .animation(AppTheme.springSnappy, value: isEnabled)
     }
 }
 
-/// White floating composer — ABY guided entry card above keyboard.
+/// Bottom-anchored write surface — prompt area above, card hugs keyboard.
+struct ABYGuidedJournalWriteSurface: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    @Binding var text: String
+    let phrases: [String]
+    var showStarters: Bool
+    var onSelectPhrase: (String) -> Void
+    var focused: FocusState<Bool>.Binding
+    var onDictate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if showStarters {
+                ABYStarterPhraseRow(
+                    phrases: phrases,
+                    onSelect: onSelectPhrase
+                )
+            }
+
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("Add your thoughts…")
+                        .font(ABY.Font.body)
+                        .foregroundStyle(palette.textTertiary)
+                        .padding(.top, 10)
+                        .padding(.leading, 5)
+                        .allowsHitTesting(false)
+                }
+
+                TextEditor(text: $text)
+                    .font(ABY.Font.body)
+                    .foregroundStyle(ABY.Color.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .lineSpacing(8)
+                    .focused(focused)
+                    .frame(minHeight: 132, maxHeight: 280, alignment: .topLeading)
+                    .padding(.leading, -4)
+            }
+
+            HStack(spacing: 12) {
+                ABYJournalMicButton(action: onDictate)
+                Spacer(minLength: 0)
+                if !text.isEmpty {
+                    Text("\(text.split(whereSeparator: \.isWhitespace).filter { !$0.isEmpty }.count) words")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textTertiary)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 14)
+        .background(Color.white.opacity(palette.isNight ? 0.12 : 0.98))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(palette.divider.opacity(0.5), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(palette.isNight ? 0.2 : 0.07), radius: 20, y: 8)
+    }
+}
+
+/// White floating composer — legacy; prefer ABYGuidedJournalWriteSurface.
 struct ABYAssistedJournalComposer: View {
     @Environment(\.sanctuaryPalette) private var palette
     @Binding var text: String
@@ -665,7 +784,6 @@ struct ABYStarterPhraseRow: View {
     @Environment(\.sanctuaryPalette) private var palette
     let phrases: [String]
     var onSelect: (String) -> Void
-    var onShufflePrompt: () -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -674,26 +792,18 @@ struct ABYStarterPhraseRow: View {
                     Button { onSelect(phrase) } label: {
                         Text(phrase)
                             .font(ABY.Font.captionMedium)
-                            .foregroundStyle(palette.textPrimary)
+                            .foregroundStyle(ABY.Color.pillPurple.opacity(0.92))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
-                            .background(Color.white)
+                            .background(ABY.Color.pillPurple.opacity(palette.isNight ? 0.16 : 0.08))
                             .clipShape(Capsule())
-                            .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
+                            .overlay {
+                                Capsule()
+                                    .stroke(ABY.Color.pillPurple.opacity(0.28), lineWidth: 1)
+                            }
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button(action: onShufflePrompt) {
-                    Label("New prompt", systemImage: "arrow.triangle.2.circlepath")
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(palette.textSecondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(palette.surfaceMuted)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
             }
             .padding(.vertical, 2)
         }
@@ -1027,5 +1137,105 @@ struct ABYJourneyTimelineRow: View {
             )
             .padding(.leading, 4)
         }
+    }
+}
+
+// MARK: - Prompt templates (Mobbin ABY Journal templates 6bfa1cd3, quote card 4f9d087f)
+
+struct ABYJournalRuledLines: View {
+    var lineCount: Int = 5
+    var spacing: CGFloat = 18
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            ForEach(0..<lineCount, id: \.self) { _ in
+                Rectangle()
+                    .fill(Color(red: 0.78, green: 0.86, blue: 0.96).opacity(0.85))
+                    .frame(height: 1)
+            }
+        }
+    }
+}
+
+/// ABY Templates grid card — bold title, ruled paper, handwritten preview.
+/// Mobbin: https://mobbin.com/screens/6bfa1cd3-b997-41bd-afac-4ef5cf98a016
+struct ABYJournalTemplateCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let title: String
+    let preview: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(ABY.Font.calloutSemibold)
+                .foregroundStyle(palette.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
+                .padding(.bottom, 10)
+
+            Text(preview)
+                .font(ABY.Font.editorialAccent)
+                .foregroundStyle(palette.textSecondary.opacity(0.88))
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .padding(.bottom, 12)
+
+            Spacer(minLength: 0)
+
+            ABYJournalRuledLines(lineCount: 4, spacing: 16)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
+    }
+}
+
+/// ABY timeline quote card — serif passage with shuffle.
+/// Mobbin: https://mobbin.com/screens/4f9d087f-492e-4bc9-92ec-31064a5c5800
+struct ABYJournalDailyQuoteCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let quote: String
+    let attribution: String
+    var onShuffle: () -> Void
+
+    private var dateLabel: String {
+        Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(dateLabel)
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(palette.textSecondary)
+                Spacer(minLength: 0)
+                Button(action: onShuffle) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(ABY.Font.captionSemibold)
+                        .foregroundStyle(palette.textTertiary)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Another quote")
+            }
+
+            Text("\"\(quote)\"")
+                .font(ABY.Font.editorialBody)
+                .foregroundStyle(palette.textPrimary)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("— \(attribution)")
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(ABY.Spacing.card)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
     }
 }

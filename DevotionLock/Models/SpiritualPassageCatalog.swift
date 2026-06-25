@@ -316,10 +316,10 @@ enum GuidedPrayerCatalog {
             title: "Evening examen",
             subtitle: "Review the day with gentleness",
             steps: [
-                "Where did I feel your presence today?",
-                "Where did I miss the mark — and where did you still meet me?",
-                "What moment deserves my gratitude before sleep?",
-                "Receive me as I am, and guard my rest tonight.",
+                "Lord, where did I feel your presence with me today?",
+                "Father, forgive where I missed the mark — and thank you for where you still met me.",
+                "Thank you for one moment today that deserves my gratitude.",
+                "Receive me as I am tonight, and guard my rest.",
             ],
             icon: "moon.stars.fill",
             tintHex: 0x7B6BA8
@@ -329,10 +329,10 @@ enum GuidedPrayerCatalog {
             title: "Praying for others",
             subtitle: "Hold someone in intercession",
             steps: [
-                "Bring to mind someone who is struggling.",
-                "Ask God to surround them with comfort and courage.",
-                "Pray for wisdom for anyone caring for them.",
-                "Send them peace, even if they never know I prayed.",
+                "Father, I bring someone who is struggling before you now.",
+                "Surround them with your comfort and courage.",
+                "Give wisdom to everyone who is caring for them.",
+                "Send them your peace — whether they know I prayed or not.",
             ],
             icon: "person.2.fill",
             tintHex: 0x5B8DEF

@@ -27,6 +27,10 @@ private struct OpenChaplainChatKey: EnvironmentKey {
     static let defaultValue: (String?, [ChaplainMessage]) -> Void = { _, _ in }
 }
 
+private struct OpenChaplainChatWithPortalKey: EnvironmentKey {
+    static let defaultValue: (String, String?, [ChaplainMessage]) -> Void = { _, _, _ in }
+}
+
 private struct ResumeChaplainChatKey: EnvironmentKey {
     static let defaultValue: (Conversation) -> Void = { _ in }
 }
@@ -44,7 +48,7 @@ private struct OpenJournalEntryHubKey: EnvironmentKey {
 }
 
 private struct OpenAssistedJournalKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+    static let defaultValue: (String?) -> Void = { _ in }
 }
 
 private struct OpenVoiceJournalKey: EnvironmentKey {
@@ -64,6 +68,14 @@ private struct OpenPrayerWallKey: EnvironmentKey {
 }
 
 private struct OpenJourneyTimelineKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+private struct OpenDailyVerseKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+private struct OpenEveningReflectionKey: EnvironmentKey {
     static let defaultValue: () -> Void = {}
 }
 
@@ -96,6 +108,12 @@ extension EnvironmentValues {
         set { self[OpenChaplainChatKey.self] = newValue }
     }
 
+    /// Hub compose pill — plays the sanctuary portal bloom before full chat.
+    var openChaplainChatWithPortal: (String, String?, [ChaplainMessage]) -> Void {
+        get { self[OpenChaplainChatWithPortalKey.self] }
+        set { self[OpenChaplainChatWithPortalKey.self] = newValue }
+    }
+
     var resumeChaplainChat: (Conversation) -> Void {
         get { self[ResumeChaplainChatKey.self] }
         set { self[ResumeChaplainChatKey.self] = newValue }
@@ -116,7 +134,7 @@ extension EnvironmentValues {
         set { self[OpenJournalEntryHubKey.self] = newValue }
     }
 
-    var openAssistedJournal: () -> Void {
+    var openAssistedJournal: (String?) -> Void {
         get { self[OpenAssistedJournalKey.self] }
         set { self[OpenAssistedJournalKey.self] = newValue }
     }
@@ -144,6 +162,16 @@ extension EnvironmentValues {
     var openJourneyTimeline: () -> Void {
         get { self[OpenJourneyTimelineKey.self] }
         set { self[OpenJourneyTimelineKey.self] = newValue }
+    }
+
+    var openDailyVerse: () -> Void {
+        get { self[OpenDailyVerseKey.self] }
+        set { self[OpenDailyVerseKey.self] = newValue }
+    }
+
+    var openEveningReflection: () -> Void {
+        get { self[OpenEveningReflectionKey.self] }
+        set { self[OpenEveningReflectionKey.self] = newValue }
     }
 
     var selectTab: (AppTab) -> Void {

@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct BibleVerse: Identifiable, Codable, Equatable {
+nonisolated struct BibleVerse: Identifiable, Codable, Equatable, Sendable {
     let book: String
     let chapter: String
     let verse: String
@@ -19,7 +19,7 @@ struct BibleVerse: Identifiable, Codable, Equatable {
     var verseNumber: Int { Int(verse) ?? 0 }
 }
 
-struct BibleChapterContent: Equatable {
+nonisolated struct BibleChapterContent: Equatable, Sendable {
     let bookName: String
     let bookSlug: String
     let chapter: Int

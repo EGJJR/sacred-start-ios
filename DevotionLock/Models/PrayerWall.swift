@@ -216,6 +216,7 @@ final class PrayerWallStore {
         guard UserDefaults.standard.bool(forKey: Keys.didSeed) else { return }
         notes.removeAll()
         UserDefaults.standard.removeObject(forKey: Keys.notes)
+        UserDefaults.standard.set(false, forKey: Keys.didSeed)
         persist()
     }
 
@@ -229,7 +230,7 @@ final class PrayerWallStore {
     private func persist() {
         guard let data = try? JSONEncoder().encode(notes) else { return }
         UserDefaults.standard.set(data, forKey: Keys.notes)
-        SharedDataSync.refresh(streakManager: StreakManager.shared, prayerWallStore: self)
+        SharedDataSync.scheduleRefresh(prayerWallStore: self)
     }
 
     private func seedIfNeeded() {

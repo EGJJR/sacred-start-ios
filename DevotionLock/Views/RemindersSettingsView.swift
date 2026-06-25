@@ -50,8 +50,7 @@ struct RemindersSettingsView: View {
                     .padding(.horizontal, ABY.Spacing.screen)
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: morningEnabled) { _, _ in NotificationManager.shared.rescheduleAll() }
         .onChange(of: eveningEnabled) { _, _ in NotificationManager.shared.rescheduleAll() }

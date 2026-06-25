@@ -132,9 +132,7 @@ final class DevotionSessionRepository {
 
             await pullRemoteSessions()
         } catch {
-            #if DEBUG
-            print("DevotionSessionRepository pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("DevotionSessionRepository", error)
         }
     }
 
@@ -162,9 +160,7 @@ final class DevotionSessionRepository {
                 )
             }
         } catch {
-            #if DEBUG
-            print("DevotionSessionRepository session pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("DevotionSessionRepository session", error)
         }
     }
 

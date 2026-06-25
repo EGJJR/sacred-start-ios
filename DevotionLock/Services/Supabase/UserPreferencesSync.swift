@@ -12,6 +12,7 @@ struct MorningProfilePayload: Codable, Equatable {
     var seenPassageIDs: [String]
     var inputPreference: String
     var preferredTier: String
+    var preferredPath: String?
     var completionCount: Int
 
     static func from(_ profile: MorningProfile) -> MorningProfilePayload {
@@ -21,6 +22,7 @@ struct MorningProfilePayload: Codable, Equatable {
             seenPassageIDs: profile.seenPassageIDs,
             inputPreference: profile.inputPreference.rawValue,
             preferredTier: profile.preferredTier.rawValue,
+            preferredPath: profile.preferredPath.rawValue,
             completionCount: profile.completionCount
         )
     }
@@ -79,10 +81,11 @@ final class UserPreferencesSync {
             if let payload = profile.morningProfile {
                 MorningProfile.shared.applyRemote(payload)
             }
+            if profile.isPremium == true {
+                PaywallAccess.markPurchaseSucceeded()
+            }
         } catch {
-            #if DEBUG
-            print("UserPreferencesSync pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("UserPreferencesSync", error)
         }
     }
 
@@ -128,10 +131,14 @@ final class UserPreferencesSync {
             enum CodingKeys: String, CodingKey { case isPremium = "is_premium" }
         }
 
-        try? await SupabaseManager.client
-            .from("profiles")
-            .update(PremiumUpdate(isPremium: isPremium))
-            .eq("id", value: userId.uuidString)
-            .execute()
+        do {
+            try await SupabaseManager.client
+                .from("profiles")
+                .update(PremiumUpdate(isPremium: isPremium))
+                .eq("id", value: userId.uuidString)
+                .execute()
+        } catch {
+            SyncErrorFilter.logPullFailure("UserPreferencesSync.updatePremium", error)
+        }
     }
 }

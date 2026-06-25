@@ -156,9 +156,9 @@ struct GeminiChatSuggestionRail: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.white.opacity(0.95))
+                        .background(palette.surface)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(palette.divider.opacity(0.6), lineWidth: 1))
+                        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.borderless)
@@ -172,6 +172,29 @@ struct GeminiChatSuggestionRail: View {
 }
 
 /// Legacy wrapper — greeting only; chips live in `GeminiChatSuggestionRail`.
+// MARK: - Chat canvas (Mobbin Gemini — flat wash, no edge bands)
+
+/// Flat off-white canvas — matches [Gemini chat](https://mobbin.com/screens/8cb0be56-3634-46eb-bc04-7fd121164726).
+struct ABYChatWashBackground: View {
+    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+
+    private var mode: SanctuaryGradientMode {
+        SanctuaryGradientMode.resolved(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
+    }
+
+    var body: some View {
+        Group {
+            switch mode {
+            case .light:
+                ABY.Color.tabWashTop
+            case .night:
+                ABYNightSanctuaryBackground()
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
 struct GeminiChatEmptyState: View {
     var onSelectChip: (String) -> Void
 
@@ -186,44 +209,230 @@ struct GeminiChatInputBar: View {
     var placeholder: String = "Ask Chaplain"
     var onSend: () -> Void
     var onVoice: (() -> Void)? = nil
+    var floatingStyle: Bool = false
+    var isBusy: Bool = false
+    var enablesDictation: Bool = true
     var focused: FocusState<Bool>.Binding
 
+    @State private var transcription = SpeechTranscriptionService()
+    @State private var isDictating = false
+    @State private var dictationBase = ""
+    @State private var showMicPermissionAlert = false
+
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isBusy && !isDictating && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var resolvedPlaceholder: String {
+        if isDictating { return "Listening…" }
+        if isBusy { return "Chaplain is responding…" }
+        return placeholder
+    }
+
+    private var showsCenteredPlaceholder: Bool {
+        text.isEmpty && !focused.wrappedValue && !isDictating
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField(placeholder, text: $text, axis: .vertical)
-                .lineLimit(1...5)
-                .font(ABY.Font.body)
-                .foregroundStyle(palette.textPrimary)
-                .focused(focused)
-                .submitLabel(.return)
-                .padding(.vertical, 2)
+        Group {
+            if isDictating {
+                dictationRow
+            } else {
+                composeRow
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .opacity(isBusy ? 0.78 : 1)
+        .animation(AppTheme.springSnappy, value: isDictating)
+        .animation(.easeOut(duration: 0.22), value: isBusy)
+        .background { inputChrome }
+        .onChange(of: transcription.transcript) { _, spoken in
+            guard isDictating else { return }
+            text = Self.mergedDictation(base: dictationBase, spoken: spoken)
+        }
+        .onDisappear {
+            if isDictating {
+                cancelDictation(silent: true)
+            }
+        }
+        .alert("Microphone access needed", isPresented: $showMicPermissionAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Allow microphone and speech recognition in Settings to speak to your Chaplain.")
+        }
+    }
+
+    private var composeRow: some View {
+        HStack(alignment: showsCenteredPlaceholder ? .center : .bottom, spacing: 8) {
+            if enablesDictation, !isBusy {
+                speechMicButton
+            }
+
+            ZStack(alignment: showsCenteredPlaceholder ? .center : .topLeading) {
+                if showsCenteredPlaceholder {
+                    Text(resolvedPlaceholder)
+                        .font(ABY.Font.body)
+                        .foregroundStyle(palette.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .allowsHitTesting(false)
+                }
+
+                TextField("", text: $text, axis: .vertical)
+                    .lineLimit(1...5)
+                    .font(ABY.Font.body)
+                    .foregroundStyle(palette.textPrimary)
+                    .multilineTextAlignment(text.isEmpty ? .center : .leading)
+                    .focused(focused)
+                    .submitLabel(.return)
+                    .padding(.vertical, 2)
+                    .disabled(isBusy)
+            }
+            .frame(minHeight: 32)
 
             Button(action: onSend) {
-                Image(systemName: "arrow.up")
-                    .font(ABY.Font.captionSemibold)
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(canSend ? ABY.Color.pillPurple : palette.textTertiary.opacity(0.28))
-                    .clipShape(Circle())
+                Group {
+                    if isBusy {
+                        Image(systemName: "ellipsis")
+                            .symbolEffect(.pulse, options: .repeating)
+                    } else {
+                        Image(systemName: "arrow.up")
+                    }
+                }
+                .font(ABY.Font.captionSemibold)
+                .foregroundStyle(canSend ? palette.buttonForeground : palette.textTertiary)
+                .frame(width: 32, height: 32)
+                .background(canSend ? palette.buttonFill : palette.surfaceMuted.opacity(0.6))
+                .clipShape(Circle())
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
-            .accessibilityLabel("Send message")
+            .accessibilityLabel(isBusy ? "Chaplain is responding" : "Send message")
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 10)
-        .padding(.vertical, 10)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(palette.divider.opacity(0.4), lineWidth: 1)
+    }
+
+    private var dictationRow: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Button(action: { cancelDictation() }) {
+                Image(systemName: "xmark")
+                    .font(ABY.Font.footnoteSemibold)
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(palette.surfaceMuted.opacity(0.55))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Cancel dictation")
+
+            HStack(spacing: 10) {
+                VoiceWaveformIcon(active: transcription.isListening)
+                    .frame(width: 28, height: 28)
+
+                Text(text.isEmpty ? resolvedPlaceholder : text)
+                    .font(ABY.Font.body)
+                    .foregroundStyle(text.isEmpty ? palette.textTertiary : palette.textPrimary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .animation(AppTheme.springGentle, value: text)
+            }
+
+            Button(action: finishDictation) {
+                Image(systemName: "arrow.up")
+                    .font(ABY.Font.captionSemibold)
+                    .foregroundStyle(palette.buttonForeground)
+                    .frame(width: 32, height: 32)
+                    .background(palette.buttonFill)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Done dictating")
         }
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+    }
+
+    private var speechMicButton: some View {
+        Button(action: { Task { await startDictation() } }) {
+            Image(systemName: "mic.fill")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(palette.textSecondary)
+                .frame(width: 32, height: 32)
+                .background(palette.surfaceMuted.opacity(0.45))
+                .clipShape(Circle())
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("Speak to type")
+    }
+
+    @ViewBuilder
+    private var inputChrome: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        if floatingStyle {
+            shape
+                .fill(Color.white)
+                .overlay {
+                    shape.stroke(
+                        isDictating ? ABY.Color.pillTeal.opacity(0.45) : palette.divider.opacity(0.35),
+                        lineWidth: isDictating ? 1.5 : 1
+                    )
+                }
+                .shadow(color: .black.opacity(isDictating ? 0.09 : 0.07), radius: isDictating ? 18 : 16, y: 6)
+                .shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+        } else {
+            ABYGlassBarBackground(cornerRadius: 22)
+        }
+    }
+
+    @MainActor
+    private func startDictation() async {
+        guard !isBusy, !isDictating else { return }
+        DevotionHaptics.light()
+        dictationBase = text
+        focused.wrappedValue = false
+
+        let authorized = await transcription.requestAuthorization()
+        guard authorized else {
+            showMicPermissionAlert = true
+            DevotionHaptics.medium()
+            return
+        }
+
+        do {
+            try transcription.start()
+            withAnimation(AppTheme.springSnappy) {
+                isDictating = true
+            }
+            DevotionHaptics.medium()
+        } catch {
+            showMicPermissionAlert = true
+            DevotionHaptics.medium()
+        }
+    }
+
+    private func finishDictation() {
+        let spoken = transcription.stop().trimmingCharacters(in: .whitespacesAndNewlines)
+        text = Self.mergedDictation(base: dictationBase, spoken: spoken)
+        isDictating = false
+        dictationBase = ""
+        DevotionHaptics.success()
+    }
+
+    private func cancelDictation(silent: Bool = false) {
+        _ = transcription.stop()
+        text = dictationBase
+        isDictating = false
+        dictationBase = ""
+        if !silent {
+            DevotionHaptics.light()
+        }
+    }
+
+    private static func mergedDictation(base: String, spoken: String) -> String {
+        let trimmedSpoken = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSpoken.isEmpty else { return base }
+        if base.isEmpty { return trimmedSpoken }
+        if base.hasSuffix(" ") { return base + trimmedSpoken }
+        return base + " " + trimmedSpoken
     }
 }
 
@@ -235,8 +444,13 @@ struct ChaplainComposeLauncher: View {
     let voiceName: String
     let action: () -> Void
 
+    @State private var isPressed = false
+
     var body: some View {
-        Button(action: action) {
+        Button {
+            DevotionHaptics.soft()
+            action()
+        } label: {
             HStack(spacing: 12) {
                 ABYChaplainAvatar(size: 30)
                 Text("Message Chaplain \(voiceName)…")
@@ -252,11 +466,151 @@ struct ChaplainComposeLauncher: View {
             .padding(.vertical, 13)
             .background(Color.white.opacity(0.96))
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.07), radius: 16, y: 6)
+            .shadow(color: .black.opacity(isPressed ? 0.04 : 0.07), radius: isPressed ? 10 : 16, y: isPressed ? 3 : 6)
+            .scaleEffect(isPressed ? 0.97 : 1)
             .contentShape(Capsule())
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(AppTheme.springSnappy) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(AppTheme.springSnappy) { isPressed = false }
+                }
+        )
         .accessibilityLabel("Message Chaplain \(voiceName)")
+    }
+}
+
+/// Brief sanctuary bloom — compose pill dissolves into Chaplain chat.
+struct ChaplainPortalTransition: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let voiceName: String
+    let onComplete: () -> Void
+
+    @State private var washVisible = false
+    @State private var bloomScale: CGFloat = 0.2
+    @State private var bloomOpacity = 0.0
+    @State private var avatarRevealed = false
+    @State private var avatarLift: CGFloat = 120
+    @State private var fieldIntensity: CGFloat = 0
+    @State private var ringPulse = false
+    @State private var departing = false
+
+    var body: some View {
+        GeometryReader { geometry in
+            let anchorY = geometry.size.height - geometry.safeAreaInsets.bottom - 118
+
+            ZStack {
+                ABY.Color.tabWashTop
+                    .opacity(washVisible ? 1 : 0)
+                    .ignoresSafeArea()
+
+                SoftLightFieldView(intensity: fieldIntensity)
+                    .ignoresSafeArea()
+                    .opacity(departing ? 0 : 1)
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    ABY.Color.orbTeal.opacity(0.42),
+                                    ABY.Color.pillPurple.opacity(0.22),
+                                    .clear,
+                                ],
+                                center: .center,
+                                startRadius: 8,
+                                endRadius: 160
+                            )
+                        )
+                        .frame(width: 280, height: 280)
+                        .blur(radius: 28)
+                        .scaleEffect(bloomScale)
+                        .opacity(bloomOpacity)
+
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    ABY.Color.orbTeal.opacity(0.7),
+                                    ABY.Color.orbSage.opacity(0.35),
+                                    ABY.Color.pillPurple.opacity(0.55),
+                                    ABY.Color.orbTeal.opacity(0.7),
+                                ],
+                                center: .center
+                            ),
+                            lineWidth: 1.5
+                        )
+                        .frame(width: ringPulse ? 118 : 92, height: ringPulse ? 118 : 92)
+                        .opacity(avatarRevealed ? 0.55 : 0)
+                        .blur(radius: 0.5)
+                }
+                .position(x: geometry.size.width / 2, y: anchorY)
+
+                VStack(spacing: 14) {
+                    ABYChaplainAvatar(size: 64)
+                        .blurReveal(avatarRevealed, blurRadius: 14, scale: 1.1)
+
+                    VStack(spacing: 4) {
+                        Text("Chaplain \(voiceName)")
+                            .font(ABY.Font.calloutSemibold)
+                            .foregroundStyle(ABY.Color.textPrimary)
+                        Text("A quiet place to begin")
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(ABY.Color.textSecondary)
+                    }
+                    .blurReveal(avatarRevealed, blurRadius: 8, scale: 1.02)
+                }
+                .offset(y: avatarLift)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(!departing)
+        .onAppear(perform: runPortal)
+    }
+
+    private func runPortal() {
+        if reduceMotion {
+            onComplete()
+            return
+        }
+
+        withAnimation(.easeOut(duration: 0.42)) {
+            washVisible = true
+            bloomScale = 1.35
+            bloomOpacity = 0.95
+            fieldIntensity = 0.85
+        }
+
+        withAnimation(AppTheme.springGentle.delay(0.06)) {
+            avatarRevealed = true
+            avatarLift = -24
+        }
+
+        withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true).delay(0.2)) {
+            ringPulse = true
+        }
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(520))
+            await MainActor.run {
+                DevotionHaptics.light()
+                withAnimation(.easeIn(duration: 0.22)) {
+                    departing = true
+                    bloomOpacity = 0
+                    fieldIntensity = 0
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            await MainActor.run {
+                onComplete()
+            }
+        }
     }
 }
 
@@ -521,28 +875,53 @@ struct ABYChaplainMessageCard: View {
     var timestamp: String? = nil
     var useSerifStyle: Bool = false
     var isRevealed: Bool = true
+    var isStreaming: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(text.isEmpty ? " " : text)
-                .font(useSerifStyle ? ABY.Font.editorialCallout : ABY.Font.body)
-                .foregroundStyle(palette.textPrimary)
-                .lineSpacing(5)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .top, spacing: 10) {
+            ABYChaplainAvatar(size: 28)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .lastTextBaseline, spacing: 0) {
+                    Text(displayText)
+                        .font(useSerifStyle ? ABY.Font.editorialCallout : ABY.Font.body)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineSpacing(5)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .animation(.easeOut(duration: 0.12), value: text.count)
+
+                    if isStreaming {
+                        ChaplainStreamCursor()
+                    }
+                }
+
+                if let timestamp, !isStreaming {
+                    Text(timestamp)
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textTertiary)
+                        .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(palette.divider, lineWidth: 1)
+            }
+
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.96))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(palette.divider.opacity(0.35), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.03), radius: 8, y: 2)
         .blurReveal(isRevealed, blurRadius: 6, scale: 1.004)
+    }
+
+    private var displayText: String {
+        if text.isEmpty, isStreaming { return " " }
+        return text
     }
 }
 
@@ -552,14 +931,21 @@ struct ABYUserMessageBubble: View {
 
     var body: some View {
         HStack {
-            Spacer(minLength: 56)
+            Spacer(minLength: 52)
             Text(text)
                 .font(ABY.Font.body)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
-                .background(ABY.Color.pillPurple)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(ABY.Color.moodPeach.opacity(0.58))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .stroke(ABY.Color.moodPeach.opacity(0.35), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
+                }
         }
     }
 }
@@ -646,6 +1032,7 @@ struct ABYChatDisclaimer: View {
 struct ABYChatScreenHeader: View {
     @Environment(\.sanctuaryPalette) private var palette
     let voiceName: String
+    var threadTitle: String? = nil
     var onClose: () -> Void
     var onHistory: (() -> Void)? = nil
     var onSave: (() -> Void)? = nil
@@ -667,9 +1054,21 @@ struct ABYChatScreenHeader: View {
             Spacer(minLength: 0)
 
             if geminiStyle {
-                Text("Chaplain")
-                    .font(ABY.Font.headline)
-                    .foregroundStyle(palette.textPrimary)
+                if let threadTitle, !threadTitle.isEmpty {
+                    VStack(spacing: 2) {
+                        Text(threadTitle)
+                            .font(ABY.Font.calloutSemibold)
+                            .foregroundStyle(palette.textPrimary)
+                            .lineLimit(1)
+                        Text("Chaplain")
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(palette.textTertiary)
+                    }
+                } else {
+                    Text("Chaplain")
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(palette.textPrimary)
+                }
             } else {
                 HStack(spacing: 6) {
                     ABYChaplainAvatar(size: 24)
@@ -775,7 +1174,7 @@ struct ChaplainExploreLinksCard: View {
                 Divider().padding(.leading, 44)
                 exploreRow(icon: "book.closed", title: "Passages & promises", action: onPassages)
                 Divider().padding(.leading, 44)
-                exploreRow(icon: "leaf", title: "Wisdom reflection", action: onWisdom)
+                exploreRow(icon: "leaf", title: "Reflection", action: onWisdom)
             }
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -809,6 +1208,83 @@ struct ChaplainExploreLinksCard: View {
     }
 }
 
+// MARK: - Resumed thread context (Mobbin Gemini — title + mood in header)
+
+struct ChaplainResumedThreadHeader: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let conversation: Conversation
+
+    private var dateLabel: String {
+        guard let date = conversation.recordedAt else { return conversation.timeAgo }
+        if Calendar.current.isDateInToday(date) { return "Today" }
+        if Calendar.current.isDateInYesterday(date) { return "Yesterday" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(dateLabel)
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(palette.textTertiary)
+                if conversation.moodLabel != "Present", !conversation.moodLabel.isEmpty {
+                    Text("·")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textTertiary)
+                    Text("\(conversation.moodEmoji) \(conversation.moodLabel)")
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(palette.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Text(conversation.timelineTime)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                ABYChaplainAvatar(size: 32)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Continuing your conversation")
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(palette.textTertiary)
+                        .textCase(.uppercase)
+                        .tracking(0.4)
+                    Text(conversation.chaplainHistoryTitle)
+                        .font(ABY.Font.editorialCallout)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+            }
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+    }
+}
+
+struct ChaplainThreadDateDivider: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(ABY.Font.caption)
+            .foregroundStyle(palette.textTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+    }
+}
+
 // MARK: - History display helpers
 
 extension Conversation {
@@ -838,12 +1314,9 @@ extension Conversation {
 
         let displayTitle = chaplainHistoryTitle
         if displayTitle == trimmedPreview || displayTitle == String(trimmedPreview.prefix(72)) {
-            if moodLabel != "Present", !moodLabel.isEmpty {
-                return "\(moodEmoji) \(moodLabel)"
-            }
             return nil
         }
-        return trimmedPreview
+        return String(trimmedPreview.prefix(88))
     }
 }
 
@@ -854,6 +1327,7 @@ struct ChaplainChatHistoryGroupedList: View {
     @Environment(\.sanctuaryPalette) private var palette
     let groups: [(String, [Conversation])]
     let onSelect: (Conversation) -> Void
+    var onDelete: ((Conversation) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -872,6 +1346,8 @@ struct ChaplainChatHistoryGroupedList: View {
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
@@ -925,6 +1401,15 @@ struct ChaplainChatHistoryGroupedList: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
+        .contextMenu {
+            if let onDelete {
+                Button(role: .destructive) {
+                    onDelete(conversation)
+                } label: {
+                    Label("Delete chat", systemImage: "trash")
+                }
+            }
+        }
     }
 }
 

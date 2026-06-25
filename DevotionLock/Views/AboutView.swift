@@ -49,8 +49,7 @@ struct AboutView: View {
                 .padding(.horizontal, ABY.Spacing.screen)
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .navigationBarTitleDisplayMode(.inline)
     }
 

@@ -45,15 +45,6 @@ enum AppTab: Int, CaseIterable, Identifiable {
         case .profile: "person.crop.circle.fill"
         }
     }
-
-    var activeTint: Color {
-        switch self {
-        case .home: ABY.Color.pillOrange
-        case .conversations: ABY.Color.pillPink
-        case .insights: ABY.Color.meshAmber
-        case .profile: ABY.Color.meshGold
-        }
-    }
 }
 
 struct Conversation: Identifiable, Hashable {

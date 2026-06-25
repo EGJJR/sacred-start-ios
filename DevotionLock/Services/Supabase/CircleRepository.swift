@@ -120,6 +120,8 @@ struct DBCircleEncouragement: Codable {
 enum CircleSyncOperationKind: String, Codable {
     case createCircle
     case joinCircle
+    case deleteCircle
+    case leaveCircle
     case createPost
     case updatePostPrayers
     case addEncouragement
@@ -130,6 +132,7 @@ struct CircleSyncOperation: Codable, Identifiable {
     let id: UUID
     let kind: CircleSyncOperationKind
     let circle: PrayerCircle?
+    let circleId: UUID?
     let memberId: UUID?
     let inviteCode: String?
     let post: CirclePost?
@@ -186,7 +189,7 @@ final class CircleOfflineQueue {
 final class CircleRepository {
     static let shared = CircleRepository()
 
-    private static let realtimeDecoder: JSONDecoder = {
+    nonisolated private static let realtimeDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
@@ -206,6 +209,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .createCircle,
                 circle: circle,
+                circleId: nil,
                 memberId: memberId,
                 inviteCode: nil,
                 post: nil,
@@ -224,6 +228,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .joinCircle,
                 circle: nil,
+                circleId: nil,
                 memberId: memberId,
                 inviteCode: code,
                 post: nil,
@@ -242,6 +247,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .createPost,
                 circle: nil,
+                circleId: nil,
                 memberId: nil,
                 inviteCode: nil,
                 post: post,
@@ -260,6 +266,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .createChallenge,
                 circle: nil,
+                circleId: nil,
                 memberId: nil,
                 inviteCode: nil,
                 post: nil,
@@ -281,6 +288,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .updatePostPrayers,
                 circle: nil,
+                circleId: nil,
                 memberId: nil,
                 inviteCode: nil,
                 post: updated,
@@ -305,6 +313,7 @@ final class CircleRepository {
                 id: UUID(),
                 kind: .addEncouragement,
                 circle: nil,
+                circleId: nil,
                 memberId: nil,
                 inviteCode: nil,
                 post: post,
@@ -323,6 +332,40 @@ final class CircleRepository {
         userId: UUID
     ) async throws {
         try await insertCircle(circle, creatorMembershipId: creatorMembershipId, userId: userId)
+    }
+
+    func deleteCircle(id: UUID) async throws {
+        guard AuthManager.shared.isAuthenticated else { return }
+        try await SupabaseManager.client
+            .from("prayer_circles")
+            .delete()
+            .eq("id", value: id.uuidString)
+            .execute()
+    }
+
+    func leaveCircle(circleId: UUID, membershipId: UUID) async throws {
+        guard AuthManager.shared.isAuthenticated,
+              let userId = AuthManager.shared.userId else { return }
+        try await SupabaseManager.client
+            .from("circle_memberships")
+            .delete()
+            .eq("id", value: membershipId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+    }
+
+    static func lifecycleErrorMessage(_ error: Error) -> String {
+        let description = error.localizedDescription.lowercased()
+        if description.contains("row-level security")
+            || description.contains("permission")
+            || description.contains("not authorized")
+            || description.contains("42501") {
+            return "You don't have permission to do that. Only the circle creator can delete it."
+        }
+        if description.contains("network") || description.contains("offline") || description.contains("internet") {
+            return "Couldn't reach the server. Check your connection and try again."
+        }
+        return "Something went wrong. Please try again."
     }
 
     func joinCircleRemote(code: String) async -> UUID? {
@@ -375,6 +418,13 @@ final class CircleRepository {
                 case .joinCircle:
                     guard let code = op.inviteCode else { continue }
                     guard await joinCircleRemote(code: code) != nil else { continue }
+                case .deleteCircle:
+                    guard let circleId = op.circleId ?? op.circle?.id else { continue }
+                    try await deleteCircle(id: circleId)
+                case .leaveCircle:
+                    guard let circleId = op.circleId,
+                          let membershipId = op.memberId else { continue }
+                    try await leaveCircle(circleId: circleId, membershipId: membershipId)
                 case .createPost:
                     guard let post = op.post else { continue }
                     try await insertPost(post)
@@ -465,9 +515,7 @@ final class CircleRepository {
                 currentUserId: userId
             )
         } catch {
-            #if DEBUG
-            print("Circle pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("Circle", error)
         }
     }
 
@@ -485,39 +533,39 @@ final class CircleRepository {
             }
 
             guard AuthManager.shared.isAuthenticated else { return }
-            let channel = await SupabaseManager.client.realtimeV2.channel("circle:\(circleId.uuidString)")
+            let channel = SupabaseManager.client.realtimeV2.channel("circle:\(circleId.uuidString)")
             await MainActor.run {
                 activeChannels[circleId] = channel
             }
 
-            let filter = "circle_id=eq.\(circleId.uuidString)"
+            let circleFilter = RealtimePostgresFilter.eq("circle_id", value: circleId)
 
             let postInserts = channel.postgresChange(
                 InsertAction.self,
                 schema: "public",
                 table: "circle_posts",
-                filter: filter
+                filter: circleFilter
             )
             let postUpdates = channel.postgresChange(
                 UpdateAction.self,
                 schema: "public",
                 table: "circle_posts",
-                filter: filter
+                filter: circleFilter
             )
             let membershipInserts = channel.postgresChange(
                 InsertAction.self,
                 schema: "public",
                 table: "circle_memberships",
-                filter: "circle_id=eq.\(circleId.uuidString)"
+                filter: circleFilter
             )
             let challengeInserts = channel.postgresChange(
                 InsertAction.self,
                 schema: "public",
                 table: "circle_challenges",
-                filter: filter
+                filter: circleFilter
             )
 
-            await channel.subscribe()
+            try? await channel.subscribeWithError()
 
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {

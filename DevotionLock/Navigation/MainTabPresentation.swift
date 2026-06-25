@@ -13,8 +13,16 @@ struct ChaplainChatLaunch: Identifiable, Hashable {
     var seedMessages: [ChaplainMessage] = []
     var contextIntent: String?
     var resumeConversationID: UUID?
+    var resumedContext: Conversation?
+    /// Staggered blur reveal when opened via the hub portal transition.
+    var playsPortalEntrance: Bool = false
 
     var id: UUID { sessionID }
+}
+
+struct ChaplainPortalPresentation: Equatable {
+    let voiceName: String
+    let launch: ChaplainChatLaunch
 }
 
 struct PrayerWallLaunch: Identifiable, Hashable {
@@ -32,6 +40,9 @@ enum MainSheetPresentation: Identifiable {
     case conversation(Conversation)
     case prayerWall(PrayerWallLaunch)
     case journalEntryHub
+    case dailyVerse
+    case eveningReflection
+    case sacredOrbMenu
 
     var id: String {
         switch self {
@@ -43,6 +54,12 @@ enum MainSheetPresentation: Identifiable {
             "prayer-wall-\(launch.id)"
         case .journalEntryHub:
             "journal-entry-hub"
+        case .dailyVerse:
+            "daily-verse"
+        case .eveningReflection:
+            "evening-reflection"
+        case .sacredOrbMenu:
+            "sacred-orb-menu"
         }
     }
 }

@@ -64,7 +64,7 @@ struct WidgetSettingsView: View {
                         ABYSettingsDivider()
                         widgetRow("Inline status", detail: "Above the clock · streak or verse")
                         ABYSettingsDivider()
-                        widgetRow("Live Activity", detail: "Temporarily off · Dynamic Island code kept for later")
+                        widgetRow("Live Activity", detail: "Morning devotion & prayer breath in Dynamic Island")
                     }
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
@@ -83,8 +83,7 @@ struct WidgetSettingsView: View {
                 .padding(.horizontal, ABY.Spacing.screen)
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
     }
 
     private var widgetPreview: some View {

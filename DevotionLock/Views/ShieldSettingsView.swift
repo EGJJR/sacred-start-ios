@@ -29,8 +29,7 @@ struct ShieldSettingsView: View {
                 premiumRequiredContent
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .navigationBarTitleDisplayMode(.inline)
     }
 

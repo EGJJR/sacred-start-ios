@@ -81,10 +81,16 @@ enum PaywallBypass {
 /// Single gate for premium features. v1 is subscription-only (5-day trial via StoreKit intro offer).
 /// Call `guardPremium` from feature entry points; browsing without premium is allowed.
 enum PaywallAccess {
+    private static let premiumConfirmedAtKey = "devotionPremiumConfirmedAt"
+    private static let entitlementGrace: TimeInterval = 15 * 60
+
+    static let statusDidChange = Notification.Name("devotionPremiumStatusDidChange")
+
     @MainActor
     static var hasPremium: Bool {
         if PaywallBypass.isEnabled { return true }
         if InAppKit.shared.hasAnyPurchase { return true }
+        if hasRecentPurchaseConfirmation { return true }
         return false
     }
 
@@ -95,5 +101,58 @@ enum PaywallAccess {
         } else {
             presentPaywall()
         }
+    }
+
+    /// Call after StoreKit reports a successful purchase or restore.
+    @MainActor
+    static func markPurchaseSucceeded() {
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: premiumConfirmedAtKey)
+        NotificationCenter.default.post(name: statusDidChange, object: nil)
+    }
+
+    @MainActor
+    static func clearPurchaseConfirmation() {
+        UserDefaults.standard.removeObject(forKey: premiumConfirmedAtKey)
+        NotificationCenter.default.post(name: statusDidChange, object: nil)
+    }
+
+    /// Reconcile StoreKit entitlements on launch / foreground.
+    @MainActor
+    static func syncFromStoreKit() async {
+        await InAppKit.shared.restorePurchases()
+        if InAppKit.shared.hasAnyPurchase {
+            markPurchaseSucceeded()
+        } else if !hasRecentPurchaseConfirmation {
+            clearPurchaseConfirmation()
+        }
+    }
+
+    /// Run after a purchase completes so entitlements can catch up in sandbox.
+    @MainActor
+    static func confirmPurchaseCompleted() async {
+        markPurchaseSucceeded()
+        await UserPreferencesSync.shared.updatePremium(true)
+
+        await InAppKit.shared.restorePurchases()
+        if InAppKit.shared.hasAnyPurchase {
+            markPurchaseSucceeded()
+            return
+        }
+
+        for _ in 0..<5 {
+            try? await Task.sleep(for: .milliseconds(400))
+            await InAppKit.shared.restorePurchases()
+            if InAppKit.shared.hasAnyPurchase {
+                markPurchaseSucceeded()
+                return
+            }
+        }
+    }
+
+    @MainActor
+    private static var hasRecentPurchaseConfirmation: Bool {
+        let timestamp = UserDefaults.standard.double(forKey: premiumConfirmedAtKey)
+        guard timestamp > 0 else { return false }
+        return Date().timeIntervalSince1970 - timestamp < entitlementGrace
     }
 }

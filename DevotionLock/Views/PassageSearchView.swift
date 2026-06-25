@@ -48,7 +48,7 @@ private struct LegacyPassageSearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ABYBackground().ignoresSafeArea()
+                ABYBackground(style: .tabShell).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     searchField
@@ -122,9 +122,9 @@ private struct LegacyPassageSearchView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(palette.surface)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
+        .background {
+            ABYGlassBarBackground(cornerRadius: 999)
+        }
     }
 
     private var topicRail: some View {
@@ -184,9 +184,13 @@ private struct LegacyTopicPill: View {
             .foregroundStyle(isSelected ? .white : palette.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(isSelected ? tint : palette.surface)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(isSelected ? Color.clear : palette.divider, lineWidth: 1))
+            .background {
+                if isSelected {
+                    Capsule().fill(tint)
+                } else {
+                    ABYGlassBarBackground(cornerRadius: 999)
+                }
+            }
         }
         .buttonStyle(ScaleButtonStyle())
     }

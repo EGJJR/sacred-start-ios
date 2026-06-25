@@ -8,12 +8,34 @@ import WidgetKit
 
 enum SharedDataSync {
     @MainActor
+    private static var refreshTask: Task<Void, Never>?
+
+    /// Coalesced widget refresh — never call synchronously from store `init` / `save` paths.
+    @MainActor
+    static func scheduleRefresh(
+        streakManager: StreakManager? = nil,
+        prayerWallStore: PrayerWallStore? = nil,
+        syncRhythmFromStores: Bool = true
+    ) {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+
+            if syncRhythmFromStores {
+                DailyRhythmStore.shared.syncFromExistingState()
+            }
+
+            refresh(
+                streakManager: streakManager ?? StreakManager.shared,
+                prayerWallStore: prayerWallStore ?? PrayerWallStore.shared
+            )
+        }
+    }
+
+    @MainActor
     static func refreshSharedStores() {
-        DailyRhythmStore.shared.syncFromExistingState()
-        refresh(
-            streakManager: StreakManager.shared,
-            prayerWallStore: PrayerWallStore.shared
-        )
+        scheduleRefresh()
     }
 
     @MainActor

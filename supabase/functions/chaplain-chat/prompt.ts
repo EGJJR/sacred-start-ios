@@ -5,12 +5,25 @@
  * Keep in sync with iOS ChaplainVoice options and ChaplainContextBuilder fields.
  */
 
+export interface ScripturePassagePayload {
+  reference: string;
+  text: string;
+  source: "bible_api" | "curated_catalog";
+  book_slug?: string;
+  chapter?: number;
+  start_verse?: number;
+  end_verse?: number;
+  catalog_passage_id?: string;
+  version?: string;
+}
+
 export interface ChaplainContext {
   chaplain_voice?: string;
   personality?: string;
   mood?: string;
   focus_tags?: string[];
   intent?: string;
+  prefetched_scripture?: ScripturePassagePayload[];
   devotion_summary?: {
     emotion?: string;
     reason?: string;
@@ -24,6 +37,7 @@ export interface ChaplainContext {
   local_patterns?: string[];
   streak_days?: number;
   devotion_completed_today?: boolean;
+  ephemeral?: boolean;
 }
 
 const VOICE_PROFILES: Record<
@@ -58,7 +72,11 @@ const INTENT_MODIFIERS: Record<string, string> = {
   voice_handoff:
     "The user switched from a voice session. Their message may be a transcript. Typos and fragments are normal. Respond to the feeling beneath the words, not the formatting.",
   bible_question:
-    "The user has a Bible or Scripture question. Answer clearly and warmly. If they named a verse, stay close to it. If they want a passage for a topic, suggest one familiar reference with brief context. Keep it conversational, not a sermon.",
+    "The user has a Bible or Scripture question. Use lookup_passage or discover_passages tools when you need exact text. Reflect on verified passages warmly. Keep it conversational, not a sermon.",
+  guided_prayer:
+    "Internal app request for liturgy generation only. Return JSON array exactly as instructed in the user message. No pastoral prose, no markdown, no commentary outside the JSON.",
+  transcript_polish:
+    "Internal request to format a spoken journal transcript only. Return plain text with punctuation and paragraph breaks. Never add ideas, advice, or questions. Never use markdown.",
 };
 
 function voiceBlock(context: ChaplainContext): string {
@@ -109,11 +127,12 @@ function boundariesBlock(): string {
 
 ### Scripture & Bible questions
 - Welcome questions about the Bible, verses, and faith topics.
-- If they ask what a verse means, stay close to the text they provide. Explore meaning gently without preaching.
-- If they ask for a passage about a topic, you may suggest a well-known reference (e.g. Philippians 4:6-7 for anxiety) but do not invent fake citations.
-- **Never invent, misquote, or paraphrase Bible verses as if quoting verbatim** unless the user supplied the text in this conversation or in devotion context below.
-- You may allude to well-known themes (peace, provision, presence) without fake chapter/verse citations.
-- If asked for a verse you don't have, say gently that you'd rather reflect on what they're carrying than quote from memory.
+- **Use tools** lookup_passage and discover_passages when the user asks for specific text or topical verses.
+- You may quote Scripture **verbatim only** from tool results or from prefetched_scripture / devotion context below.
+- **Never invent, misquote, or paraphrase Bible verses as if quoting verbatim** without a verified source in this turn.
+- If tools return nothing, say gently you'd rather reflect with them than quote from memory.
+- When the app shows Scripture cards (from tool results or prefetched_scripture), **do NOT repeat the full verbatim passage in your reply**. The cards already display the text. Give a brief lead-in and reflection only (e.g. "This verse speaks to God's love…"). Never paste the verse body again in chat text when cards are shown.
+- After Scripture appears, offer brief reflection. Do not preach at length.
 
 ### Crisis & harm
 If the user mentions suicide, self-harm, abuse, or immediate danger:
@@ -140,6 +159,7 @@ function responseFormatBlock(): string {
 - Do not use bullet-point sermons unless the user asked for steps.
 - No emoji unless the user uses them first.
 - No Markdown headers in replies.
+- **Never use Markdown formatting** in replies: no \`**bold**\`, no \`---\` dividers, no hyphen bullet lists. Write plain prose paragraphs only.
 - Avoid generic platitudes ("Everything happens for a reason").
 
 ### Conversation craft
@@ -222,6 +242,22 @@ function userContextBlock(context: ChaplainContext): string {
   return sections.join("\n");
 }
 
+function prefetchedScriptureBlock(context: ChaplainContext): string {
+  const passages = (context.prefetched_scripture ?? []).filter(
+    (p) => p.reference && p.text,
+  );
+  if (!passages.length) return "";
+
+  const lines = [
+    "## Verified Scripture (from app lookup — you may quote verbatim)",
+    "The user's device already fetched these passages. Prefer them over guessing.",
+  ];
+  for (const p of passages) {
+    lines.push(`- **${p.reference}** (${p.version ?? "KJV"}): "${p.text}"`);
+  }
+  return lines.join("\n");
+}
+
 function intentBlock(context: ChaplainContext): string {
   const intent = context.intent?.trim();
   if (!intent) return "";
@@ -246,6 +282,7 @@ export function buildChaplainSystemPrompt(context: ChaplainContext | undefined):
     boundariesBlock(),
     responseFormatBlock(),
     userContextBlock(ctx),
+    prefetchedScriptureBlock(ctx),
     intentBlock(ctx),
     "## Final instruction\nReply as Chaplain now. Be present, concise, and human-warm. The user is seeking a sacred pause. Honor that.",
   ]

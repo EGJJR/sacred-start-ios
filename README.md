@@ -93,5 +93,6 @@ Hybrid Bible search: curated passages offline + KJV chapter/reference lookup via
 | [PROJECT_MAP.md](PROJECT_MAP.md) | Codebase directory, what's implemented, what's left |
 | [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md) | Product features and positioning |
 | [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Pre–App Store manual checklist |
+| [docs/design/](docs/design/) | System design, design system, improvements backlog |
 
 Marketing website lives in a separate repo/folder: `../sacred-start-web` (sibling to this project).

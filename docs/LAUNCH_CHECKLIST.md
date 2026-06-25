@@ -33,6 +33,8 @@ npx supabase db push
 
 ## Apple Developer / entitlements
 
+See **[FAMILY_CONTROLS_APP_SHIELD.md](./FAMILY_CONTROLS_APP_SHIELD.md)** for full Screen Time / TestFlight setup (links, Xcode steps, troubleshooting).
+
 - [ ] Paid Apple Developer Program membership active
 - [ ] **Family Controls** capability enabled for the App ID (required for App Shield)
 - [ ] **Family Controls Distribution** approved by Apple (required for TestFlight/App Store builds with shield)

@@ -200,15 +200,20 @@ struct GuidedJournalFlowView: View {
         .onAppear {
             draft.mood = intentionMood
             draft.applyMoodDefaults()
+            journalStartedAt = Date()
             withAnimation(AppTheme.onboardingStepIn) { stepRevealed = true }
-            // Lock screen Live Activity disabled for now — re-enable when layout is finalized.
-            // JournalLiveActivityManager.startIfAvailable()
+            JournalLiveActivityManager.startDevotionIfAvailable()
+            JournalLiveActivityManager.updateDevotion(step: step, elapsedSeconds: 0)
         }
         .onDisappear {
-            // JournalLiveActivityManager.end()
+            JournalLiveActivityManager.end()
         }
-        .onChange(of: step) { _, _ in
+        .onChange(of: step) { _, newStep in
             editingMadLibField = nil
+            JournalLiveActivityManager.updateDevotion(
+                step: newStep,
+                elapsedSeconds: journalElapsedSeconds
+            )
         }
     }
 

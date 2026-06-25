@@ -3,6 +3,7 @@
 //  DevotionLock
 //
 
+import Notelet
 import SwiftUI
 
 /// Root routing: splash → auth → onboarding → main tabs. Paywall presents after onboarding
@@ -34,6 +35,7 @@ struct ContentView: View {
                 Color.clear
             } else if !auth.isAuthenticated && showOnboardingAfterSignOut {
                 OnboardingFlowView {
+                    NoteletStorage.markCurrentVersionAsSeen()
                     withAnimation(AppTheme.springGentle) {
                         showOnboardingAfterSignOut = false
                         hasCompletedOnboarding = true
@@ -43,6 +45,7 @@ struct ContentView: View {
                 AuthFlowView()
             } else if !hasCompletedOnboarding {
                 OnboardingFlowView {
+                    NoteletStorage.markCurrentVersionAsSeen()
                     withAnimation(AppTheme.springGentle) {
                         hasCompletedOnboarding = true
                     }
@@ -50,6 +53,11 @@ struct ContentView: View {
                 }
             } else {
                 MainTabView()
+                    .noteletSheet(
+                        notes: SacredStartReleaseNotes.all,
+                        version: .current,
+                        configuration: SacredStartReleaseNotes.configuration
+                    )
             }
         }
         .devotionPaywallRoot(

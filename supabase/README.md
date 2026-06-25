@@ -42,6 +42,13 @@ Deploy migrations + all edge functions:
 ./scripts/deploy-supabase.sh
 ```
 
+**Chaplain Scripture tools:** after editing `SpiritualPassageCatalog.swift`, regenerate the edge catalog:
+
+```bash
+node scripts/export-scripture-catalog.mjs
+./scripts/deploy-supabase.sh   # redeploy chaplain-chat
+```
+
 Migration files **must** be named `YYYYMMDDHHMMSS_description.sql`. If `db push` says remote migrations are missing locally, run:
 
 ```bash

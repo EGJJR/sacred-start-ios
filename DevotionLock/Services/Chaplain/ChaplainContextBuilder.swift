@@ -36,6 +36,9 @@ struct ChaplainRequestContext: Encodable {
     let localPatterns: [String]
     let streakDays: Int?
     let devotionCompletedToday: Bool?
+    let prefetchedScripture: [PrefetchedScripturePayload]?
+    /// When true, the edge function streams a reply without creating or saving a conversation.
+    let ephemeral: Bool?
 
     enum CodingKeys: String, CodingKey {
         case chaplainVoice = "chaplain_voice"
@@ -48,11 +51,56 @@ struct ChaplainRequestContext: Encodable {
         case localPatterns = "local_patterns"
         case streakDays = "streak_days"
         case devotionCompletedToday = "devotion_completed_today"
+        case prefetchedScripture = "prefetched_scripture"
+        case ephemeral
+    }
+}
+
+struct PrefetchedScripturePayload: Encodable {
+    let reference: String
+    let text: String
+    let source: String
+    let bookSlug: String?
+    let chapter: Int?
+    let startVerse: Int?
+    let endVerse: Int?
+    let catalogPassageID: String?
+    let version: String?
+
+    enum CodingKeys: String, CodingKey {
+        case reference
+        case text
+        case source
+        case bookSlug = "book_slug"
+        case chapter
+        case startVerse = "start_verse"
+        case endVerse = "end_verse"
+        case catalogPassageID = "catalog_passage_id"
+        case version
+    }
+
+    static func from(_ citation: ChaplainScriptureCitation) -> PrefetchedScripturePayload {
+        PrefetchedScripturePayload(
+            reference: citation.reference,
+            text: citation.displayText,
+            source: citation.source.rawValue,
+            bookSlug: citation.bookSlug,
+            chapter: citation.chapter,
+            startVerse: citation.startVerse,
+            endVerse: citation.endVerse,
+            catalogPassageID: citation.catalogPassageID,
+            version: citation.version
+        )
     }
 }
 
 enum ChaplainContextBuilder {
-    static func build(intent: String? = nil) -> ChaplainRequestContext {
+    @MainActor
+    static func build(
+        intent: String? = nil,
+        prefetchedScripture: [ChaplainScriptureCitation] = [],
+        ephemeral: Bool = false
+    ) -> ChaplainRequestContext {
         let voiceID = UserDefaults.standard.string(forKey: "selectedChaplainVoice") ?? "grace"
         let voice = ChaplainVoice.options.first { $0.id == voiceID } ?? ChaplainVoice.options[0]
         let mood = UserDefaults.standard.string(forKey: "intentionMood") ?? "Peaceful"
@@ -78,13 +126,19 @@ enum ChaplainContextBuilder {
             recentJourney: Array(recentJourney),
             localPatterns: patterns.snapshot.contextLines,
             streakDays: streak.currentStreak > 0 ? streak.currentStreak : nil,
-            devotionCompletedToday: streak.isCompletedToday
+            devotionCompletedToday: streak.isCompletedToday,
+            prefetchedScripture: prefetchedScripture.isEmpty
+                ? nil
+                : prefetchedScripture.map(PrefetchedScripturePayload.from),
+            ephemeral: ephemeral ? true : nil
         )
     }
 
     private static func normalizedIntent(_ intent: String?) -> String? {
         guard let intent else { return nil }
-        if intent == "expand_reflection" { return intent }
+        if intent == "expand_reflection" || intent == "guided_prayer" || intent == "transcript_polish" {
+            return intent
+        }
         if intent.localizedCaseInsensitiveContains("reflect on today's verse") {
             return "verse_reflection"
         }

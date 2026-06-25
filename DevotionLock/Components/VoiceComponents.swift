@@ -229,38 +229,293 @@ struct ABYVoiceCaptureCard: View {
     }
 }
 
+// MARK: - Speech tidy presence (gentle polish loading)
+
+enum ABYSpeechTidyPhase: Equatable {
+    case arranging
+    case smoothing
+    case almostReady
+
+    var statusCopy: String {
+        switch self {
+        case .arranging: "Arranging your words…"
+        case .smoothing: "Smoothing the edges…"
+        case .almostReady: "Almost ready…"
+        }
+    }
+}
+
+/// Compact weaving orb for speech tidy — shared sacred shell at mini size.
+struct ABYSpeechTidyOrb: View {
+    var size: CGFloat = 28
+
+    var body: some View {
+        SacredOrbShell(
+            size: size,
+            visualStyle: .weaving,
+            showsNudge: false
+        )
+    }
+}
+
+struct ABYSpeechTidyPresence: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let phase: ABYSpeechTidyPhase
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ABYSpeechTidyOrb()
+            Text(phase.statusCopy)
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textSecondary)
+                .contentTransition(.opacity)
+                .animation(AppTheme.springGentle, value: phase)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(palette.isNight ? 0.2 : 0.06), radius: 8, y: 3)
+        .padding(.bottom, 12)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+private struct SpeechPolishBlurPulse: ViewModifier {
+    func body(content: Content) -> some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let wave = sin(t * 2.2) * 0.5 + 0.5
+            let radius = 1.5 + wave * 2.8
+            content.blur(radius: radius)
+        }
+    }
+}
+
+private extension View {
+    func speechPolishBlurPulse() -> some View {
+        modifier(SpeechPolishBlurPulse())
+    }
+}
+
 // MARK: - Inline dictation (assisted journal + AI chat)
+
+/// Post-speech choice — keep raw words or tidy with blur reveal (Mobbin ABY journal psychology).
+struct ABYSpeechPolishReview: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    let rawTranscript: String
+    let onKeepRaw: () -> Void
+    let onTidyComplete: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var previewOrganized = ""
+    @State private var isPolishing = false
+    @State private var tidyPhase: ABYSpeechTidyPhase = .arranging
+    @State private var showOrganizedPreview = false
+    @State private var revealed = false
+
+    private var displayText: String {
+        showOrganizedPreview ? previewOrganized : rawTranscript
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your words are here")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.textPrimary)
+                Text("Keep them exactly as spoken, or let us tidy spacing — never changing what you meant.")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textSecondary)
+                    .lineSpacing(3)
+            }
+
+            ZStack(alignment: .topLeading) {
+                Group {
+                    if isPolishing {
+                        Text(displayText)
+                            .speechPolishBlurPulse()
+                    } else {
+                        Text(displayText)
+                            .blurReveal(revealed, blurRadius: showOrganizedPreview ? 10 : 0, scale: 1.01)
+                    }
+                }
+                .font(ABY.Font.body)
+                .foregroundStyle(palette.textPrimary)
+                .lineSpacing(7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(AppTheme.springGentle, value: showOrganizedPreview)
+            }
+            .padding(16)
+            .frame(minHeight: 140, alignment: .topLeading)
+            .background(Color.white.opacity(palette.isNight ? 0.12 : 0.98))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(palette.divider.opacity(0.5), lineWidth: 1)
+            }
+            .overlay {
+                if isPolishing {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .opacity(palette.isNight ? 0.28 : 0.22)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isPolishing {
+                    ABYSpeechTidyPresence(phase: tidyPhase)
+                }
+            }
+            .animation(AppTheme.springGentle, value: isPolishing)
+
+            VStack(spacing: 10) {
+                Button(action: beginTidyGently) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "text.alignleft")
+                        Text("Tidy gently")
+                    }
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(palette.buttonFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(isPolishing)
+
+                Button(action: onKeepRaw) {
+                    Text("Keep my words")
+                        .font(ABY.Font.calloutMedium)
+                        .foregroundStyle(palette.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(palette.surfaceMuted.opacity(0.45))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(isPolishing)
+
+                Button("Discard", action: onCancel)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(.horizontal, 2)
+        .onAppear {
+            previewOrganized = TranscriptPolishService.tidyOnDevice(rawTranscript)
+            withAnimation(AppTheme.springGentle.delay(0.05)) { revealed = true }
+            DevotionHaptics.light()
+        }
+    }
+
+    private func beginTidyGently() {
+        DevotionHaptics.medium()
+        isPolishing = true
+        tidyPhase = .arranging
+        revealed = false
+        showOrganizedPreview = false
+
+        let needsAI = rawTranscript.count >= 48 && AuthManager.shared.isAuthenticated
+        let startedAt = Date()
+
+        Task {
+            let baseline = TranscriptPolishService.tidyOnDevice(rawTranscript)
+
+            await MainActor.run {
+                previewOrganized = baseline
+                withAnimation(AppTheme.springGentle) {
+                    showOrganizedPreview = true
+                }
+                DevotionHaptics.soft()
+            }
+
+            var polished = baseline
+
+            if needsAI {
+                await MainActor.run {
+                    withAnimation(AppTheme.springGentle) { tidyPhase = .smoothing }
+                    DevotionHaptics.soft()
+                }
+
+                polished = await TranscriptPolishService.tidyWithAIRefinement(
+                    baseline: baseline,
+                    raw: rawTranscript
+                )
+            }
+
+            await MainActor.run {
+                withAnimation(AppTheme.springGentle) { tidyPhase = .almostReady }
+            }
+
+            let elapsed = Date().timeIntervalSince(startedAt)
+            if elapsed < 0.65 {
+                try? await Task.sleep(nanoseconds: UInt64((0.65 - elapsed) * 1_000_000_000))
+            }
+
+            await MainActor.run {
+                previewOrganized = polished
+                isPolishing = false
+                withAnimation(.easeOut(duration: 0.45)) {
+                    revealed = true
+                }
+                DevotionHaptics.success()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+                    onTidyComplete(polished)
+                }
+            }
+        }
+    }
+}
 
 struct ABYInlineDictationCapture: View {
     @Environment(\.sanctuaryPalette) private var palette
     @Binding var text: String
     @Binding var isActive: Bool
+    var offersPolishChoice: Bool = false
 
     @State private var transcription = SpeechTranscriptionService()
     @State private var elapsed: TimeInterval = 0
     @State private var speechStarted = false
     @State private var tickTask: Task<Void, Never>?
+    @State private var dictationBase = ""
+    @State private var pendingSpoken: String?
 
     var body: some View {
         VStack(spacing: 10) {
-            if !transcription.transcript.isEmpty {
-                Text(transcription.transcript)
-                    .font(ABY.Font.callout)
-                    .foregroundStyle(palette.textPrimary)
-                    .lineSpacing(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
-                    .animation(AppTheme.springGentle, value: transcription.transcript)
-            }
+            if let pendingSpoken {
+                ABYSpeechPolishReview(
+                    rawTranscript: pendingSpoken,
+                    onKeepRaw: { applySpoken(pendingSpoken) },
+                    onTidyComplete: { polished in applySpoken(polished) },
+                    onCancel: cancelPolishReview
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                if !transcription.transcript.isEmpty {
+                    Text(transcription.transcript)
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                        .animation(AppTheme.springGentle, value: transcription.transcript)
+                }
 
-            ABYVoiceCaptureCard(
-                timerText: timerText,
-                isListening: transcription.isListening,
-                onCancel: cancelDictation,
-                onSubmit: finishDictation
-            )
+                ABYVoiceCaptureCard(
+                    timerText: timerText,
+                    isListening: transcription.isListening,
+                    onCancel: cancelDictation,
+                    onSubmit: finishDictation
+                )
+            }
         }
         .onAppear {
+            dictationBase = text
             Task { await beginDictation() }
             startElapsedTimer()
         }
@@ -290,6 +545,7 @@ struct ABYInlineDictationCapture: View {
 
     private func beginDictation() async {
         guard !speechStarted else { return }
+        DevotionHaptics.light()
         let authorized = await transcription.requestAuthorization()
         guard authorized else {
             isActive = false
@@ -297,24 +553,43 @@ struct ABYInlineDictationCapture: View {
         }
         speechStarted = true
         try? transcription.start()
+        DevotionHaptics.medium()
     }
 
     private func cancelDictation() {
         _ = transcription.stop()
+        pendingSpoken = nil
         isActive = false
+        DevotionHaptics.light()
     }
 
     private func finishDictation() {
         let spoken = transcription.stop().trimmingCharacters(in: .whitespacesAndNewlines)
-        if !spoken.isEmpty {
-            if text.isEmpty {
-                text = spoken
-            } else if !text.hasSuffix(" ") {
-                text += " " + spoken
-            } else {
-                text += spoken
-            }
+        guard !spoken.isEmpty else {
+            isActive = false
+            return
         }
+
+        if offersPolishChoice, JournalTranscriptOrganizer.worthPolishChoice(spoken) {
+            pendingSpoken = spoken
+            DevotionHaptics.light()
+            return
+        }
+
+        text = JournalTranscriptOrganizer.merge(base: dictationBase, spoken: spoken)
+        isActive = false
+        DevotionHaptics.success()
+    }
+
+    private func applySpoken(_ spoken: String) {
+        text = JournalTranscriptOrganizer.merge(base: dictationBase, spoken: spoken)
+        pendingSpoken = nil
+        isActive = false
+        DevotionHaptics.success()
+    }
+
+    private func cancelPolishReview() {
+        pendingSpoken = nil
         isActive = false
         DevotionHaptics.light()
     }

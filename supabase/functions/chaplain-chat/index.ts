@@ -3,13 +3,23 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   buildChaplainSystemPrompt,
   type ChaplainContext,
+  type ScripturePassagePayload,
 } from "./prompt.ts";
+import { MAX_TOOL_ROUNDS, SCRIPTURE_TOOLS } from "./tools.ts";
+import {
+  executeScriptureTool,
+  normalizeScriptureText,
+  prefetchedCoversLookup,
+  type ScripturePassage,
+} from "../_shared/scripture-corpus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+type ChatMessage = Record<string, unknown>;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -43,6 +53,10 @@ Deno.serve(async (req: Request) => {
     const conversationId: string | null = body.conversation_id ?? null;
     const messages: Array<{ role: string; content: string }> = body.messages ?? [];
     const context: ChaplainContext | undefined = body.context;
+    const ephemeral =
+      context?.ephemeral === true ||
+      context?.intent === "guided_prayer" ||
+      context?.intent === "transcript_polish";
 
     if (!messages.length) {
       return new Response(JSON.stringify({ error: "No messages provided" }), {
@@ -65,7 +79,7 @@ Deno.serve(async (req: Request) => {
     }
 
     let convId = conversationId;
-    if (!convId) {
+    if (!convId && !ephemeral) {
       const { data: conv, error: convError } = await supabase
         .from("conversations")
         .insert({
@@ -80,7 +94,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const lastUserMsg = messages[messages.length - 1];
-    if (lastUserMsg?.role === "user") {
+    if (!ephemeral && convId && lastUserMsg?.role === "user") {
       await supabase.from("messages").insert({
         conversation_id: convId,
         user_id: user.id,
@@ -89,50 +103,164 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const chatMessages = [
-      { role: "system", content: buildChaplainSystemPrompt(context) },
-      ...messages.map((m) => ({
-        role: m.role === "chaplain" ? "assistant" : "user",
-        content: m.content,
-      })),
-    ];
-
-    const llmRes = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${deepseekKey}`,
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        max_tokens: 1024,
-        stream: true,
-        messages: chatMessages,
-      }),
-    });
-
-    if (!llmRes.ok) {
-      const errText = await llmRes.text();
-      return new Response(JSON.stringify({ error: errText }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    let fullResponse = "";
 
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "conversation_id", conversation_id: convId })}\n\n`,
-          ),
-        );
+        const emit = (payload: Record<string, unknown>) => {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
+          );
+        };
 
-        const reader = llmRes.body!.getReader();
+        if (convId) {
+          emit({ type: "conversation_id", conversation_id: convId });
+        }
+
+        const prefetched: ScripturePassage[] = (context?.prefetched_scripture ?? [])
+          .map(normalizePassage)
+          .filter(Boolean) as ScripturePassage[];
+
+        if (prefetched.length) {
+          emit({ type: "scripture_result", passages: prefetched });
+        }
+
+        let chatMessages: ChatMessage[] = [
+          { role: "system", content: buildChaplainSystemPrompt(context) },
+          ...messages.map((m) => ({
+            role: m.role === "chaplain" ? "assistant" : "user",
+            content: m.content,
+          })),
+        ];
+
+        const collectedPassages: ScripturePassage[] = [...prefetched];
+        let toolRounds = 0;
+
+        while (toolRounds < MAX_TOOL_ROUNDS) {
+          const llmRes = await fetch("https://api.deepseek.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${deepseekKey}`,
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              max_tokens: 1024,
+              stream: false,
+              messages: chatMessages,
+              tools: SCRIPTURE_TOOLS,
+            }),
+          });
+
+          if (!llmRes.ok) {
+            const errText = await llmRes.text();
+            emit({ type: "error", message: errText });
+            controller.close();
+            return;
+          }
+
+          const completion = await llmRes.json();
+          const choice = completion.choices?.[0];
+          const assistantMessage = choice?.message;
+
+          if (!assistantMessage) break;
+
+          const toolCalls = assistantMessage.tool_calls as Array<{
+            id: string;
+            type: string;
+            function: { name: string; arguments: string };
+          }> | undefined;
+
+          if (!toolCalls?.length) {
+            if (assistantMessage.content) {
+              emit({ type: "token", text: assistantMessage.content });
+              if (!ephemeral && convId) {
+                await persistChaplainMessage(supabase, convId, assistantMessage.content);
+              }
+            }
+            emit({ type: "done" });
+            controller.close();
+            return;
+          }
+
+          chatMessages.push(assistantMessage);
+
+          for (const toolCall of toolCalls) {
+            const name = toolCall.function.name;
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(toolCall.function.arguments || "{}");
+            } catch {
+              args = {};
+            }
+
+            if (
+              name === "lookup_passage"
+              && prefetchedCoversLookup(prefetched, String(args.reference ?? ""))
+            ) {
+              chatMessages.push({
+                role: "tool",
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ passages: prefetched }),
+              });
+              continue;
+            }
+
+            emit({
+              type: "scripture_search",
+              status: "looking",
+              reference: name === "lookup_passage" ? args.reference : undefined,
+              query: name === "discover_passages" ? args.query : undefined,
+            });
+
+            const result = await executeScriptureTool(name, args);
+            const newPassages = result.passages.filter(
+              (p) => !collectedPassages.some(
+                (existing) => passageDedupeKey(existing) === passageDedupeKey(p),
+              ),
+            );
+
+            if (newPassages.length) {
+              collectedPassages.push(...newPassages);
+              emit({ type: "scripture_result", passages: newPassages });
+            }
+
+            chatMessages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(result),
+            });
+          }
+
+          toolRounds += 1;
+        }
+
+        // Stream final pastoral reply after tool rounds
+        const streamRes = await fetch("https://api.deepseek.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            max_tokens: 1024,
+            stream: true,
+            messages: chatMessages,
+          }),
+        });
+
+        if (!streamRes.ok) {
+          const errText = await streamRes.text();
+          emit({ type: "error", message: errText });
+          controller.close();
+          return;
+        }
+
+        let fullResponse = "";
         let buffer = "";
+        const reader = streamRes.body!.getReader();
 
         while (true) {
           const { done, value } = await reader.read();
@@ -150,11 +278,7 @@ Deno.serve(async (req: Request) => {
               const token = parsed.choices?.[0]?.delta?.content;
               if (token) {
                 fullResponse += token;
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ type: "token", text: token })}\n\n`,
-                  ),
-                );
+                emit({ type: "token", text: token });
               }
             } catch {
               // ignore partial JSON
@@ -162,21 +286,11 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (fullResponse.trim()) {
-          await supabase.from("messages").insert({
-            conversation_id: convId,
-            user_id: user.id,
-            role: "chaplain",
-            content: fullResponse.trim(),
-          });
-          await supabase.from("conversations").update({
-            updated_at: new Date().toISOString(),
-          }).eq("id", convId);
+        if (fullResponse.trim() && !ephemeral && convId) {
+          await persistChaplainMessage(supabase, convId, fullResponse.trim());
         }
 
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`),
-        );
+        emit({ type: "done" });
         controller.close();
       },
     });
@@ -196,3 +310,37 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
+
+async function persistChaplainMessage(
+  supabase: ReturnType<typeof createClient>,
+  convId: string,
+  content: string,
+) {
+  await supabase.from("messages").insert({
+    conversation_id: convId,
+    role: "chaplain",
+    content,
+  });
+  await supabase.from("conversations").update({
+    updated_at: new Date().toISOString(),
+  }).eq("id", convId);
+}
+
+function passageDedupeKey(passage: ScripturePassage): string {
+  return `${passage.reference.toLowerCase()}|${normalizeScriptureText(passage.text)}`;
+}
+
+function normalizePassage(payload: ScripturePassagePayload): ScripturePassage | null {
+  if (!payload.reference || !payload.text) return null;
+  return {
+    reference: payload.reference,
+    text: normalizeScriptureText(payload.text),
+    source: payload.source === "curated_catalog" ? "curated_catalog" : "bible_api",
+    book_slug: payload.book_slug,
+    chapter: payload.chapter,
+    start_verse: payload.start_verse,
+    end_verse: payload.end_verse,
+    catalog_passage_id: payload.catalog_passage_id,
+    version: payload.version,
+  };
+}

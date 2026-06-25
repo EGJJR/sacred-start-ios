@@ -20,6 +20,7 @@ extension View {
             .withPrivacy(url: URL(string: "https://apps.apple.com/account/subscriptions")!)
             .task {
                 PaywallBypass.syncIfNeeded()
+                await PaywallAccess.syncFromStoreKit()
             }
             .fullScreenCover(isPresented: showPaywall) {
                 DevotionPaywallView(

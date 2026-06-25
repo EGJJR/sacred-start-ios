@@ -3,7 +3,19 @@
 //  DevotionLock
 //
 
+import SwiftUI
+import UniformTypeIdentifiers
 import UIKit
+
+struct AvatarPickerImage: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(importedContentType: .image) { data in
+            AvatarPickerImage(data: data)
+        }
+    }
+}
 
 enum AvatarImageProcessor {
     static func jpegData(from data: Data, maxDimension: CGFloat = 1024, compressionQuality: CGFloat = 0.85) -> Data? {

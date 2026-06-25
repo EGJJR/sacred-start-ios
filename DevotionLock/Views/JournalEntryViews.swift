@@ -2,11 +2,259 @@
 //  JournalEntryViews.swift
 //  DevotionLock
 //
-//  Mobbin refs: Liven Journey composer, Dot chronicle capture, voice-to-text journals
+//  Mobbin refs: ABY guided entry, Alan Mind voice journal, 5 Minute Journal prompts
 //
 
 import Combine
 import SwiftUI
+import UIKit
+
+// MARK: - Guided Entry (Mobbin ABY / Alan Mind / 5 Minute Journal)
+
+/// Shared prompt-led write surface — journal entry, morning reflection, wisdom prompts.
+struct GuidedJournalEntryView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var navigationTitle: String = "Guided Entry"
+    let seedPrompt: String
+    @Binding var text: String
+    var alternatePrompts: [String] = []
+    var starterPhrases: [String] = [
+        "I'm noticing…",
+        "I'm grateful for…",
+        "I'm asking God for…",
+    ]
+    var showsShuffle: Bool = true
+    var allowsEmptyFinish: Bool = false
+    var onExpandWithAI: ((String) -> Void)? = nil
+    var onSave: (String) -> Void
+
+    @State private var appeared = false
+    @State private var promptIndex = 0
+    @State private var usingSeedPrompt = true
+    @State private var isDictating = false
+    @State private var keyboardOverlap: CGFloat = 0
+    @FocusState private var focused: Bool
+
+    private var displayPrompt: String {
+        if usingSeedPrompt || alternatePrompts.isEmpty { return seedPrompt }
+        return alternatePrompts[promptIndex % alternatePrompts.count]
+    }
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var finishEnabled: Bool {
+        !trimmedText.isEmpty || allowsEmptyFinish
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                ABYGuidedJournalBackground()
+                guidedEntryContent(bottomPadding: keyboardBottomPadding(in: geometry))
+            }
+        }
+        .abyScreen()
+        .animation(AppTheme.springGentle, value: isDictating)
+        .animation(.easeOut(duration: 0.25), value: keyboardOverlap)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+            updateKeyboardOverlap(from: note)
+        }
+        .onAppear {
+            withAnimation(AppTheme.springGentle.delay(0.04)) { appeared = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if !isDictating { focused = true }
+            }
+        }
+    }
+
+    private var shuffleAction: (() -> Void)? {
+        guard showsShuffle, !alternatePrompts.isEmpty else { return nil }
+        return shufflePrompt
+    }
+
+    @ViewBuilder
+    private func guidedEntryContent(bottomPadding: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            guidedEntryHeader
+
+            VStack(alignment: .leading, spacing: 0) {
+                ABYAssistedJournalHeader(
+                    prompt: displayPrompt,
+                    onShuffle: shuffleAction
+                )
+                .padding(.top, 4)
+                .padding(.bottom, 20)
+                .animation(AppTheme.springGentle, value: displayPrompt)
+                .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+
+                Spacer(minLength: 12)
+                guidedEntryComposer
+            }
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 8)
+            .padding(.bottom, bottomPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    @ViewBuilder
+    private var guidedEntryComposer: some View {
+        if isDictating {
+            ABYInlineDictationCapture(
+                text: $text,
+                isActive: $isDictating,
+                offersPolishChoice: true
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                ABYGuidedJournalWriteSurface(
+                    text: $text,
+                    phrases: starterPhrases,
+                    showStarters: text.isEmpty,
+                    onSelectPhrase: appendSuggestion,
+                    focused: $focused,
+                    onDictate: startDictation
+                )
+                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
+
+                if let onExpandWithAI {
+                    GuidedEntryChaplainHandoffCard(
+                        seed: trimmedText.isEmpty ? displayPrompt : trimmedText,
+                        action: onExpandWithAI
+                    )
+                    .blurReveal(appeared, blurRadius: 4, scale: 1.002)
+                }
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private var guidedEntryHeader: some View {
+        HStack(alignment: .center) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.textPrimary)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text(navigationTitle)
+                .font(ABY.Font.headline)
+                .foregroundStyle(palette.textPrimary)
+
+            Spacer()
+
+            ABYAssistedJournalFinishButton(isEnabled: finishEnabled, action: save)
+        }
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    private func startDictation() {
+        focused = false
+        withAnimation(AppTheme.springGentle) { isDictating = true }
+    }
+
+    private func keyboardBottomPadding(in geometry: GeometryProxy) -> CGFloat {
+        guard keyboardOverlap > 0 else { return max(12, geometry.safeAreaInsets.bottom + 8) }
+        return max(10, keyboardOverlap - geometry.safeAreaInsets.bottom + 6)
+    }
+
+    private func updateKeyboardOverlap(from note: Notification) {
+        guard
+            let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+            let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first(where: \.isKeyWindow)
+        else { return }
+
+        let keyboardTop = frame.origin.y
+        let windowBottom = window.bounds.maxY
+        let overlap = max(0, windowBottom - keyboardTop)
+        let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+
+        withAnimation(.easeOut(duration: duration)) {
+            keyboardOverlap = overlap
+        }
+    }
+
+    private func appendSuggestion(_ phrase: String) {
+        if text.isEmpty {
+            text = phrase + " "
+        } else if !text.hasSuffix(" ") {
+            text += " " + phrase + " "
+        } else {
+            text += phrase + " "
+        }
+        focused = true
+    }
+
+    private func shufflePrompt() {
+        withAnimation(AppTheme.springSnappy) {
+            usingSeedPrompt = false
+            promptIndex = (promptIndex + 1) % max(alternatePrompts.count, 1)
+        }
+        DevotionHaptics.light()
+    }
+
+    private func save() {
+        guard finishEnabled else { return }
+        onSave(trimmedText)
+        DevotionHaptics.success()
+        dismiss()
+    }
+}
+
+private struct GuidedEntryChaplainHandoffCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let seed: String
+    let action: (String) -> Void
+
+    var body: some View {
+        Button {
+            action(seed)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(ABY.Font.calloutMedium)
+                    .foregroundStyle(ABY.Color.pillPurple)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Explore with Chaplain")
+                        .font(ABY.Font.calloutMedium)
+                        .foregroundStyle(palette.textPrimary)
+                    Text("Continue this reflection in conversation")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(ABY.Font.iconSmall)
+                    .foregroundStyle(palette.textTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(palette.isNight ? 0.12 : 0.98))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(ABY.Color.pillPurple.opacity(0.2), lineWidth: 1)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityHint("Opens Chaplain chat with your reflection as a starting point")
+    }
+}
 
 // MARK: - Entry hub
 
@@ -47,8 +295,8 @@ struct JournalEntryHubSheet: View {
                     JournalEntryOptionCard(
                         icon: "pencil.and.outline",
                         tint: ABY.Color.pillPurple,
-                        title: "Assisted journal",
-                        subtitle: "Gentle prompts to help you write freely",
+                        title: "Guided Entry",
+                        subtitle: "One prompt — type or speak your reflection",
                         badge: "Write"
                     ) {
                         dismiss()
@@ -88,17 +336,12 @@ struct JournalEntryHubSheet: View {
     }
 }
 
-// MARK: - Assisted journal
+// MARK: - Guided entry (journal)
 
 struct AssistedJournalView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.sanctuaryPalette) private var palette
-
     @State private var text = ""
-    @State private var promptIndex = 0
-    @State private var appeared = false
-    @State private var isDictating = false
-    @FocusState private var focused: Bool
+
+    var initialPrompt: String? = nil
 
     private let prompts = [
         "What's on your heart right now?",
@@ -108,124 +351,25 @@ struct AssistedJournalView: View {
         "What do you need to release before tomorrow?",
     ]
 
-    private let suggestions = [
-        "I'm noticing…",
-        "I'm grateful for…",
-        "I'm asking God for…",
-    ]
-
-    private var canSave: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                ABYCleanGradientBackground()
-
-                VStack(alignment: .leading, spacing: 0) {
-                    ABYAssistedJournalHeader(
-                        prompt: prompts[promptIndex],
-                        onShuffle: shufflePrompt
-                    )
-                    .padding(.top, 8)
-                    .animation(AppTheme.springGentle, value: promptIndex)
-                    .blurReveal(appeared, blurRadius: 6, scale: 1.004)
-
-                    Spacer(minLength: 24)
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-                if isDictating {
-                    ABYInlineDictationCapture(text: $text, isActive: $isDictating)
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.bottom, 12)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    VStack(spacing: 12) {
-                        if text.isEmpty {
-                            ABYStarterPhraseRow(
-                                phrases: suggestions,
-                                onSelect: appendSuggestion,
-                                onShufflePrompt: shufflePrompt
-                            )
-                            .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-                        }
-
-                        ABYAssistedJournalComposer(
-                            text: $text,
-                            placeholder: "Start writing…",
-                            focused: $focused,
-                            onDictate: {
-                                focused = false
-                                withAnimation(AppTheme.springGentle) { isDictating = true }
-                            }
-                        )
-                        .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-                    }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.bottom, 10)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textPrimary)
-                    }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text("Write")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    ABYAssistedJournalFinishButton(isEnabled: canSave, action: save)
-                }
-            }
-        }
-        .abyScreen()
-        .animation(AppTheme.springGentle, value: isDictating)
-        .onAppear {
-            withAnimation(AppTheme.springGentle.delay(0.04)) { appeared = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                if !isDictating { focused = true }
-            }
-        }
+        GuidedJournalEntryView(
+            navigationTitle: "Guided Entry",
+            seedPrompt: initialPrompt ?? prompts[0],
+            text: $text,
+            alternatePrompts: prompts,
+            onSave: save
+        )
     }
 
-    private func appendSuggestion(_ phrase: String) {
-        if text.isEmpty {
-            text = phrase + " "
-        } else if !text.hasSuffix(" ") {
-            text += " " + phrase + " "
-        } else {
-            text += phrase + " "
-        }
-        focused = true
-    }
-
-    private func shufflePrompt() {
-        withAnimation(AppTheme.springSnappy) {
-            promptIndex = (promptIndex + 1) % prompts.count
-        }
-    }
-
-    private func save() {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func save(_ body: String) {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         JournalLocalStore.shared.addAssistedEntry(
             body: trimmed,
-            title: prompts[promptIndex],
+            title: initialPrompt ?? prompts[0],
             moodLabel: "Peaceful",
             moodEmoji: MoodCatalog.emoji(for: "Peaceful")
         )
-        DevotionHaptics.success()
-        dismiss()
     }
 }
 
@@ -233,7 +377,7 @@ struct AssistedJournalView: View {
 
 private enum VoiceJournalPhase {
     case recording
-    case revealing
+    case polishChoice
     case editing
 }
 
@@ -245,7 +389,6 @@ struct VoiceJournalView: View {
     @State private var transcription = SpeechTranscriptionService()
     @State private var phase: VoiceJournalPhase = .recording
     @State private var editedText = ""
-    @State private var revealProgress: CGFloat = 1
     @State private var elapsed: TimeInterval = 0
     @State private var appeared = false
     @State private var speechStarted = false
@@ -269,7 +412,7 @@ struct VoiceJournalView: View {
             switch phase {
             case .recording:
                 recordingLayout
-            case .revealing, .editing:
+            case .polishChoice, .editing:
                 reviewLayout
             }
         }
@@ -336,64 +479,78 @@ struct VoiceJournalView: View {
             .padding(.horizontal, ABY.Spacing.screen)
             .padding(.top, 16)
 
+            if phase == .polishChoice {
+                ABYSpeechPolishReview(
+                    rawTranscript: editedText,
+                    onKeepRaw: {
+                        phase = .editing
+                        DevotionHaptics.light()
+                    },
+                    onTidyComplete: { polished in
+                        editedText = polished
+                        phase = .editing
+                    },
+                    onCancel: resetRecording
+                )
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 20)
+            } else {
+                editingReviewBody
+            }
+
+            Spacer()
+        }
+    }
+
+    private var editingReviewBody: some View {
+        VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text(phase == .revealing ? "Revealing your words" : "Review & save")
+                    Text("Review & save")
                         .font(ABY.Font.captionMedium)
                         .foregroundStyle(palette.textSecondary)
                     Spacer()
-                    if phase == .editing {
-                        Button("Re-record", action: resetRecording)
-                            .font(ABY.Font.captionMedium)
-                            .foregroundStyle(ABY.Color.pillOrange)
-                    }
+                    Button("Re-record", action: resetRecording)
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(ABY.Color.pillOrange)
                 }
 
-                if phase == .revealing {
-                    ProgressView("Transcribing…")
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(palette.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                } else {
-                    TextEditor(text: $editedText)
-                        .font(ABY.Font.body)
-                        .foregroundStyle(palette.textPrimary)
-                        .scrollContentBackground(.hidden)
-                        .padding(16)
-                        .frame(minHeight: 220)
-                        .background(palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                                .stroke(palette.divider, lineWidth: 1)
-                        }
-                }
+                TextEditor(text: $editedText)
+                    .font(ABY.Font.body)
+                    .foregroundStyle(palette.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .padding(16)
+                    .frame(minHeight: 220)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                            .stroke(palette.divider, lineWidth: 1)
+                    }
             }
             .padding(.horizontal, ABY.Spacing.screen)
             .padding(.top, 28)
 
             Spacer()
 
-            if phase == .editing {
-                VStack(spacing: 12) {
-                    ABYPrimaryButton(title: "Save to journal", icon: "checkmark", action: save)
-                        .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .opacity(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
-
-                    Button(action: continueWithChaplain) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
-                            Text("Continue with Chaplain")
-                        }
-                        .font(ABY.Font.calloutSemibold)
-                        .foregroundStyle(ABY.Color.pillPurple)
-                    }
-                    .buttonStyle(.plain)
+            VStack(spacing: 12) {
+                ABYPrimaryButton(title: "Save to journal", icon: "checkmark", action: save)
                     .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+
+                Button(action: continueWithChaplain) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                        Text("Continue with Chaplain")
+                    }
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(ABY.Color.pillPurple)
                 }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 32)
+                .buttonStyle(.plain)
+                .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.bottom, 32)
         }
     }
 
@@ -419,18 +576,14 @@ struct VoiceJournalView: View {
     }
 
     private func finishRecording() {
-        let transcript = transcription.stop()
-        editedText = transcript.isEmpty ? "" : transcript
-        phase = .revealing
-        revealProgress = 1
-
-        withAnimation(.easeOut(duration: 0.9)) {
-            revealProgress = 0
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
-            phase = .editing
+        let transcript = transcription.stop().trimmingCharacters(in: .whitespacesAndNewlines)
+        editedText = transcript
+        if JournalTranscriptOrganizer.worthPolishChoice(transcript) {
+            phase = .polishChoice
             DevotionHaptics.light()
+        } else {
+            phase = .editing
+            DevotionHaptics.success()
         }
     }
 
@@ -438,7 +591,6 @@ struct VoiceJournalView: View {
         editedText = ""
         elapsed = 0
         speechStarted = false
-        revealProgress = 1
         sessionStartedAt = Date()
         phase = .recording
         Task { await beginRecording() }

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		800E296C3B244024BC6B9CF0 /* DevotionLockWidgets.appex in CopyFiles */ = {isa = PBXBuildFile; fileRef = FE4AB8E6E6BD44EEB6425A9E /* DevotionLockWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E09B2DD12FD4CCEB000F990C /* InAppKit in Frameworks */ = {isa = PBXBuildFile; productRef = E0PKG0022FD49F0500A8DA8D /* InAppKit */; };
+		E0NOT0032FD49F0500A8DA8D /* Notelet in Frameworks */ = {isa = PBXBuildFile; productRef = E0NOT0022FD49F0500A8DA8D /* Notelet */; };
 		E0SUP0032FD49F0500A8DA8D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = E0SUP0022FD49F0500A8DA8D /* Supabase */; };
 /* End PBXBuildFile section */
 
@@ -71,6 +72,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E09B2DD12FD4CCEB000F990C /* InAppKit in Frameworks */,
+				E0NOT0032FD49F0500A8DA8D /* Notelet in Frameworks */,
 				E0SUP0032FD49F0500A8DA8D /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -142,6 +144,7 @@
 			name = DevotionLock;
 			packageProductDependencies = (
 				E0PKG0022FD49F0500A8DA8D /* InAppKit */,
+				E0NOT0022FD49F0500A8DA8D /* Notelet */,
 				E0SUP0022FD49F0500A8DA8D /* Supabase */,
 			);
 			productName = DevotionLock;
@@ -174,6 +177,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				E0PKG0012FD49F0500A8DA8D /* XCRemoteSwiftPackageReference "InAppKit" */,
+				E0NOT0012FD49F0500A8DA8D /* XCLocalSwiftPackageReference "Vendor/Notelet" */,
 				E0SUP0012FD49F0500A8DA8D /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -499,6 +503,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E0NOT0012FD49F0500A8DA8D /* XCLocalSwiftPackageReference "Vendor/Notelet" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/Notelet;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E0PKG0012FD49F0500A8DA8D /* XCRemoteSwiftPackageReference "InAppKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -519,6 +530,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E0NOT0022FD49F0500A8DA8D /* Notelet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E0NOT0012FD49F0500A8DA8D /* XCLocalSwiftPackageReference "Vendor/Notelet" */;
+			productName = Notelet;
+		};
 		E0PKG0022FD49F0500A8DA8D /* InAppKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E0PKG0012FD49F0500A8DA8D /* XCRemoteSwiftPackageReference "InAppKit" */;

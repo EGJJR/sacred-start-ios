@@ -26,6 +26,13 @@ enum DevotionHaptics {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         #endif
     }
+
+    /// Soft tick for live speech partials — use sparingly.
+    static func soft() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.55)
+        #endif
+    }
 }
 
 struct ConfettiView: View {

@@ -4,12 +4,14 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ProfileAvatarView: View {
     @Environment(\.sanctuaryPalette) private var palette
 
     let name: String
     var avatarURL: URL?
+    var localImageData: Data?
     var size: CGFloat = 56
     var showsEditBadge: Bool = false
 
@@ -42,7 +44,11 @@ struct ProfileAvatarView: View {
 
     @ViewBuilder
     private var avatarContent: some View {
-        if let avatarURL {
+        if let localImageData, let uiImage = UIImage(data: localImageData) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else if let avatarURL {
             AsyncImage(url: avatarURL) { phase in
                 switch phase {
                 case .success(let image):
@@ -57,6 +63,7 @@ struct ProfileAvatarView: View {
                         .background(palette.background)
                 }
             }
+            .id(avatarURL)
         } else {
             initialsAvatar
         }

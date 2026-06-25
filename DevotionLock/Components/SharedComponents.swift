@@ -118,6 +118,7 @@ struct FilterIconButton: View {
 
 struct DotPatternIcon: View {
     var dotColor: Color = .black.opacity(0.75)
+    var rotationDuration: Double = 20
     @State private var rotation: Double = 0
 
     var body: some View {
@@ -125,7 +126,13 @@ struct DotPatternIcon: View {
             drawDots(in: &context, size: size, rotation: rotation)
         }
         .onAppear {
-            withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: rotationDuration).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
+        }
+        .onChange(of: rotationDuration) { _, duration in
+            rotation = 0
+            withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
                 rotation = 360
             }
         }

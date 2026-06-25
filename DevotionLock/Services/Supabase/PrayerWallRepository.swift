@@ -159,18 +159,20 @@ final class PrayerWallRepository {
 
             PrayerWallStore.shared.mergeRemoteNotes(rows.map(\.localNote))
         } catch {
-            #if DEBUG
-            print("PrayerWallRepository pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("PrayerWallRepository", error)
         }
     }
 
     func deleteRemote(_ id: UUID) async {
         guard AuthManager.shared.isAuthenticated else { return }
-        try? await SupabaseManager.client
-            .from("prayer_wall_notes")
-            .delete()
-            .eq("id", value: id.uuidString)
-            .execute()
+        do {
+            try await SupabaseManager.client
+                .from("prayer_wall_notes")
+                .delete()
+                .eq("id", value: id.uuidString)
+                .execute()
+        } catch {
+            SyncErrorFilter.logPullFailure("PrayerWallRepository.delete", error)
+        }
     }
 }

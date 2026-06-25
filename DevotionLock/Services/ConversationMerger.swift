@@ -6,6 +6,9 @@
 import Foundation
 
 enum ConversationMerger {
+    /// Minimum words for a standalone reflection to appear on the journal timeline.
+    static let journalSubstanceWordThreshold = 12
+
     @MainActor
     static func chaplainChats(limit: Int? = nil) -> [Conversation] {
         let chats = mergedTimeline().filter(isChaplainChat)
@@ -13,10 +16,39 @@ enum ConversationMerger {
         return chats
     }
 
+    /// Journal tab — substantive captures only; Chaplain threads live in Chaplain history.
+    @MainActor
+    static func journalTimeline(limit: Int? = nil) -> [Conversation] {
+        let filtered = mergedTimeline().filter(isJournalTimelineEntry)
+        if let limit { return Array(filtered.prefix(limit)) }
+        return filtered
+    }
+
     static func isChaplainChat(_ conversation: Conversation) -> Bool {
-        if conversation.tag == "Chaplain" { return true }
-        if conversation.remoteID != nil { return true }
-        return conversation.transcript.contains { $0.speaker == "Chaplain" }
+        if isInternalChaplainRequest(conversation) { return false }
+        return conversation.tag == "Chaplain"
+    }
+
+    /// Background AI tasks (guided prayer enrichment) must not appear in chat history.
+    static func isInternalChaplainRequest(_ conversation: Conversation) -> Bool {
+        let haystack = [
+            conversation.title,
+            conversation.preview,
+            conversation.transcript.first(where: { $0.speaker == "You" })?.text ?? "",
+        ]
+        .joined(separator: " ")
+        .lowercased()
+
+        if haystack.contains("write a guided prayer as json") { return true }
+        if haystack.contains("guided prayer") && haystack.contains("json only") { return true }
+        if haystack.contains("format this spoken journal") { return true }
+        return false
+    }
+
+    static func isJournalTimelineEntry(_ conversation: Conversation) -> Bool {
+        guard !isInternalChaplainRequest(conversation) else { return false }
+        guard !isChaplainChat(conversation) else { return false }
+        return conversation.isSubstantiveReflection
     }
 
     @MainActor

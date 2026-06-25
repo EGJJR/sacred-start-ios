@@ -19,6 +19,8 @@ struct ChaplainChatHistoryView: View {
     @State private var repository = ConversationRepository.shared
     @State private var searchText = ""
     @State private var appeared = false
+    @State private var pendingDelete: Conversation?
+    @State private var deletedBanner: String?
     @FocusState private var searchFocused: Bool
 
     private var chats: [Conversation] {
@@ -52,24 +54,68 @@ struct ChaplainChatHistoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ABYCleanGradientBackground()
+                ABYFlatTabWashBackground()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if chats.isEmpty {
+                VStack(spacing: 0) {
+                    historySearchBar
+
+                    if chats.isEmpty {
+                        ScrollView(showsIndicators: false) {
                             emptyState
-                        } else {
-                            ChaplainChatHistoryGroupedList(groups: grouped, onSelect: openConversation)
+                                .padding(.horizontal, ABY.Spacing.screen)
+                                .padding(.top, 4)
+                                .padding(.bottom, 32)
+                        }
+                    } else {
+                        List {
+                            ForEach(Array(grouped.enumerated()), id: \.offset) { _, group in
+                                Section {
+                                    ForEach(group.1) { conversation in
+                                        ChaplainChatHistoryRow(conversation: conversation) {
+                                            openConversation(conversation)
+                                        }
+                                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                        .listRowSeparator(.visible, edges: .bottom)
+                                        .listRowBackground(Color.white)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            Button(role: .destructive) {
+                                                requestDelete(conversation)
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                        .contextMenu {
+                                            Button(role: .destructive) {
+                                                requestDelete(conversation)
+                                            } label: {
+                                                Label("Delete chat", systemImage: "trash")
+                                            }
+                                        }
+                                    }
+                                } header: {
+                                    Text(group.0)
+                                        .font(ABY.Font.footnoteSemibold)
+                                        .foregroundStyle(palette.textSecondary)
+                                        .textCase(nil)
+                                }
+                            }
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .padding(.top, 4)
+                        .background {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+                                }
+                                .shadow(color: .black.opacity(0.03), radius: 10, y: 3)
+                                .padding(.horizontal, ABY.Spacing.screen)
                         }
                     }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 4)
-                    .padding(.bottom, 32)
                 }
-                .abyScrollEdgeFades(top: false)
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                historySearchBar
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -102,6 +148,37 @@ struct ChaplainChatHistoryView: View {
             }
         }
         .abyScreen()
+        .sheet(item: $pendingDelete) { conversation in
+            ChaplainDeleteChatSheet(
+                conversation: conversation,
+                onCancel: { pendingDelete = nil },
+                onConfirm: {
+                    let title = conversation.chaplainHistoryTitle
+                    pendingDelete = nil
+                    confirmDelete(conversation, bannerTitle: title)
+                }
+            )
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(28)
+        }
+        .overlay(alignment: .bottom) {
+            if let deletedBanner {
+                Text(deletedBanner)
+                    .font(ABY.Font.footnoteMedium)
+                    .foregroundStyle(palette.textPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background {
+                        Capsule()
+                            .fill(Color.white)
+                            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+                    }
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(AppTheme.springGentle, value: deletedBanner)
         .onAppear {
             Task { await repository.refresh() }
             withAnimation(AppTheme.springGentle) { appeared = true }
@@ -144,11 +221,6 @@ struct ChaplainChatHistoryView: View {
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 6)
         .padding(.bottom, 10)
-        .background {
-            ABYCleanGradientBackground()
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-        }
     }
 
     private var emptyState: some View {
@@ -199,6 +271,127 @@ struct ChaplainChatHistoryView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             resumeChaplainChat(conversation)
         }
+    }
+
+    private func requestDelete(_ conversation: Conversation) {
+        DevotionHaptics.light()
+        pendingDelete = conversation
+    }
+
+    private func confirmDelete(_ conversation: Conversation, bannerTitle: String) {
+        DevotionHaptics.medium()
+        Task {
+            await repository.deleteConversation(id: conversation.remoteID ?? conversation.id)
+        }
+        deletedBanner = "“\(bannerTitle)” deleted"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            withAnimation(AppTheme.springGentle) {
+                deletedBanner = nil
+            }
+        }
+    }
+}
+
+private struct ChaplainChatHistoryRow: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let conversation: Conversation
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(conversation.chaplainHistoryTitle)
+                        .font(ABY.Font.calloutMedium)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    if let subtitle = conversation.chaplainHistorySubtitle {
+                        Text(subtitle)
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(palette.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Text(conversation.timelineTime)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+                    .layoutPriority(1)
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+    }
+}
+
+private struct ChaplainDeleteChatSheet: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let conversation: Conversation
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(palette.divider.opacity(0.55))
+                .frame(width: 36, height: 4)
+                .padding(.top, 10)
+                .padding(.bottom, 18)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Delete this chat?")
+                    .font(ABY.Font.headline)
+                    .foregroundStyle(palette.textPrimary)
+
+                Text(conversation.chaplainHistoryTitle)
+                    .font(ABY.Font.calloutMedium)
+                    .foregroundStyle(palette.textPrimary)
+                    .lineLimit(3)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.surfaceMuted.opacity(0.45))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Text("This removes the conversation from your history. It can't be undone.")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textSecondary)
+                    .lineSpacing(3)
+            }
+            .padding(.horizontal, ABY.Spacing.screen)
+
+            Spacer(minLength: 12)
+
+            VStack(spacing: 10) {
+                Button(action: onConfirm) {
+                    Text("Delete chat")
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.red.opacity(0.92))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onCancel) {
+                    Text("Keep chat")
+                        .font(ABY.Font.calloutMedium)
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ABYFlatTabWashBackground())
     }
 }
 

@@ -185,7 +185,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let action = DevotionNotificationAction(rawValue: response.actionIdentifier)
 
         await MainActor.run {
-            DeepLinkRouter.shared.handleNotificationAction(action, route: route, userInfo: userInfo)
+            DeepLinkRouter.shared.handleNotificationAction(action, route: route)
         }
     }
 
@@ -289,7 +289,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     private func schedulePrayerWallWeekly(tone: NotificationTone) {
         let copy = previewContent(for: .prayerWall, tone: tone)
-        var components = DateComponents(hour: 10, minute: 0, weekday: 1)
+        let components = DateComponents(hour: 10, minute: 0, weekday: 1)
         schedule(
             id: ID.prayerWall,
             title: copy.title,

@@ -44,11 +44,8 @@ struct HomeView: View {
     private let shieldManager = AppShieldManager.shared
     private let rhythmStore = DailyRhythmStore.shared
     private let journeyStore = JourneyTimelineStore.shared
-    private let insightStore = PersonalInsightStore.shared
     private let prayerWallStore = PrayerWallStore.shared
     @State private var appeared = false
-    @State private var refreshProgress: CGFloat = 0
-    @State private var isRefreshing = false
     @State private var rhythmSheet: HomeRhythmSheet?
     @State private var scriptureSheet: HomeScriptureSheet?
 
@@ -56,22 +53,16 @@ struct HomeView: View {
     private var dailyPassage: SpiritualPassage { SpiritualPassageCatalog.todayScripture }
 
     private var journalEntryCount: Int {
-        ConversationMerger.mergedTimeline().count
+        ConversationMerger.journalTimeline().count
     }
 
     private var latestJournalPreview: String? {
-        ConversationMerger.mergedTimeline().first?.timelinePreview
+        ConversationMerger.journalTimeline().first?.timelinePreview
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                if isRefreshing {
-                    ShepherdRefreshIndicator(progress: refreshProgress)
-                        .padding(.bottom, 12)
-                        .transition(.opacity)
-                }
-
                 timelineHeader
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.top, 12)
@@ -82,12 +73,6 @@ struct HomeView: View {
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 16)
                     .staggeredAppear(appeared, delay: 0.04)
-
-                PersonalInsightsSection(insights: insightStore.topInsights)
-                    .staggeredAppear(appeared, delay: 0.05)
-
-                PersonalInsightThemeRow(themes: insightStore.snapshot.topThemes)
-                    .staggeredAppear(appeared, delay: 0.055)
 
                 DailyStoryRingsRow(rhythmStore: rhythmStore, onRing: handleRingTap)
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -190,9 +175,6 @@ struct HomeView: View {
             .padding(.bottom, 120)
         }
         .abyTransparentScroll()
-        .refreshable {
-            await performRefresh()
-        }
         .onAppear {
             refreshHomeState()
             withAnimation(AppTheme.springGentle) { appeared = true }
@@ -289,19 +271,6 @@ struct HomeView: View {
     private func refreshHomeState() {
         rhythmStore.syncFromExistingState()
         shieldManager.syncShieldState()
-        insightStore.refresh()
-    }
-
-    @MainActor
-    private func performRefresh() async {
-        isRefreshing = true
-        refreshProgress = 0
-        withAnimation(.easeInOut(duration: 0.9)) { refreshProgress = 1 }
-        await SyncCoordinator.shared.flushAll(force: true)
-        refreshHomeState()
-        DevotionHaptics.light()
-        isRefreshing = false
-        refreshProgress = 0
     }
 }
 

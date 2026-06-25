@@ -2,6 +2,11 @@
 //  MorningWrappedView.swift
 //  DevotionLock
 //
+//  Mobbin refs:
+//  - How We Feel week story: https://mobbin.com/screens/f07c9b43-464b-4056-a5c1-80a13ee5002f
+//  - Opal recap story: https://mobbin.com/screens/403d27ac-0a46-4cdd-9e8e-a7521bbc8aee
+//  - Apple Music Replay: https://mobbin.com/screens/a9ad905f-120e-4ead-b895-8f1d63fb40ad
+//
 
 import SwiftUI
 
@@ -30,181 +35,272 @@ struct MorningWrappedView: View {
     let stats: MorningWrappedStats
     var onDismiss: () -> Void
 
-    @State private var page = 0
-    @State private var appeared = false
+    @State private var currentPage = 0
+    @State private var pageAppeared = false
 
     private var palette: SanctuaryPalette {
         SanctuaryPalette.forMode(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
     }
 
-    private var pages: [WrappedPage] {
-        var pages: [WrappedPage] = [
-            WrappedPage(
-                eyebrow: "Your week",
-                title: "\(stats.morningsThisWeek) mornings",
-                body: "You showed up \(stats.morningsThisWeek) time\(stats.morningsThisWeek == 1 ? "" : "s") this week — before the noise of the day.",
-                symbol: "sun.horizon.fill",
-                tint: ABY.Color.pillOrange
-            ),
-            WrappedPage(
-                eyebrow: "Your mood",
-                title: "\(stats.topMoodEmoji) \(stats.topMood)",
-                body: "This was the tone of your mornings most often — a gentle thread through your week.",
-                symbol: "heart.text.square.fill",
-                tint: ABY.Color.pillPink
-            ),
-            WrappedPage(
-                eyebrow: "Your streak",
-                title: "\(stats.currentStreak) days",
-                body: "Consistency isn't perfection. It's returning, again and again, to what matters.",
-                symbol: "flame.fill",
-                tint: StreakPalette.orange
-            ),
-            WrappedPage(
-                eyebrow: "Chaplain's note",
-                title: "A word for you",
-                body: stats.highlightInsight,
-                symbol: "ellipsis.bubble.fill",
-                tint: ABY.Color.pillPurple
-            ),
-        ]
-
+    private var storyBeats: [WrappedStoryBeat] {
+        var beats: [WrappedStoryBeat] = [.intro, .mornings, .rhythm, .mood, .streak, .chaplain]
         if let narrative = stats.weeklyNarrative, !narrative.isEmpty {
-            pages.append(
-                WrappedPage(
-                    eyebrow: "Your week",
-                    title: "The story so far",
-                    body: narrative,
-                    symbol: "book.pages.fill",
-                    tint: ABY.Color.pillTeal
-                )
-            )
+            beats.append(.narrative)
         }
+        beats.append(.closing)
+        return beats
+    }
 
-        pages.append(
-            WrappedPage(
-                eyebrow: "Sanctuary",
-                title: "\(stats.totalDays) days total",
-                body: "Every entry is a small act of presence. Keep building your morning sanctuary.",
-                symbol: "sparkles",
-                tint: ABY.Color.pillTeal
-            )
-        )
-
-        return pages
+    private var activeBeat: WrappedStoryBeat {
+        storyBeats[min(currentPage, storyBeats.count - 1)]
     }
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYFlatTabWashBackground()
 
             VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark")
-                            .font(ABY.Font.iconMedium)
-                            .foregroundStyle(palette.textSecondary)
-                            .frame(width: 36, height: 36)
-                            .background(palette.surface.opacity(0.88))
-                            .clipShape(Circle())
-                    }
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 12)
+                WrappedStoryChrome(
+                    current: currentPage,
+                    total: storyBeats.count,
+                    onClose: onDismiss
+                )
 
-                TabView(selection: $page) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, wrapped in
-                        wrappedCard(wrapped)
+                TabView(selection: $currentPage) {
+                    ForEach(Array(storyBeats.enumerated()), id: \.offset) { index, beat in
+                        storyPage(beat, isActive: currentPage == index)
                             .tag(index)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .animation(AppTheme.springGentle, value: page)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .animation(AppTheme.springGentle, value: currentPage)
+                .onChange(of: currentPage) { _, _ in
+                    pageAppeared = false
+                    withAnimation(AppTheme.springGentle.delay(0.05)) { pageAppeared = true }
+                    DevotionHaptics.soft()
+                }
 
-                if page == pages.count - 1 {
-                    ABYPrimaryButton(title: "Close", icon: "checkmark") {
-                        onDismiss()
-                    }
+                storyFooter
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 28)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else {
-                    Text("\(page + 1) / \(pages.count)")
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textTertiary)
-                        .padding(.bottom, 28)
-                }
             }
         }
         .abyScreen()
         .onAppear {
-            withAnimation(AppTheme.springGentle) { appeared = true }
+            withAnimation(AppTheme.springGentle) { pageAppeared = true }
         }
     }
 
-    private func wrappedCard(_ wrapped: WrappedPage) -> some View {
-        VStack(spacing: 24) {
-            Spacer()
+    @ViewBuilder
+    private func storyPage(_ beat: WrappedStoryBeat, isActive: Bool) -> some View {
+        let appeared = pageAppeared && isActive
 
-            ZStack {
-                Circle()
-                    .fill(wrapped.tint.opacity(palette.isNight ? 0.22 : 0.16))
-                    .frame(width: 110, height: 110)
-                Image(systemName: wrapped.symbol)
-                    .font(ABY.Font.largeTitle)
-                    .foregroundStyle(wrapped.tint)
-            }
-            .scaleEffect(appeared ? 1 : 0.7)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 28) {
+                Spacer(minLength: 12)
 
-            VStack(spacing: 10) {
-                Text(wrapped.eyebrow.uppercased())
-                    .font(ABY.Font.captionMedium)
-                    .foregroundStyle(palette.textTertiary)
-                    .tracking(1)
-                Text(wrapped.title)
-                    .font(ABY.Font.largeTitle)
-                    .foregroundStyle(palette.textPrimary)
-                    .multilineTextAlignment(.center)
-                Text(wrapped.body)
-                    .font(ABY.Font.body)
-                    .foregroundStyle(palette.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(5)
-                    .padding(.horizontal, 24)
-            }
+                switch beat {
+                case .intro:
+                    WrappedStoryHeadline(
+                        text: "Let's look back",
+                        subtitle: "A quiet recap of your mornings this week.",
+                        appeared: appeared
+                    )
 
-            if page == 0 {
-                ABYWeeklyStrip(completedDays: stats.weekCompleted)
+                    WrappedStoryStatCard(
+                        value: "\(stats.totalDays)",
+                        label: "days in your sanctuary so far",
+                        badge: stats.morningsThisWeek >= 5 ? "Strong week" : nil,
+                        tint: ABY.Color.pillOrange
+                    )
                     .padding(.horizontal, ABY.Spacing.screen)
+                    .blurReveal(appeared, blurRadius: 8)
+
+                case .mornings:
+                    WrappedStoryHeadline(
+                        text: morningsHeadline,
+                        subtitle: "Before notifications, before the rush.",
+                        appeared: appeared
+                    )
+
+                    WrappedHeroCounter(
+                        value: stats.morningsThisWeek,
+                        label: "mornings with intention",
+                        tint: ABY.Color.pillOrange,
+                        appeared: appeared
+                    )
+
+                case .rhythm:
+                    WrappedStoryHeadline(
+                        text: rhythmHeadline,
+                        subtitle: rhythmSubtitle,
+                        appeared: appeared
+                    )
+
+                    WrappedWeekRhythmPanel(
+                        completedDays: stats.weekCompleted,
+                        appeared: appeared
+                    )
+                    .padding(.horizontal, ABY.Spacing.screen)
+
+                case .mood:
+                    WrappedStoryHeadline(
+                        text: "Mostly feeling \(stats.topMood.lowercased())",
+                        subtitle: "The mood that kept returning this week.",
+                        appeared: appeared
+                    )
+
+                    WrappedMoodStoryOrb(
+                        emoji: stats.topMoodEmoji,
+                        mood: stats.topMood,
+                        appeared: appeared
+                    )
+
+                case .streak:
+                    WrappedStoryHeadline(
+                        text: streakHeadline,
+                        subtitle: "Consistency is a form of devotion.",
+                        appeared: appeared
+                    )
+
+                    WrappedStreakFlame(streak: stats.currentStreak, appeared: appeared)
+
+                case .chaplain:
+                    WrappedStoryHeadline(
+                        text: "A note from your Chaplain",
+                        subtitle: "Something we noticed in your rhythm.",
+                        appeared: appeared
+                    )
+
+                    WrappedChaplainNote(insight: stats.highlightInsight, appeared: appeared)
+                        .padding(.horizontal, ABY.Spacing.screen)
+
+                case .narrative:
+                    WrappedStoryHeadline(
+                        text: "The story so far",
+                        subtitle: "How your week unfolded in the sanctuary.",
+                        appeared: appeared
+                    )
+
+                    WrappedNarrativeChapter(narrative: stats.weeklyNarrative ?? "", appeared: appeared)
+                        .padding(.horizontal, ABY.Spacing.screen)
+
+                case .closing:
+                    WrappedStoryHeadline(
+                        text: "See you tomorrow morning",
+                        subtitle: "Every small return to stillness matters.",
+                        appeared: appeared
+                    )
+
+                    closingCard
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .blurReveal(appeared, blurRadius: 8)
+                }
+
+                Spacer(minLength: 24)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, ABY.Spacing.screen)
     }
-}
 
-private struct WrappedPage {
-    let eyebrow: String
-    let title: String
-    let body: String
-    let symbol: String
-    let tint: Color
+    private var storyFooter: some View {
+        VStack(spacing: 12) {
+            Button(action: advanceStory) {
+                Text(currentPage >= storyBeats.count - 1 ? "Done" : "Continue")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.buttonForeground)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(palette.buttonFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(ScaleButtonStyle())
+
+            if currentPage < storyBeats.count - 1 {
+                Button("Skip for now", action: onDismiss)
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+            }
+        }
+    }
+
+    private var closingCard: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "sparkles")
+                .font(ABY.Font.title2)
+                .foregroundStyle(ABY.Color.pillTeal)
+
+            Text("\(stats.morningsThisWeek) of 7 mornings")
+                .font(ABY.Font.headline)
+                .foregroundStyle(palette.textPrimary)
+
+            Text("Keep building the rhythm — one gentle morning at a time.")
+                .font(ABY.Font.body)
+                .foregroundStyle(palette.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+        }
+        .padding(ABY.Spacing.card)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                .fill(palette.surface.opacity(0.94))
+        )
+    }
+
+    private var morningsHeadline: String {
+        switch stats.morningsThisWeek {
+        case 0: "A soft reset awaits"
+        case 1: "You began once this week"
+        case 7: "You showed up every morning"
+        default: "You showed up \(stats.morningsThisWeek) mornings"
+        }
+    }
+
+    private var rhythmHeadline: String {
+        let completed = stats.weekCompleted.filter { $0 }.count
+        if completed == 7 { return "A perfect week — you checked in every day" }
+        if completed >= 5 { return "Your rhythm held steady" }
+        let morningWord = completed == 1 ? "morning" : "mornings"
+        return "Your week had \(completed) devoted \(morningWord)"
+    }
+
+    private var rhythmSubtitle: String? {
+        let completed = stats.weekCompleted.filter { $0 }.count
+        if completed == 0 { return "Tomorrow is a fresh beginning." }
+        return nil
+    }
+
+    private var streakHeadline: String {
+        if stats.currentStreak <= 1 { return "Day one is sacred too" }
+        return "\(stats.currentStreak) day streak"
+    }
+
+    private func advanceStory() {
+        if currentPage < storyBeats.count - 1 {
+            withAnimation(AppTheme.springSnappy) {
+                currentPage += 1
+            }
+            DevotionHaptics.light()
+        } else {
+            DevotionHaptics.success()
+            onDismiss()
+        }
+    }
 }
 
 #Preview {
     MorningWrappedView(
         stats: MorningWrappedStats(
-            morningsThisWeek: 4,
+            morningsThisWeek: 5,
             topMood: "Peaceful",
             topMoodEmoji: "🍃",
             currentStreak: 5,
             totalDays: 12,
             highlightInsight: "You showed up peaceful today — a gentle beginning before the world rushes in.",
-            weeklyNarrative: nil,
+            weeklyNarrative: "This week you returned to stillness even when mornings felt heavy. Your journal named gratitude more than once — a sign your heart is learning to notice mercy in small places.",
             weekLabels: [],
-            weekCompleted: [true, true, false, true, true, false, false]
+            weekCompleted: [true, true, false, true, true, true, false]
         ),
         onDismiss: {}
     )

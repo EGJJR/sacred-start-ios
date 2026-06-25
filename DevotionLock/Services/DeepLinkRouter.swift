@@ -42,7 +42,7 @@ final class DeepLinkRouter {
         }
     }
 
-    func handleNotificationAction(_ action: DevotionNotificationAction?, route: String?, userInfo: [AnyHashable: Any]) {
+    func handleNotificationAction(_ action: DevotionNotificationAction?, route: String?) {
         switch action {
         case .beginDevotion, .startNow, .openJournal:
             pendingRoute = .journal

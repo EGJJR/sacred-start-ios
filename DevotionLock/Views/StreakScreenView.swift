@@ -26,64 +26,66 @@ struct StreakScreenView: View {
         ZStack(alignment: .top) {
             ABYStatsMeshBackground()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    ABYStreakScreenHeader(onDismiss: { dismiss() })
-                        .padding(.top, 8)
+            VStack(spacing: 0) {
+                ABYStreakScreenHeader(onDismiss: { dismiss() })
+                    .padding(.top, 12)
 
-                    ABYGlassPanel {
-                        ABYStreakHero(
-                            streak: streakManager.currentStreak,
-                            statusName: identity.statusName
-                        )
-                    }
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 10)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        ABYGlassPanel {
+                            ABYStreakHero(
+                                streak: streakManager.currentStreak,
+                                statusName: identity.statusName
+                            )
+                        }
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 10)
 
-                    HStack(spacing: 12) {
-                        ABYGlassStatChip(
-                            icon: "sun.max.fill",
-                            value: "\(streakManager.daysJournaled)",
-                            label: "Days journaled"
-                        )
-                        ABYGlassStatChip(
-                            icon: "pencil.line",
-                            value: "\(streakManager.entryCount)",
-                            label: "Entries written"
-                        )
-                    }
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 12)
+                        HStack(spacing: 12) {
+                            ABYGlassStatChip(
+                                icon: "sun.max.fill",
+                                value: "\(streakManager.daysJournaled)",
+                                label: "Days journaled"
+                            )
+                            ABYGlassStatChip(
+                                icon: "pencil.line",
+                                value: "\(streakManager.entryCount)",
+                                label: "Entries written"
+                            )
+                        }
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 12)
 
-                    ABYGlassPanel(cornerRadius: 24, padding: 20) {
-                        StreakCalendarGrid(
-                            days: streakManager.calendarDays(for: displayedMonth),
-                            monthTitle: monthTitle,
-                            onPreviousMonth: { shiftMonth(by: -1) },
-                            onNextMonth: { shiftMonth(by: 1) }
-                        )
-                    }
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 14)
+                        ABYGlassPanel(cornerRadius: 24, padding: 20) {
+                            StreakCalendarGrid(
+                                days: streakManager.calendarDays(for: displayedMonth),
+                                monthTitle: monthTitle,
+                                onPreviousMonth: { shiftMonth(by: -1) },
+                                onNextMonth: { shiftMonth(by: 1) }
+                            )
+                        }
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 14)
 
-                    ABYGlassPanel {
-                        StreakChallengeBar(progress: streakManager.challengeProgress)
-                    }
-                    .opacity(appeared ? 1 : 0)
+                        ABYGlassPanel {
+                            StreakChallengeBar(progress: streakManager.challengeProgress)
+                        }
+                        .opacity(appeared ? 1 : 0)
 
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle")
-                            .font(ABY.Font.caption)
-                        Text("Your mood for today will be available after midnight")
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(ABY.Font.caption)
+                            Text("Your mood for today will be available after midnight")
+                        }
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(ABY.Color.textTertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 24)
+                        .opacity(appeared ? 1 : 0)
                     }
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(ABY.Color.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 24)
-                    .opacity(appeared ? 1 : 0)
+                    .padding(.horizontal, ABY.Spacing.screen)
                 }
-                .padding(.horizontal, ABY.Spacing.screen)
             }
         }
         .preferredColorScheme(.light)

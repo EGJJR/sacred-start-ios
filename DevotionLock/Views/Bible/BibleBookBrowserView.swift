@@ -7,12 +7,13 @@ import SwiftUI
 
 struct BibleBookBrowserView: View {
     @Environment(\.sanctuaryPalette) private var palette
-    @Environment(\.presentDevotionPaywall) private var presentPaywall
 
+    var requirePremium: (@escaping () -> Void) -> Void = { $0() }
     var onOpenChapter: (BibleBook, Int) -> Void
 
     @State private var browseTestament: BibleTestament?
     @State private var bookFilter = ""
+    @State private var landingAppeared = false
 
     private var filteredBooks: [BibleBook] {
         guard let testament = browseTestament else { return [] }
@@ -26,10 +27,23 @@ struct BibleBookBrowserView: View {
         Group {
             if let testament = browseTestament {
                 bookList(for: testament)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        )
+                    )
             } else {
                 browseLanding
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        )
+                    )
             }
         }
+        .animation(AppTheme.springSnappy, value: browseTestament)
     }
 
     // MARK: - Landing (Goodreads genres + Headway shortcuts)
@@ -41,6 +55,7 @@ struct BibleBookBrowserView: View {
                     .font(ABY.Font.callout)
                     .foregroundStyle(palette.textSecondary)
                     .padding(.horizontal, ABY.Spacing.screen)
+                    .staggeredAppear(landingAppeared, delay: 0)
 
                 VStack(spacing: 10) {
                     ScriptureTestamentTile(
@@ -59,16 +74,22 @@ struct BibleBookBrowserView: View {
                     }
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
+                .staggeredAppear(landingAppeared, delay: 0.04)
 
                 ScriptureSectionHeader(title: "Quick open")
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.top, 4)
+                    .staggeredAppear(landingAppeared, delay: 0.08)
 
                 ScriptureGroupedList {
                     ForEach(Array(ScriptureQuickBook.shortcuts.enumerated()), id: \.element.slug) { index, shortcut in
                         if let book = ScriptureQuickBook.book(for: shortcut.slug) {
                             NavigationLink {
-                                BibleChapterListView(book: book, onOpenChapter: onOpenChapter)
+                                BibleChapterListView(
+                                    book: book,
+                                    requirePremium: requirePremium,
+                                    onOpenChapter: onOpenChapter
+                                )
                             } label: {
                                 ScriptureListRow(
                                     badge: book.abbreviation,
@@ -77,7 +98,7 @@ struct BibleBookBrowserView: View {
                                     badgeTint: book.testament == .old ? ABY.Color.pillPurple : ABY.Color.pillTeal
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(ScriptureNavigationRowStyle())
                             if index < ScriptureQuickBook.shortcuts.count - 1 {
                                 Divider().padding(.leading, 68)
                             }
@@ -85,8 +106,15 @@ struct BibleBookBrowserView: View {
                     }
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
+                .staggeredAppear(landingAppeared, delay: 0.10)
             }
             .padding(.bottom, 100)
+        }
+        .onAppear {
+            landingAppeared = false
+            withAnimation(AppTheme.springGentle) {
+                landingAppeared = true
+            }
         }
     }
 
@@ -115,6 +143,7 @@ struct BibleBookBrowserView: View {
 
             bookFilterField
                 .padding(.horizontal, ABY.Spacing.screen)
+                .transition(.move(edge: .top).combined(with: .opacity))
 
             if filteredBooks.isEmpty {
                 browseEmptyState
@@ -123,7 +152,11 @@ struct BibleBookBrowserView: View {
                     ScriptureGroupedList {
                         ForEach(Array(filteredBooks.enumerated()), id: \.element.id) { index, book in
                             NavigationLink {
-                                BibleChapterListView(book: book, onOpenChapter: onOpenChapter)
+                                BibleChapterListView(
+                                    book: book,
+                                    requirePremium: requirePremium,
+                                    onOpenChapter: onOpenChapter
+                                )
                             } label: {
                                 ScriptureListRow(
                                     badge: book.abbreviation,
@@ -132,7 +165,7 @@ struct BibleBookBrowserView: View {
                                     badgeTint: testament == .old ? ABY.Color.pillPurple : ABY.Color.pillTeal
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(ScriptureNavigationRowStyle())
 
                             if index < filteredBooks.count - 1 {
                                 Divider().padding(.leading, 68)
@@ -191,9 +224,9 @@ struct BibleBookBrowserView: View {
 
 struct BibleChapterListView: View {
     @Environment(\.sanctuaryPalette) private var palette
-    @Environment(\.presentDevotionPaywall) private var presentPaywall
 
     let book: BibleBook
+    var requirePremium: (@escaping () -> Void) -> Void = { $0() }
     let onOpenChapter: (BibleBook, Int) -> Void
 
     var body: some View {
@@ -229,7 +262,7 @@ struct BibleChapterListView: View {
     }
 
     private func openChapter(_ chapter: Int) {
-        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+        requirePremium {
             DevotionHaptics.light()
             onOpenChapter(book, chapter)
         }

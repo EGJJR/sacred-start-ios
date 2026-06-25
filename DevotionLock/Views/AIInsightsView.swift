@@ -22,6 +22,7 @@ private enum InsightsSheet: Identifiable {
 
 struct AIInsightsView: View {
     @Environment(\.openChaplainChat) private var openChaplainChat
+    @Environment(\.openChaplainChatWithPortal) private var openChaplainChatWithPortal
     @Environment(\.resumeChaplainChat) private var resumeChaplainChat
     @Environment(\.presentDevotionPaywall) private var presentPaywall
     @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
@@ -29,8 +30,10 @@ struct AIInsightsView: View {
     @State private var insightsSheet: InsightsSheet?
     @State private var showGuidedPrayerPicker = false
     @State private var showWisdomReflection = false
-    @State private var selectedGuidedPrayer: GuidedPrayer?
+    @State private var guidedPrayerLaunch: GuidedPrayerLaunch?
+    @State private var pendingGuidedPrayerLaunch: GuidedPrayerLaunch?
     @State private var wisdomPrompt = "What is God inviting you to notice today?"
+    @AppStorage("intentionMood") private var intentionMood = "Peaceful"
     private let chaplainSession = ChaplainSessionStore.shared
     private let conversationRepository = ConversationRepository.shared
 
@@ -81,7 +84,7 @@ struct AIInsightsView: View {
         .abyTransparentScroll()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             ChaplainComposeLauncher(voiceName: selectedVoice.name) {
-                openChaplainChat(nil, [])
+                openChaplainChatWithPortal(selectedVoice.name, nil, [])
             }
             .padding(.horizontal, ABY.Spacing.screen)
             .padding(.bottom, 88)
@@ -102,20 +105,29 @@ struct AIInsightsView: View {
         .onAppear {
             withAnimation(AppTheme.springGentle.delay(0.05)) { appeared = true }
         }
-        .sheet(isPresented: $showGuidedPrayerPicker) {
-            GuidedPrayerPickerSheet { prayer in
+        .sheet(isPresented: $showGuidedPrayerPicker, onDismiss: {
+            if let pending = pendingGuidedPrayerLaunch {
+                guidedPrayerLaunch = pending
+                pendingGuidedPrayerLaunch = nil
+            }
+        }) {
+            GuidedPrayerPickerSheet { prayer, style in
+                pendingGuidedPrayerLaunch = GuidedPrayerLaunch(prayer: prayer, style: style)
                 showGuidedPrayerPicker = false
-                selectedGuidedPrayer = prayer
             }
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
         }
-        .fullScreenCover(item: $selectedGuidedPrayer) { prayer in
-            GuidedPrayerFlowView(prayer: prayer) {
+        .fullScreenCover(item: $guidedPrayerLaunch) { launch in
+            GuidedPrayerFlowView(
+                prayer: launch.prayer,
+                style: launch.style,
+                weaveContext: LiturgyWeaveContext(mood: intentionMood, focus: nil, userName: "")
+            ) {
                 JourneyTimelineStore.shared.add(JourneyTimelineEntry(
                     kind: .reflection,
-                    title: prayer.title,
-                    body: "Completed guided prayer"
+                    title: launch.prayer.title,
+                    body: "Completed guided prayer · \(launch.style.title)"
                 ))
             }
         }
@@ -164,55 +176,30 @@ struct AIInsightsView: View {
     }
 }
 
+private struct GuidedPrayerLaunch: Identifiable {
+    let id = UUID()
+    let prayer: GuidedPrayer
+    let style: GuidedPrayerExperienceStyle
+}
+
 private struct GuidedPrayerPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
-    let onSelect: (GuidedPrayer) -> Void
+    @State private var selectedStyle: GuidedPrayerExperienceStyle = .threshold
+    let onSelect: (GuidedPrayer, GuidedPrayerExperienceStyle) -> Void
 
     var body: some View {
         NavigationStack {
             ZStack {
-                ABYCleanGradientBackground().ignoresSafeArea()
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        ForEach(Array(GuidedPrayerCatalog.all.enumerated()), id: \.element.id) { index, prayer in
-                            Button {
-                                onSelect(prayer)
-                                dismiss()
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: prayer.icon)
-                                        .font(ABY.Font.bodyMedium)
-                                        .foregroundStyle(ABY.Color.pillTeal)
-                                        .frame(width: 32)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(prayer.title)
-                                            .font(ABY.Font.calloutSemibold)
-                                            .foregroundStyle(palette.textPrimary)
-                                        Text(prayer.subtitle)
-                                            .font(ABY.Font.caption)
-                                            .foregroundStyle(palette.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right")
-                                        .font(ABY.Font.emojiSmall)
-                                        .foregroundStyle(palette.textTertiary)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                            }
-                            .buttonStyle(.plain)
+                ABYBackground(style: .tabShell).ignoresSafeArea()
 
-                            if index < GuidedPrayerCatalog.all.count - 1 {
-                                Divider().padding(.leading, 60)
-                            }
-                        }
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        experiencePicker
+                        prayerList
                     }
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.top, 8)
+                    .padding(.bottom, 24)
                 }
             }
             .navigationTitle("Guided prayers")
@@ -224,6 +211,137 @@ private struct GuidedPrayerPickerSheet: View {
             }
         }
     }
+
+    private var experiencePicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Experience")
+                .font(ABY.Font.section)
+                .tracking(0.6)
+                .foregroundStyle(palette.textSecondary)
+                .padding(.horizontal, ABY.Spacing.screen + 4)
+
+            HStack(spacing: 6) {
+                ForEach(GuidedPrayerExperienceStyle.allCases) { style in
+                    GuidedPrayerExperienceChip(
+                        style: style,
+                        isSelected: selectedStyle == style
+                    ) {
+                        withAnimation(AppTheme.springSnappy) { selectedStyle = style }
+                        DevotionHaptics.light()
+                    }
+                }
+            }
+            .padding(4)
+            .background(ABY.Color.fieldFill)
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+            .padding(.horizontal, ABY.Spacing.screen)
+        }
+    }
+
+    private var prayerList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(GuidedPrayerCatalog.all.enumerated()), id: \.element.id) { index, prayer in
+                GuidedPrayerPickerRow(prayer: prayer) {
+                    DevotionHaptics.light()
+                    onSelect(prayer, selectedStyle)
+                }
+
+                if index < GuidedPrayerCatalog.all.count - 1 {
+                    Divider()
+                        .padding(.leading, 56)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .background(palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                .strokeBorder(palette.divider, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
+        .padding(.horizontal, ABY.Spacing.screen)
+    }
+}
+
+private struct GuidedPrayerExperienceChip: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let style: GuidedPrayerExperienceStyle
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(style.title)
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(palette.textPrimary)
+                Text(style.subtitle)
+                    .font(ABY.Font.micro)
+                    .foregroundStyle(palette.textTertiary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: ABY.Radius.chip + 2, style: .continuous)
+                        .fill(palette.surface)
+                        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 6, y: 2)
+                }
+            }
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: ABY.Radius.chip + 2, style: .continuous)
+                        .strokeBorder(ABY.Color.pillTeal.opacity(0.35), lineWidth: 1)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+private struct GuidedPrayerPickerRow: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let prayer: GuidedPrayer
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: prayer.icon)
+                    .font(ABY.Font.bodyMedium)
+                    .foregroundStyle(ABY.Color.pillTeal)
+                    .frame(width: 36, height: 36)
+                    .background(ABY.Color.pillTeal.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(prayer.title)
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.textPrimary)
+                    Text(prayer.subtitle)
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.captionSemibold)
+                    .foregroundStyle(palette.textTertiary)
+            }
+            .padding(.horizontal, ABY.Spacing.card)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
 }
 
 #Preview {
@@ -231,6 +349,7 @@ private struct GuidedPrayerPickerSheet: View {
         ABYBackground()
         AIInsightsView()
             .environment(\.openChaplainChat) { _, _ in }
+            .environment(\.openChaplainChatWithPortal) { _, _, _ in }
             .environment(\.resumeChaplainChat) { _ in }
             .environment(\.presentDevotionPaywall) {}
     }

@@ -13,6 +13,16 @@ struct MainTabView: View {
 
     @State private var coordinator = MainTabCoordinator()
     private let streakManager = StreakManager.shared
+    private let rhythmStore = DailyRhythmStore.shared
+    private let journalStore = JournalLocalStore.shared
+
+    private var sacredOrbState: SacredOrbState {
+        coordinator.sacredOrbState(rhythmStore: rhythmStore, streakManager: streakManager)
+    }
+
+    private var sacredOrbRefreshKey: String {
+        "\(rhythmStore.revision)-\(journalStore.entries.count)-\(streakManager.isCompletedToday)"
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -21,15 +31,13 @@ struct MainTabView: View {
             tabShell
                 .animation(AppTheme.springSnappy, value: coordinator.selectedTab)
 
-            BottomNavigationBar(selectedTab: $coordinator.selectedTab) {
-                if coordinator.selectedTab == .conversations {
-                    PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                        coordinator.openJournalEntryHub()
-                    }
-                } else {
-                    openGuidedJournalIfAllowed()
-                }
-            }
+            BottomNavigationBar(
+                selectedTab: $coordinator.selectedTab,
+                orbState: sacredOrbState,
+                onOrbTap: performSacredOrbTap,
+                onOrbLongPress: performSacredOrbLongPress
+            )
+            .id(sacredOrbRefreshKey)
         }
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
@@ -44,6 +52,16 @@ struct MainTabView: View {
             }
         }))
         .mainTabPresentations(coordinator: coordinator, streakManager: streakManager, auth: auth)
+        .overlay {
+            if let portal = coordinator.chaplainPortal {
+                ChaplainPortalTransition(voiceName: portal.voiceName) {
+                    coordinator.completeChaplainPortalTransition()
+                }
+                .transition(.opacity)
+                .zIndex(200)
+            }
+        }
+        .animation(AppTheme.springGentle, value: coordinator.chaplainPortal != nil)
         .handleDevotionDeepLinks { route in
             handleDeepLink(route)
         }
@@ -129,6 +147,26 @@ struct MainTabView: View {
             }
         }
     }
+
+    private func performSacredOrbTap() {
+        let state = sacredOrbState
+        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+            withAnimation(AppTheme.springGentle) {
+                coordinator.performSacredOrbAction(state)
+            }
+        }
+    }
+
+    private func performSacredOrbLongPress() {
+        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+            withAnimation(AppTheme.springGentle) {
+                coordinator.presentSacredOrbQuickMenu(
+                    rhythmStore: rhythmStore,
+                    streakManager: streakManager
+                )
+            }
+        }
+    }
 }
 
 // MARK: - Tab shell background
@@ -185,6 +223,15 @@ private struct MainTabActionEnvironmentModifier: ViewModifier {
                     }
                 }
             }
+            .environment(\.openChaplainChatWithPortal) { voiceName, starter, seeds in
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openChaplainChatWithPortal(
+                        voiceName: voiceName,
+                        starter: starter,
+                        seedMessages: seeds
+                    )
+                }
+            }
             .environment(\.resumeChaplainChat) { conversation in
                 PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
                     withAnimation(AppTheme.springGentle) {
@@ -204,10 +251,10 @@ private struct MainTabActionEnvironmentModifier: ViewModifier {
                     coordinator.openJournalEntryHub()
                 }
             }
-            .environment(\.openAssistedJournal) {
+            .environment(\.openAssistedJournal) { prompt in
                 PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
                     withAnimation(AppTheme.springGentle) {
-                        coordinator.openAssistedJournal()
+                        coordinator.openAssistedJournal(prompt: prompt)
                     }
                 }
             }
@@ -232,6 +279,16 @@ private struct MainTabActionEnvironmentModifier: ViewModifier {
             .environment(\.openPrayerWall) { kind in
                 PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
                     coordinator.openPrayerWall(addKind: kind)
+                }
+            }
+            .environment(\.openDailyVerse) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openDailyVerse()
+                }
+            }
+            .environment(\.openEveningReflection) {
+                PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                    coordinator.openEveningReflection()
                 }
             }
             .environment(\.openJourneyTimeline) {
@@ -283,6 +340,8 @@ private struct MainTabPresentationsModifier: ViewModifier {
                     .presentationCornerRadius(28)
             case .conversation(let conversation):
                 ConversationDetailView(conversation: conversation)
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
             case .prayerWall(let launch):
                 PrayerWallView(
                     store: PrayerWallStore.shared,
@@ -329,6 +388,73 @@ private struct MainTabPresentationsModifier: ViewModifier {
                 )
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
+            case .dailyVerse:
+                let passage = SpiritualPassageCatalog.todayScripture
+                DailyVerseSheet(
+                    passage: passage,
+                    onReflect: {
+                        coordinator.sheet = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openChaplainChat(
+                                    starter: "Help me reflect on today's passage: \"\(passage.text)\" — \(passage.attribution)",
+                                    seedMessages: []
+                                )
+                            }
+                        }
+                    },
+                    onComplete: {
+                        DailyRhythmStore.shared.markComplete(.dailyVerse)
+                        JourneyTimelineStore.shared.logVerseViewed(
+                            reference: passage.reference,
+                            text: passage.text
+                        )
+                    }
+                )
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+                .presentationBackground {
+                    ABYCleanGradientBackground()
+                }
+            case .eveningReflection:
+                EveningReflectionSheet(
+                    onComplete: { highlight in
+                        DailyRhythmStore.shared.markComplete(.eveningReflection)
+                        JourneyTimelineStore.shared.logEvening(highlight: highlight)
+                        coordinator.sheet = nil
+                    },
+                    onVoiceHandoff: { transcript in
+                        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let saved = text.isEmpty ? "Quiet gratitude for today." : text
+                        DailyRhythmStore.shared.markComplete(.eveningReflection)
+                        JourneyTimelineStore.shared.logEvening(highlight: saved)
+                        coordinator.sheet = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(400))
+                            PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                                coordinator.openChaplainChat(
+                                    starter: VoiceChatHandoff.starter(from: saved, context: "my evening reflection"),
+                                    seedMessages: VoiceChatHandoff.seedMessages(for: saved)
+                                )
+                            }
+                        }
+                    }
+                )
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+                .presentationBackground {
+                    ABYCleanGradientBackground()
+                }
+            case .sacredOrbMenu:
+                SacredOrbQuickActionsSheet(
+                    actions: coordinator.sacredOrbMenuActions,
+                    onSelect: { action in
+                        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                            coordinator.performSacredOrbQuickAction(action)
+                        }
+                    }
+                )
             }
         }
         .mainTabModalEnvironment(coordinator: coordinator)
@@ -345,6 +471,7 @@ private struct MainTabPresentationsModifier: ViewModifier {
                     starterText: launch.starterText,
                     contextIntent: launch.contextIntent,
                     resumeConversationID: launch.resumeConversationID,
+                    resumedContext: launch.resumedContext,
                     onVoice: FeatureFlags.voiceChatEnabled ? {
                         coordinator.fullScreen = nil
                         Task { @MainActor in
@@ -354,7 +481,8 @@ private struct MainTabPresentationsModifier: ViewModifier {
                                 coordinator.openVoiceSession(prompt: nil)
                             }
                         }
-                    } : nil
+                    } : nil,
+                    playsPortalEntrance: launch.playsPortalEntrance
                 )
                 .id(launch.sessionID)
             case .guidedJournal:
@@ -376,7 +504,10 @@ private struct MainTabPresentationsModifier: ViewModifier {
                     }
                 )
             case .assistedJournal:
-                AssistedJournalView()
+                AssistedJournalView(initialPrompt: coordinator.assistedJournalPrompt)
+                    .onDisappear {
+                        coordinator.assistedJournalPrompt = nil
+                    }
             case .voiceJournal:
                 VoiceJournalView()
             case .streakBorn:

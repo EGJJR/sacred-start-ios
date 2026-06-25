@@ -18,13 +18,8 @@ struct ABYProfileHeader: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ZStack(alignment: .bottomTrailing) {
-                ProfileAvatarView(name: name, avatarURL: avatarURL, size: 56)
-                if streakDays > 0 {
-                    SanctuaryGrowthArtifact(stage: identity.stage, size: 28)
-                        .offset(x: 6, y: 6)
-                }
-            }
+            ProfileAvatarView(name: name, avatarURL: avatarURL, size: 56)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(ABY.Font.headline)
@@ -74,6 +69,7 @@ struct ABYSettingsProfileCard: View {
     let name: String
     var email: String?
     var avatarURL: URL?
+    var localImageData: Data?
     var streakDays: Int = 0
     var onEdit: () -> Void
 
@@ -83,13 +79,7 @@ struct ABYSettingsProfileCard: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            ZStack(alignment: .bottomTrailing) {
-                ProfileAvatarView(name: name, avatarURL: avatarURL, size: 80)
-                if streakDays > 0 {
-                    SanctuaryGrowthArtifact(stage: identity.stage, size: 30)
-                        .offset(x: 8, y: 8)
-                }
-            }
+            ProfileAvatarView(name: name, avatarURL: avatarURL, localImageData: localImageData, size: 80)
 
             VStack(spacing: 4) {
                 Text(name)
@@ -581,6 +571,15 @@ struct ABYBackToolbar: ToolbarContent {
                     .foregroundStyle(palette.textPrimary)
             }
         }
+    }
+}
+
+extension View {
+    /// Custom back chevron while preserving the system edge-swipe pop gesture.
+    func abySettingsBackNavigation() -> some View {
+        navigationBarBackButtonHidden(true)
+            .toolbar { ABYBackToolbar() }
+            .abyInteractivePopEnabled()
     }
 }
 

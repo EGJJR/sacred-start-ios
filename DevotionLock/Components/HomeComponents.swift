@@ -573,7 +573,7 @@ struct TimelineEntryRow: View {
     var body: some View {
         JournalTimelineEntry(
             conversation: conversation,
-            isEarlier: !conversation.isToday,
+            dateLabel: conversation.isToday ? "" : conversation.timelineDateLabel,
             isLastInSection: isLastInSection,
             onTap: onTap
         )

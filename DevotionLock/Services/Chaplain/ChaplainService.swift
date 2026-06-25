@@ -8,6 +8,8 @@ import Supabase
 
 enum ChaplainStreamEvent: Sendable {
     case conversationID(UUID)
+    case scriptureSearch(label: String)
+    case scriptureResult([ChaplainScriptureCitation])
     case token(String)
     case done
 }
@@ -115,6 +117,25 @@ final class ChaplainService: ChaplainServiceProtocol {
                             if let idString = object["conversation_id"] as? String,
                                let id = UUID(uuidString: idString) {
                                 continuation.yield(.conversationID(id))
+                            }
+                        case "scripture_search":
+                            let reference = object["reference"] as? String
+                            let query = object["query"] as? String
+                            let label: String
+                            if let reference, !reference.isEmpty {
+                                label = "Opening \(reference)…"
+                            } else if let query, !query.isEmpty {
+                                label = "Searching for \"\(query)\"…"
+                            } else {
+                                label = "Searching Scripture…"
+                            }
+                            continuation.yield(.scriptureSearch(label: label))
+                        case "scripture_result":
+                            if let rawPassages = object["passages"] as? [[String: Any]] {
+                                let citations = rawPassages.compactMap { ChaplainScriptureCitation.fromJSON($0) }
+                                if !citations.isEmpty {
+                                    continuation.yield(.scriptureResult(citations))
+                                }
                             }
                         case "token":
                             if let text = object["text"] as? String {

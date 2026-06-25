@@ -53,26 +53,13 @@ struct PersonalInsightCard: View {
 
 struct PersonalInsightsSection: View {
     let insights: [PersonalInsight]
-    var limit: Int = 2
 
     var body: some View {
-        if !displayed.isEmpty {
+        if !insights.isEmpty {
             ABYSectionHeader(title: "Your patterns")
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.bottom, 10)
-
-            VStack(spacing: 12) {
-                ForEach(displayed) { insight in
-                    PersonalInsightCard(insight: insight)
-                }
-            }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.bottom, 20)
         }
-    }
-
-    private var displayed: [PersonalInsight] {
-        Array(insights.prefix(limit))
     }
 }
 

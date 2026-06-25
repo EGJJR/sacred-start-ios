@@ -137,6 +137,58 @@ struct CircleMember: Identifiable, Codable, Equatable {
     }
 }
 
+struct CircleThoughtTemplate: Identifiable, Equatable {
+    let id: String
+    let kind: CirclePostKind
+    let title: String
+    let prompt: String
+    let madLibPrefix: String?
+    let madLibSuffix: String?
+
+    static let starters: [CircleThoughtTemplate] = [
+        CircleThoughtTemplate(
+            id: "request-heart",
+            kind: .request,
+            title: "Prayer request",
+            prompt: "What would you like your circle to pray for?",
+            madLibPrefix: "Please pray for ",
+            madLibSuffix: " — I'm carrying this in my heart."
+        ),
+        CircleThoughtTemplate(
+            id: "request-family",
+            kind: .request,
+            title: "Family",
+            prompt: "Share a family need your circle can lift up.",
+            madLibPrefix: "My family needs prayer for ",
+            madLibSuffix: "."
+        ),
+        CircleThoughtTemplate(
+            id: "reminder-verse",
+            kind: .reminder,
+            title: "Encouragement",
+            prompt: "Drop a verse or reminder for the group.",
+            madLibPrefix: "A verse on my heart today: ",
+            madLibSuffix: nil
+        ),
+        CircleThoughtTemplate(
+            id: "gratitude",
+            kind: .request,
+            title: "Gratitude",
+            prompt: "What are you thankful for right now?",
+            madLibPrefix: "I'm grateful for ",
+            madLibSuffix: " today."
+        ),
+        CircleThoughtTemplate(
+            id: "testimony",
+            kind: .testimony,
+            title: "Answered prayer",
+            prompt: "Celebrate something God did — big or small.",
+            madLibPrefix: "God answered my prayer about ",
+            madLibSuffix: "."
+        ),
+    ]
+}
+
 struct PrayerCircle: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var name: String
@@ -144,6 +196,8 @@ struct PrayerCircle: Identifiable, Codable, Equatable, Hashable {
     let createdAt: Date
     var memberIds: [UUID]
     var coverPaletteIndex: Int
+    /// Auth user id of the circle creator (from remote `created_by` or local create).
+    var creatorUserId: UUID?
 
     static let coverPalettes: [[Color]] = [
         [Color(red: 0.98, green: 0.88, blue: 0.72), Color(red: 0.72, green: 0.82, blue: 0.96), Color(red: 0.96, green: 0.78, blue: 0.62)],

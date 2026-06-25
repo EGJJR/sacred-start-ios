@@ -3,12 +3,12 @@
 //  DevotionLock
 //
 
+import InAppKit
 import SwiftUI
 
 struct SanctuaryBibleView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
-    @Environment(\.presentDevotionPaywall) private var presentPaywall
 
     var initialTopics: Set<PassageTopic> = []
     var initialTab: ScriptureTab = .discover
@@ -17,11 +17,11 @@ struct SanctuaryBibleView: View {
     @State private var query = ""
     @State private var selectedTopic: PassageTopic?
     @State private var tab: ScriptureTab
-    @State private var meshOpacity: CGFloat = 0.12
 
     @State private var isLoadingChapter = false
     @State private var loadError: String?
     @State private var readerPresentation: BibleReaderPresentation?
+    @State private var showPaywall = false
 
     @FocusState private var searchFocused: Bool
 
@@ -63,13 +63,12 @@ struct SanctuaryBibleView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                ABYBackground(meshOpacity: meshOpacity).ignoresSafeArea()
+                ABYBackground(style: .tabShell).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     tabContent
                         .padding(.bottom, 88)
                 }
-                .animation(.easeOut(duration: 0.25), value: meshOpacity)
 
                 ScriptureTabBar(selection: $tab, libraryCount: libraryCount)
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -92,15 +91,19 @@ struct SanctuaryBibleView: View {
                     selectedTopic = SpiritualPassageCatalog.browsableTopics.first { initialTopics.contains($0) }
                 }
             }
-            .onChange(of: searchFocused) { _, focused in
-                withAnimation(.easeOut(duration: 0.25)) {
-                    meshOpacity = focused ? 0.2 : 0.12
-                }
-            }
-            .fullScreenCover(item: $readerPresentation) { presentation in
+            .navigationDestination(item: $readerPresentation) { presentation in
                 BibleChapterReaderView(
                     content: presentation.content,
-                    highlightReference: presentation.highlightReference
+                    highlightReference: presentation.highlightReference,
+                    embedInNavigationStack: false
+                )
+            }
+            .fullScreenCover(isPresented: $showPaywall) {
+                DevotionPaywallView(
+                    context: PaywallContext(
+                        triggeredBy: "scripture_reader",
+                        availableProducts: InAppKit.shared.availableProducts
+                    )
                 )
             }
             .alert("Could not open Scripture", isPresented: .init(
@@ -120,13 +123,18 @@ struct SanctuaryBibleView: View {
         case .discover:
             discoverTab
         case .books:
-            BibleBookBrowserView { book, chapter in
-                Task {
-                    await openChapter(bookSlug: book.slug, bookName: book.name, chapter: chapter)
+            BibleBookBrowserView(
+                requirePremium: requirePremium,
+                onOpenChapter: { book, chapter in
+                    Task {
+                        await openChapter(bookSlug: book.slug, bookName: book.name, chapter: chapter)
+                    }
                 }
-            }
+            )
         case .library:
-            ScriptureLibraryView()
+            ScriptureLibraryView(onOpenReader: { presentation in
+                readerPresentation = presentation
+            })
         }
     }
 
@@ -244,10 +252,14 @@ struct SanctuaryBibleView: View {
     private func tryOpenReference() {
         guard let reference = parsedReference else { return }
         searchFocused = false
-        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+        requirePremium {
             DevotionHaptics.light()
             Task { await loadReference(reference) }
         }
+    }
+
+    private func requirePremium(_ action: @escaping () -> Void) {
+        PaywallAccess.guardPremium(presentPaywall: { showPaywall = true }, action: action)
     }
 
     @MainActor

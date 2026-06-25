@@ -16,7 +16,9 @@ final class MainTabCoordinator {
 
     var voiceSessionPrompt: String?
     var voiceTranscriptHandoff: String?
+    var assistedJournalPrompt: String?
     var isVoiceSessionPresented = false
+    var chaplainPortal: ChaplainPortalPresentation?
 
     func openConversation(_ conversation: Conversation) {
         sheet = .conversation(conversation)
@@ -41,6 +43,30 @@ final class MainTabCoordinator {
         seedMessages: [ChaplainMessage],
         resumeConversationID: UUID? = nil
     ) {
+        fullScreen = .chaplain(makeChaplainLaunch(
+            starter: starter,
+            seedMessages: seedMessages,
+            resumeConversationID: resumeConversationID
+        ))
+    }
+
+    func openChaplainChatWithPortal(voiceName: String, starter: String?, seedMessages: [ChaplainMessage]) {
+        var launch = makeChaplainLaunch(starter: starter, seedMessages: seedMessages)
+        launch.playsPortalEntrance = true
+        chaplainPortal = ChaplainPortalPresentation(voiceName: voiceName, launch: launch)
+    }
+
+    func completeChaplainPortalTransition() {
+        guard let portal = chaplainPortal else { return }
+        fullScreen = .chaplain(portal.launch)
+        chaplainPortal = nil
+    }
+
+    private func makeChaplainLaunch(
+        starter: String?,
+        seedMessages: [ChaplainMessage],
+        resumeConversationID: UUID? = nil
+    ) -> ChaplainChatLaunch {
         let resumeID = resumeConversationID ?? ChaplainSessionStore.shared.consumePendingResumeID()
         var launch = ChaplainChatLaunch(
             starterText: starter ?? "",
@@ -50,13 +76,14 @@ final class MainTabCoordinator {
         if starter?.localizedCaseInsensitiveContains("expand this reflection") == true {
             launch.contextIntent = "expand_reflection"
         }
-        fullScreen = .chaplain(launch)
+        return launch
     }
 
     func resumeChaplainChat(_ conversation: Conversation) {
         fullScreen = .chaplain(
             ChaplainChatLaunch(
-                resumeConversationID: conversation.remoteID ?? conversation.id
+                resumeConversationID: conversation.remoteID ?? conversation.id,
+                resumedContext: conversation
             )
         )
     }
@@ -69,7 +96,16 @@ final class MainTabCoordinator {
         sheet = .journalEntryHub
     }
 
-    func openAssistedJournal() {
+    func openDailyVerse() {
+        sheet = .dailyVerse
+    }
+
+    func openEveningReflection() {
+        sheet = .eveningReflection
+    }
+
+    func openAssistedJournal(prompt: String? = nil) {
+        assistedJournalPrompt = prompt
         fullScreen = .assistedJournal
     }
 
@@ -125,6 +161,88 @@ final class MainTabCoordinator {
         fullScreen = nil
         if streakManager.shouldCelebrateMilestone(days: result.streak) {
             fullScreen = .milestone(MilestonePresentation(days: result.streak))
+        }
+    }
+
+    // MARK: - Sacred orb
+
+    func sacredOrbState(
+        rhythmStore: DailyRhythmStore,
+        streakManager: StreakManager
+    ) -> SacredOrbState {
+        SacredOrbResolver.resolve(
+            selectedTab: selectedTab,
+            rhythmStore: rhythmStore,
+            streakManager: streakManager,
+            showMicroLabel: SacredOrbSessionTracker.showsMicroLabel
+        )
+    }
+
+    func performSacredOrbAction(_ state: SacredOrbState) {
+        SacredOrbSessionTracker.recordTap()
+
+        switch state.destination {
+        case .guidedDevotion:
+            openGuidedJournal()
+        case .journalHub:
+            openJournalEntryHub()
+        case .eveningReflection:
+            sheet = .eveningReflection
+        case .assistedJournal(let prompt):
+            openAssistedJournal(prompt: prompt)
+        case .chaplain(let starter, let resumeID):
+            openChaplainChat(
+                starter: starter,
+                seedMessages: [],
+                resumeConversationID: resumeID
+            )
+        }
+    }
+
+    var sacredOrbMenuActions: [SacredOrbQuickAction] = []
+
+    func presentSacredOrbQuickMenu(
+        rhythmStore: DailyRhythmStore,
+        streakManager: StreakManager
+    ) {
+        sacredOrbMenuActions = SacredOrbResolver.quickActions(
+            selectedTab: selectedTab,
+            rhythmStore: rhythmStore,
+            streakManager: streakManager
+        )
+        sheet = .sacredOrbMenu
+    }
+
+    func performSacredOrbQuickAction(_ action: SacredOrbQuickAction) {
+        switch action {
+        case .morningDevotion:
+            sheet = nil
+            openGuidedJournal()
+        case .journalCapture:
+            sheet = .journalEntryHub
+        case .assistedWrite:
+            sheet = nil
+            openAssistedJournal()
+        case .voiceNote:
+            sheet = nil
+            openVoiceJournal()
+        case .eveningReflection:
+            sheet = .eveningReflection
+        case .chaplain:
+            sheet = nil
+            let state = sacredOrbState(
+                rhythmStore: DailyRhythmStore.shared,
+                streakManager: StreakManager.shared
+            )
+            if case .chaplain(let starter, let resumeID) = state.destination {
+                openChaplainChat(
+                    starter: starter,
+                    seedMessages: [],
+                    resumeConversationID: resumeID
+                )
+            } else {
+                openChaplainChat(starter: nil, seedMessages: [])
+            }
         }
     }
 }

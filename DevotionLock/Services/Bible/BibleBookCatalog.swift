@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum BibleTestament: String, CaseIterable {
+nonisolated enum BibleTestament: String, CaseIterable, Sendable {
     case old
     case new
 
@@ -17,7 +17,7 @@ enum BibleTestament: String, CaseIterable {
     }
 }
 
-struct BibleBook: Identifiable, Hashable {
+nonisolated struct BibleBook: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let slug: String
@@ -25,7 +25,7 @@ struct BibleBook: Identifiable, Hashable {
     let chapterCount: Int
 }
 
-enum BibleBookCatalog {
+nonisolated enum BibleBookCatalog {
     static let defaultVersion = "en-kjv"
 
     static let all: [BibleBook] = [

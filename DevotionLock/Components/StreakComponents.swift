@@ -10,6 +10,7 @@ enum StreakPalette {
     static let orangeLight = Color(red: 1.0, green: 0.72, blue: 0.28)
     static let moodGreen = Color(red: 0.62, green: 0.90, blue: 0.72)
     static let pastCircle = Color.black.opacity(0.08)
+    static let missedStroke = Color.black.opacity(0.22)
     static let faceInk = Color.black.opacity(0.72)
 }
 
@@ -51,6 +52,25 @@ struct StreakMoodFace: View {
         }
         .frame(width: 18, height: 18)
         .accessibilityLabel("Completed")
+    }
+}
+
+/// Past day with no devotion — empty ring + muted dash (distinct from future dotted outline).
+struct StreakMissedMark: View {
+    var size: CGFloat = 32
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(StreakPalette.missedStroke, lineWidth: 1.5)
+                .frame(width: size, height: size)
+
+            Capsule()
+                .fill(StreakPalette.missedStroke)
+                .frame(width: size * 0.34, height: 1.5)
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("Missed")
     }
 }
 
@@ -109,6 +129,7 @@ struct ABYFlameBadge: View {
 struct ABYWeeklyStrip: View {
     @Environment(\.sanctuaryPalette) private var palette
     let completedDays: [Bool]
+    var showsCardBackground: Bool = true
 
     private var calendar: Calendar { Calendar.current }
 
@@ -120,20 +141,29 @@ struct ABYWeeklyStrip: View {
                     Text(weekdaySymbol(for: index))
                         .font(ABY.Font.caption)
                         .foregroundStyle(isToday(index) ? palette.textPrimary : palette.textTertiary)
-                    dayIndicator(completed: completed, isToday: isToday(index))
+                    dayIndicator(
+                        completed: completed,
+                        isToday: isToday(index),
+                        isPast: isPast(index),
+                        isFuture: isFuture(index)
+                    )
                 }
                 .frame(maxWidth: .infinity)
             }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
-        .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
-        .shadow(color: .black.opacity(0.03), radius: 6, y: 2)
+        .background {
+            if showsCardBackground {
+                palette.surface
+                    .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
+                    .shadow(color: .black.opacity(0.03), radius: 6, y: 2)
+            }
+        }
     }
 
     @ViewBuilder
-    private func dayIndicator(completed: Bool, isToday: Bool) -> some View {
+    private func dayIndicator(completed: Bool, isToday: Bool, isPast: Bool, isFuture: Bool) -> some View {
         ZStack {
             if completed {
                 Circle()
@@ -144,6 +174,12 @@ struct ABYWeeklyStrip: View {
                 Circle()
                     .stroke(StreakPalette.orange, lineWidth: 2)
                     .frame(width: 28, height: 28)
+            } else if isPast {
+                StreakMissedMark(size: 28)
+            } else if isFuture {
+                Circle()
+                    .stroke(palette.track, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .frame(width: 28, height: 28)
             } else {
                 Circle()
                     .fill(StreakPalette.pastCircle)
@@ -153,10 +189,21 @@ struct ABYWeeklyStrip: View {
         .frame(width: 28, height: 28)
     }
 
-    private func isToday(_ index: Int) -> Bool {
+    private func todayWeekdayIndex() -> Int {
         let todayIndex = calendar.component(.weekday, from: Date()) - calendar.firstWeekday
-        let normalized = todayIndex < 0 ? todayIndex + 7 : todayIndex
-        return index == normalized
+        return todayIndex < 0 ? todayIndex + 7 : todayIndex
+    }
+
+    private func isPast(_ index: Int) -> Bool {
+        index < todayWeekdayIndex()
+    }
+
+    private func isFuture(_ index: Int) -> Bool {
+        index > todayWeekdayIndex()
+    }
+
+    private func isToday(_ index: Int) -> Bool {
+        index == todayWeekdayIndex()
     }
 
     private func weekdaySymbol(for index: Int) -> String {
@@ -263,6 +310,8 @@ struct StreakCalendarGrid: View {
                 Circle()
                     .stroke(palette.track, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .frame(width: indicatorSize, height: indicatorSize)
+            } else if day.isMissed {
+                StreakMissedMark(size: indicatorSize)
             } else {
                 Circle()
                     .fill(StreakPalette.pastCircle)
@@ -270,6 +319,16 @@ struct StreakCalendarGrid: View {
             }
         }
         .frame(width: indicatorSize, height: indicatorSize)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(dayAccessibilityLabel(for: day))
+    }
+
+    private func dayAccessibilityLabel(for day: StreakCalendarDay) -> String {
+        if day.isCompleted { return "Day \(day.day), completed" }
+        if day.isToday { return "Day \(day.day), today" }
+        if day.isFuture { return "Day \(day.day), upcoming" }
+        if day.isMissed { return "Day \(day.day), missed" }
+        return "Day \(day.day)"
     }
 
     @ViewBuilder
@@ -285,8 +344,14 @@ struct StreakCalendarGrid: View {
         } else {
             Text("\(day.day)")
                     .font(ABY.Font.caption)
-                .foregroundStyle(day.isFuture ? palette.textTertiary : palette.textSecondary)
+                .foregroundStyle(dayLabelColor(for: day))
         }
+    }
+
+    private func dayLabelColor(for day: StreakCalendarDay) -> Color {
+        if day.isFuture { return palette.textTertiary }
+        if day.isMissed { return palette.textTertiary.opacity(0.85) }
+        return palette.textSecondary
     }
 }
 

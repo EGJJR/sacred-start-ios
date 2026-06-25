@@ -8,12 +8,17 @@ import SwiftUI
 struct ScriptureLibraryView: View {
     @Environment(\.sanctuaryPalette) private var palette
 
+    var onOpenReader: (BibleReaderPresentation) -> Void = { _ in }
+
     private var store = ScriptureLibraryStore.shared
 
-    @State private var readerPresentation: BibleReaderPresentation?
     @State private var isLoadingChapter = false
     @State private var loadError: String?
     @State private var selectedCurated: SpiritualPassage?
+
+    init(onOpenReader: @escaping (BibleReaderPresentation) -> Void = { _ in }) {
+        self.onOpenReader = onOpenReader
+    }
 
     var body: some View {
         Group {
@@ -60,12 +65,6 @@ struct ScriptureLibraryView: View {
             if isLoadingChapter {
                 MeshLoadingOverlay(message: "Opening saved passage…")
             }
-        }
-        .fullScreenCover(item: $readerPresentation) { presentation in
-            BibleChapterReaderView(
-                content: presentation.content,
-                highlightReference: presentation.highlightReference
-            )
         }
         .sheet(item: $selectedCurated) { passage in
             CuratedPassageDetailSheet(passage: passage)
@@ -131,9 +130,11 @@ struct ScriptureLibraryView: View {
                     )
                 }
             }
-            readerPresentation = BibleReaderPresentation(
-                content: content,
-                highlightReference: item.reference
+            onOpenReader(
+                BibleReaderPresentation(
+                    content: content,
+                    highlightReference: item.reference
+                )
             )
         } catch {
             loadError = error.localizedDescription
@@ -149,7 +150,7 @@ private struct CuratedPassageDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ABYBackground().ignoresSafeArea()
+                ABYBackground(style: .tabShell).ignoresSafeArea()
                 ScrollView {
                     ScripturePassageCard(
                         passage: passage,

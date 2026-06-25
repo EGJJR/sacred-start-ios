@@ -183,7 +183,8 @@ final class PrayerCircleStore {
             inviteCode: code,
             createdAt: Date(),
             memberIds: memberIds,
-            coverPaletteIndex: circles.count
+            coverPaletteIndex: circles.count,
+            creatorUserId: AuthManager.shared.userId
         )
         circles.insert(circle, at: 0)
         persist()
@@ -204,7 +205,8 @@ final class PrayerCircleStore {
             inviteCode: code,
             createdAt: Date(),
             memberIds: memberIds,
-            coverPaletteIndex: circles.count
+            coverPaletteIndex: circles.count,
+            creatorUserId: AuthManager.shared.userId
         )
         circles.insert(circle, at: 0)
         persist()
@@ -406,6 +408,62 @@ final class PrayerCircleStore {
         DevotionDeepLink.url(host: .joinCircle, query: ["code": circle.inviteCode])
     }
 
+    func isCreator(of circle: PrayerCircle) -> Bool {
+        if let creatorUserId = circle.creatorUserId,
+           let userId = AuthManager.shared.userId {
+            return creatorUserId == userId
+        }
+        // Local-only circles: treat the first member as creator when unauthenticated.
+        if !AuthManager.shared.isAuthenticated,
+           let me = currentMemberId,
+           circle.memberIds.first == me {
+            return true
+        }
+        return false
+    }
+
+    @discardableResult
+    func leaveCircle(_ circle: PrayerCircle) async -> String? {
+        if AuthManager.shared.isAuthenticated, let membershipId = currentMemberId {
+            do {
+                try await CircleRepository.shared.leaveCircle(circleId: circle.id, membershipId: membershipId)
+            } catch {
+                return CircleRepository.lifecycleErrorMessage(error)
+            }
+        }
+
+        removeCircleLocally(circle.id)
+        CircleRepository.shared.unsubscribeFromCircle(circle.id)
+        return nil
+    }
+
+    @discardableResult
+    func deleteCircle(_ circle: PrayerCircle) async -> String? {
+        if AuthManager.shared.isAuthenticated {
+            do {
+                try await CircleRepository.shared.deleteCircle(id: circle.id)
+            } catch {
+                return CircleRepository.lifecycleErrorMessage(error)
+            }
+        }
+
+        removeCircleLocally(circle.id)
+        CircleRepository.shared.unsubscribeFromCircle(circle.id)
+        return nil
+    }
+
+    func removeCircleLocally(_ circleId: UUID) {
+        guard let index = circles.firstIndex(where: { $0.id == circleId }) else { return }
+        let membershipIds = circles[index].memberIds
+        circles.remove(at: index)
+        posts.removeAll { $0.circleId == circleId }
+        challenges.removeAll { $0.circleId == circleId }
+
+        let remainingMemberIds = Set(circles.flatMap(\.memberIds))
+        members.removeAll { membershipIds.contains($0.id) && !remainingMemberIds.contains($0.id) }
+        persist()
+    }
+
     // MARK: - Remote merge
 
     func mergeRemoteSnapshot(
@@ -444,7 +502,8 @@ final class PrayerCircleStore {
                 inviteCode: row.inviteCode,
                 createdAt: row.createdAt,
                 memberIds: memberIds,
-                coverPaletteIndex: row.coverPaletteIndex
+                coverPaletteIndex: row.coverPaletteIndex,
+                creatorUserId: row.createdBy
             )
             if let index = mergedCircles.firstIndex(where: { $0.id == row.id }) {
                 mergedCircles[index] = circle
@@ -453,7 +512,7 @@ final class PrayerCircleStore {
             }
         }
 
-        var encouragementByPost = Dictionary(grouping: encouragements, by: \.postId)
+        let encouragementByPost = Dictionary(grouping: encouragements, by: \.postId)
         var mergedPosts = posts
         for row in remotePosts {
             let postEncouragements = (encouragementByPost[row.id] ?? []).map {
@@ -576,8 +635,14 @@ final class PrayerCircleStore {
             avatarHue: row.avatarHue,
             isCurrentUser: row.userId == AuthManager.shared.userId
         )
-        if !members.contains(where: { $0.id == row.id }) {
+        if let index = members.firstIndex(where: { $0.id == row.id }) {
+            members[index] = member
+        } else {
             members.append(member)
+        }
+        if row.userId == AuthManager.shared.userId {
+            currentMemberId = row.id
+            UserDefaults.standard.set(row.id.uuidString, forKey: Keys.currentMemberId)
         }
         if let circleIndex = circles.firstIndex(where: { $0.id == row.circleId }),
            !circles[circleIndex].memberIds.contains(row.id) {
@@ -721,6 +786,7 @@ final class PrayerCircleStore {
         circles.removeAll()
         members.removeAll()
         posts.removeAll()
+        UserDefaults.standard.set(false, forKey: Keys.didSeed)
         persist()
     }
 }

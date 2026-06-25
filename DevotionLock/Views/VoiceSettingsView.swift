@@ -22,7 +22,7 @@ struct VoiceSettingsView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 20)
 
-                VoiceOrb(state: .idle, size: 72)
+                SacredOrbShell(size: 72, visualStyle: .calm)
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 24)
 
@@ -64,8 +64,7 @@ struct VoiceSettingsView: View {
                 .padding(.horizontal, ABY.Spacing.screen)
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .navigationBarTitleDisplayMode(.inline)
     }
 

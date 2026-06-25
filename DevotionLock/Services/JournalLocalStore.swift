@@ -214,6 +214,15 @@ final class JournalLocalStore {
         return entry
     }
 
+    func deleteChaplainConversation(id: UUID, remoteID: UUID?) {
+        entries.removeAll {
+            $0.id == id
+                || $0.conversationID == id
+                || (remoteID != nil && $0.conversationID == remoteID)
+        }
+        persist()
+    }
+
     @discardableResult
     func saveChaplainChat(
         messages: [ChaplainMessage],

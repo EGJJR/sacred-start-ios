@@ -91,8 +91,7 @@ struct NotificationSettingsView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .sheet(isPresented: $showPreview) {
             NotificationBannerPreviewView(category: previewKind, tone: tone)
                 .presentationDetents([.medium])

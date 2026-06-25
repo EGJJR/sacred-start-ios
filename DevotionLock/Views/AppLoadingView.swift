@@ -155,7 +155,7 @@ struct AppRootView: View {
             NotificationManager.shared.configure()
             await runLaunchSplash()
             SharedDataSync.refreshSharedStores()
-            await SyncCoordinator.shared.flushAll(force: true)
+            SyncCoordinator.shared.scheduleFlush(force: true)
             AppShieldManager.shared.syncShieldState()
             PersonalInsightStore.shared.refresh()
         }
@@ -175,7 +175,7 @@ struct AppRootView: View {
             if away >= refreshThreshold {
                 Task { await runRefreshSplash() }
             }
-            Task { await SyncCoordinator.shared.onForeground() }
+            SyncCoordinator.shared.scheduleFlush(force: false)
             AppShieldManager.shared.syncShieldState()
         default:
             break

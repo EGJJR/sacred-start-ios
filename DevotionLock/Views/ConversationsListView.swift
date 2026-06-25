@@ -14,10 +14,11 @@ import SwiftUI
 struct ConversationsListView: View {
     @Environment(\.openConversation) private var openConversation
     @Environment(\.openStreakScreen) private var openStreakScreen
-    @Environment(\.openJournalEntryHub) private var openJournalEntryHub
     @Environment(\.openGuidedJournal) private var openGuidedJournal
     @Environment(\.openAssistedJournal) private var openAssistedJournal
-    @Environment(\.openVoiceJournal) private var openVoiceJournal
+    @Environment(\.openPrayerWall) private var openPrayerWall
+    @Environment(\.openDailyVerse) private var openDailyVerse
+    @Environment(\.openEveningReflection) private var openEveningReflection
     @Environment(\.presentDevotionPaywall) private var presentPaywall
     @Environment(\.streakManager) private var streakManager
 
@@ -30,86 +31,52 @@ struct ConversationsListView: View {
     @Environment(\.designTourTimelineSamples) private var designTourTimelineSamples
     #endif
 
+    /// Tab bar clearance.
     private static let bottomScrollPadding: CGFloat = 100
 
     private var mergedEntries: [Conversation] {
         #if DEBUG
-        if let designTourTimelineSamples { return designTourTimelineSamples }
+        if let designTourTimelineSamples {
+            return designTourTimelineSamples.filter { ConversationMerger.isJournalTimelineEntry($0) }
+        }
         #endif
-        return ConversationMerger.mergedTimeline()
-    }
-
-    private var featuredEntry: Conversation? {
-        mergedEntries.first
-    }
-
-    private var timelineEntries: [Conversation] {
-        guard let featured = featuredEntry else { return mergedEntries }
-        return Array(mergedEntries.dropFirst())
+        return ConversationMerger.journalTimeline()
     }
 
     private var dayGroups: [JournalDayGroup] {
-        timelineEntries.groupedByJournalDay()
+        mergedEntries.groupedByJournalDay()
     }
 
     private var hasEntries: Bool { !mergedEntries.isEmpty }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    JournalScreenHeader(
-                        streak: streakManager.currentStreak,
-                        onStreakTap: openStreakScreen
-                    )
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                JournalScreenHeader(
+                    streak: streakManager.currentStreak,
+                    onStreakTap: openStreakScreen
+                )
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
+                .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+
+                ABYWeeklyStrip(completedDays: streakManager.weekCompletionFlags)
                     .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 8)
                     .padding(.bottom, 16)
-                    .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+                    .blurReveal(appeared, blurRadius: 4, scale: 1.002)
 
-                    ABYWeeklyStrip(completedDays: streakManager.weekCompletionFlags)
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.bottom, 16)
-                        .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-
-                    JournalTodayCaptureCard(
-                        onWrite: { requirePremium { openAssistedJournal() } },
-                        onDevotion: { requirePremium { openGuidedJournal() } },
-                        onVoice: { requirePremium { openVoiceJournal() } }
-                    )
+                JournalBrowseSegment(mode: $browseMode)
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 20)
                     .blurReveal(appeared, blurRadius: 4, scale: 1.002)
 
-                    JournalBrowseSegment(mode: $browseMode)
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.bottom, 20)
-                        .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-
-                    browseContent
-                }
-                .padding(.bottom, Self.bottomScrollPadding)
+                browseContent
             }
-            .abyTransparentScroll()
-            .abyScrollEdgeFades(top: false, bottom: false)
-
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: [Color.clear, ABY.Color.sanctuaryGradientBottom.opacity(0.85)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 28)
-                .allowsHitTesting(false)
-
-                JournalComposerBar {
-                    requirePremium { openJournalEntryHub() }
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 88)
-                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-            }
+            .padding(.bottom, Self.bottomScrollPadding)
         }
+        .abyTransparentScroll()
+        .abyScrollEdgeFades(top: false, bottom: false)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             await repository.refresh()
@@ -132,14 +99,20 @@ struct ConversationsListView: View {
         case .timeline:
             timelineContent
         case .rhythms:
-            JournalRhythmsPanel(rhythmStore: rhythmStore, onRing: handleRhythmTap)
+            JournalRhythmsPanel(
+                rhythmStore: rhythmStore,
+                onRing: handleRhythmTap
+            )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.bottom, 16)
                 .blurReveal(appeared, blurRadius: 4, scale: 1.002)
         case .prompts:
-            JournalPromptsPanel {
-                requirePremium { openAssistedJournal() }
-            }
+            JournalPromptsPanel(
+                onFreeWrite: { requirePremium { openAssistedJournal(nil) } },
+                onSelect: { template in
+                    requirePremium { openAssistedJournal(template.prompt) }
+                }
+            )
             .padding(.horizontal, ABY.Spacing.screen)
             .padding(.bottom, 16)
             .blurReveal(appeared, blurRadius: 4, scale: 1.002)
@@ -149,15 +122,6 @@ struct ConversationsListView: View {
     @ViewBuilder
     private var timelineContent: some View {
         if hasEntries {
-            if let featured = featuredEntry {
-                JournalFeaturedReflectionCard(conversation: featured) {
-                    openConversation(featured)
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 20)
-                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
-            }
-
             ForEach(Array(dayGroups.enumerated()), id: \.element.id) { groupIndex, group in
                 JournalDaySectionHeader(title: group.title, entryCount: group.entries.count)
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -165,9 +129,19 @@ struct ConversationsListView: View {
                     .padding(.top, groupIndex == 0 ? 0 : 8)
                     .blurReveal(appeared, blurRadius: 4, scale: 1.002)
 
-                VStack(spacing: 10) {
-                    ForEach(group.entries) { conversation in
-                        JournalCompactReflectionCard(conversation: conversation) {
+                if let insight = JournalDayInsightBuilder.build(dayTitle: group.title, entries: group.entries) {
+                    JournalDayInsightCard(dayTitle: group.title, insight: insight)
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .padding(.bottom, 14)
+                        .blurReveal(appeared, blurRadius: 4, scale: 1.002)
+                }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, conversation in
+                        JournalTimelineEntry(
+                            conversation: conversation,
+                            isLastInSection: entryIndex == group.entries.count - 1
+                        ) {
                             openConversation(conversation)
                         }
                     }
@@ -187,8 +161,12 @@ struct ConversationsListView: View {
         switch ring {
         case .morningDevotion:
             requirePremium { openGuidedJournal() }
-        case .dailyVerse, .eveningReflection, .prayerWall:
-            requirePremium { openJournalEntryHub() }
+        case .dailyVerse:
+            requirePremium { openDailyVerse() }
+        case .eveningReflection:
+            requirePremium { openEveningReflection() }
+        case .prayerWall:
+            requirePremium { openPrayerWall(nil) }
         }
     }
 
@@ -202,7 +180,6 @@ struct ConversationsListView: View {
         ABYBackground()
         ConversationsListView()
             .environment(\.openStreakScreen) {}
-            .environment(\.openJournalEntryHub) {}
             .environment(\.streakManager, .shared)
     }
     .abyScreen()

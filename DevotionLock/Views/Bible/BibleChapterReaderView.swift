@@ -5,10 +5,23 @@
 
 import SwiftUI
 
-struct BibleReaderPresentation: Identifiable, Equatable {
+struct BibleReaderPresentation: Identifiable, Hashable {
     let id = UUID()
     let content: BibleChapterContent
     let highlightReference: String?
+
+    static func == (lhs: BibleReaderPresentation, rhs: BibleReaderPresentation) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    init(content: BibleChapterContent, highlightReference: String?) {
+        self.content = content
+        self.highlightReference = highlightReference
+    }
 }
 
 struct BibleChapterReaderView: View {
@@ -17,6 +30,7 @@ struct BibleChapterReaderView: View {
 
     let content: BibleChapterContent
     let highlightReference: String?
+    var embedInNavigationStack: Bool = true
 
     @State private var versesRevealed = false
     @State private var selectionAnchor: Int?
@@ -61,70 +75,80 @@ struct BibleChapterReaderView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                readerBackground.ignoresSafeArea()
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text(headerLabel)
-                            .font(ABY.Font.section)
-                            .tracking(1.2)
-                            .foregroundStyle(palette.textSecondary)
-                            .blurRevealOnAppear(index: 0, stagger: 0.04)
-
-                        if highlightReference == nil {
-                            Text("Chapter \(content.chapter)")
-                                .font(ABY.Font.editorialTitle)
-                                .foregroundStyle(palette.textPrimary)
-                                .blurRevealOnAppear(index: 1, stagger: 0.04)
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(content.verses.enumerated()), id: \.element.id) { index, verse in
-                                verseRow(verse, index: index)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 12)
-                    .padding(.bottom, selectedVerseNumbers.isEmpty ? 120 : 220)
-                }
-
-                VStack(spacing: 12) {
-                    Spacer()
-
-                    if !selectedVerseNumbers.isEmpty, let range = selectionRange {
-                        VerseSelectionToolbar(
-                            selectionLabel: selectionLabel,
-                            onHighlight: { color in
-                                applyHighlight(color, range: range)
-                            },
-                            onSave: { toggleSave() },
-                            onShare: { shareText() },
-                            onClear: { clearSelectionAndHighlights(range: range) }
-                        )
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    } else {
-                        GlassActionBar(items: actionItems)
-                            .padding(.horizontal, ABY.Spacing.screen)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                }
-                .padding(.bottom, 24)
-                .animation(AppTheme.springSnappy, value: selectedVerseNumbers.isEmpty)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
+        Group {
+            if embedInNavigationStack {
+                NavigationStack { readerScaffold }
+            } else {
+                readerScaffold
             }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.35)) {
                 versesRevealed = true
+            }
+        }
+    }
+
+    private var readerScaffold: some View {
+        ZStack {
+            readerBackground.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(headerLabel)
+                        .font(ABY.Font.section)
+                        .tracking(1.2)
+                        .foregroundStyle(palette.textSecondary)
+                        .blurRevealOnAppear(index: 0, stagger: 0.04)
+
+                    if highlightReference == nil {
+                        Text("Chapter \(content.chapter)")
+                            .font(ABY.Font.editorialTitle)
+                            .foregroundStyle(palette.textPrimary)
+                            .blurRevealOnAppear(index: 1, stagger: 0.04)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(content.verses.enumerated()), id: \.element.id) { index, verse in
+                            verseRow(verse, index: index)
+                        }
+                    }
+                }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 12)
+                .padding(.bottom, selectedVerseNumbers.isEmpty ? 120 : 220)
+            }
+
+            VStack(spacing: 12) {
+                Spacer()
+
+                if !selectedVerseNumbers.isEmpty, let range = selectionRange {
+                    VerseSelectionToolbar(
+                        selectionLabel: selectionLabel,
+                        onHighlight: { color in
+                            applyHighlight(color, range: range)
+                        },
+                        onSave: { toggleSave() },
+                        onShare: { shareText() },
+                        onClear: { clearSelectionAndHighlights(range: range) }
+                    )
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    GlassActionBar(items: actionItems)
+                        .padding(.horizontal, ABY.Spacing.screen)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .padding(.bottom, 24)
+            .animation(AppTheme.springSnappy, value: selectedVerseNumbers.isEmpty)
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if embedInNavigationStack {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
             }
         }
     }
@@ -204,20 +228,7 @@ struct BibleChapterReaderView: View {
     }
 
     private var readerBackground: some View {
-        ZStack {
-            ABYBackground(meshOpacity: 0.18)
-
-            RadialGradient(
-                colors: [
-                    ABY.Color.meshSage.opacity(0.25),
-                    ABY.Color.meshPeriwinkle.opacity(0.12),
-                    Color.clear,
-                ],
-                center: .topTrailing,
-                startRadius: 40,
-                endRadius: 320
-            )
-        }
+        ABYBackground(style: .tabShell)
     }
 
     private var actionItems: [GlassActionBarItem] {

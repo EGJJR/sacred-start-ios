@@ -147,6 +147,6 @@ final class DailyRhythmStore {
         if let data = try? JSONEncoder().encode(encoded) {
             UserDefaults.standard.set(data, forKey: Keys.completions)
         }
-        SharedDataSync.refreshSharedStores()
+        SharedDataSync.scheduleRefresh(syncRhythmFromStores: false)
     }
 }

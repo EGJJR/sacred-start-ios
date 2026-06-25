@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct FocusTagsStepView: View {
     @Binding var selectedTags: [String]
@@ -341,157 +342,36 @@ private struct _WrappingLayout: Layout {
     }
 }
 
+/// Prompt-led free write from the Chaplain hub — same surface as Guided Entry.
 struct WisdomReflectionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
-
     let prompt: String
     var onSave: (String) -> Void
     var onExpandWithAI: ((String) -> Void)?
 
     @State private var text = ""
-    @State private var appeared = false
-    @FocusState private var focused: Bool
 
-    private var palette: SanctuaryPalette {
-        SanctuaryPalette.forMode(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
-    }
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            ABYCleanGradientBackground()
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textSecondary)
-                            .frame(width: 36, height: 36)
-                    }
-                    Spacer()
-                    Text("Wisdom Reflection")
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Color.clear.frame(width: 36, height: 36)
-                }
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 12)
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(palette.isNight ? palette.surfaceElevated : ABY.Color.textPrimary)
-                            .frame(width: 56, height: 56)
-                            .overlay {
-                                Text("“")
-                                    .font(ABY.Font.editorialTitle)
-                                    .foregroundStyle(palette.isNight ? palette.textPrimary : .white.opacity(0.9))
-                            }
-
-                        Text(prompt)
-                            .font(ABY.Font.title2)
-                            .foregroundStyle(palette.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text("Reflection")
-                            .font(ABY.Font.section)
-                            .foregroundStyle(palette.textSecondary)
-
-                        TextEditor(text: $text)
-                            .font(ABY.Font.body)
-                            .foregroundStyle(palette.textPrimary)
-                            .frame(minHeight: 200)
-                            .scrollContentBackground(.hidden)
-                            .focused($focused)
-                    }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 24)
-                    .padding(.bottom, 120)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 16)
-                }
-            }
-
-            reflectionToolbar
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 28)
-        }
-        .abyScreen()
-        .onAppear {
-            withAnimation(AppTheme.springGentle) { appeared = true }
-            focused = true
-        }
-    }
-
-    private var reflectionToolbar: some View {
-        HStack(spacing: 14) {
-            CircleIconButton(icon: "plus") {
-                text += text.isEmpty ? " " : "\n"
-                focused = true
-            }
-
-            CircleIconButton(icon: "textformat.size") {
-                focused = true
-            }
-
-            Spacer()
-
-            if let onExpandWithAI {
-                CircleIconButton(icon: "sparkles", tint: ABY.Color.pillPurple) {
-                    onExpandWithAI(text)
-                }
-            }
-
-            Button {
-                onSave(text.trimmingCharacters(in: .whitespacesAndNewlines))
-                dismiss()
-            } label: {
-                Image(systemName: "checkmark")
-                    .font(ABY.Font.bodySemibold)
-                    .foregroundStyle(palette.buttonForeground)
-                    .frame(width: 48, height: 48)
-                    .background(palette.buttonFill)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(ScaleButtonStyle())
-            .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(palette.glassFill)
-        .clipShape(Capsule())
-        .overlay {
-            Capsule()
-                .stroke(palette.glassStroke, lineWidth: 1)
-        }
-    }
-}
-
-private struct CircleIconButton: View {
-    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
-    let icon: String
-    var tint: Color?
-    let action: () -> Void
-
-    private var palette: SanctuaryPalette {
-        SanctuaryPalette.forMode(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
-    }
+    private static let alternatePrompts = [
+        "What is God inviting you to notice today?",
+        "Where did you sense grace in an ordinary moment?",
+        "What truth do you need to carry into the rest of today?",
+        "What feels unfinished — and what might God be saying through it?",
+        "What would it look like to receive today without striving?",
+    ]
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(ABY.Font.bodyMedium)
-                .foregroundStyle(tint ?? palette.textPrimary)
-                .frame(width: 44, height: 44)
-                .background(palette.surfaceElevated)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(palette.divider, lineWidth: 1))
-        }
-        .buttonStyle(ScaleButtonStyle())
+        GuidedJournalEntryView(
+            navigationTitle: "Guided Entry",
+            seedPrompt: prompt,
+            text: $text,
+            alternatePrompts: Self.alternatePrompts,
+            starterPhrases: [
+                "I'm noticing…",
+                "God seems to be…",
+                "I want to remember…",
+            ],
+            onExpandWithAI: onExpandWithAI,
+            onSave: onSave
+        )
     }
 }
 
@@ -569,41 +449,32 @@ struct WisdomReflectionEntryCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(palette.isNight ? ABY.Color.nightMeshIndigo : palette.textPrimary)
+                Image(systemName: "leaf.fill")
+                    .font(ABY.Font.bodyMedium)
+                    .foregroundStyle(ABY.Color.pillPurple)
                     .frame(width: 44, height: 44)
-                    .overlay {
-                        Text("“")
-                            .font(ABY.Font.editorialHeadline)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
+                    .background(ABY.Color.pillPurple.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Wisdom reflection")
+                    Text("Reflection")
                         .font(ABY.Font.headline)
                         .foregroundStyle(palette.textPrimary)
-                    Text("Full-screen writing on a prompt card")
+                    Text("One prompt · write freely · optional Chaplain handoff")
                         .font(ABY.Font.caption)
                         .foregroundStyle(palette.textSecondary)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "sparkles")
-                    .foregroundStyle(ABY.Color.pillPurple)
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.iconSmall)
+                    .foregroundStyle(palette.textTertiary)
             }
             .padding(14)
-            .background(
-                LinearGradient(
-                    colors: palette.isNight
-                        ? [palette.surface, ABY.Color.nightMeshPlum.opacity(0.22)]
-                        : [palette.surface, ABY.Color.pillPurple.opacity(0.06)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .background(palette.surface)
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
             .overlay {
                 RoundedRectangle(cornerRadius: ABY.Radius.cardLarge)
-                    .stroke(ABY.Color.pillPurple.opacity(palette.isNight ? 0.28 : 0.15), lineWidth: 1)
+                    .stroke(palette.divider, lineWidth: 1)
             }
         }
         .buttonStyle(ScaleButtonStyle())

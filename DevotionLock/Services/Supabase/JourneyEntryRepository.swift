@@ -210,9 +210,7 @@ final class JourneyEntryRepository {
 
             JourneyTimelineStore.shared.mergeRemoteEntries(journeyRows.map(\.timelineEntry))
         } catch {
-            #if DEBUG
-            print("JourneyEntryRepository pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("JourneyEntryRepository", error)
         }
     }
 

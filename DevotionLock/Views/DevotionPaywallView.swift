@@ -247,20 +247,20 @@ struct DevotionPaywallView: View {
         guard let product = selectedProduct else { return }
         do {
             try await inAppKit.purchase(product)
-            if inAppKit.hasAnyPurchase {
-                await UserPreferencesSync.shared.updatePremium(true)
-                closePaywall()
-            }
-        } catch {}
+            await PaywallAccess.confirmPurchaseCompleted()
+            closePaywall()
+        } catch {
+            inAppKit.purchaseError = error
+        }
     }
 
     @MainActor
     private func restore() async {
         isRestoring = true
+        defer { isRestoring = false }
         await inAppKit.restorePurchases()
-        isRestoring = false
         if inAppKit.hasAnyPurchase {
-            await UserPreferencesSync.shared.updatePremium(true)
+            await PaywallAccess.confirmPurchaseCompleted()
             closePaywall()
         }
     }

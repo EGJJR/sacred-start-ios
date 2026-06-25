@@ -302,13 +302,22 @@ struct OnboardingInfoCard: View {
         HStack(alignment: .top, spacing: 12) {
             VoiceOrb(state: .idle, size: 32)
                 .frame(width: 32, height: 32)
-            (Text(orbText).foregroundStyle(ABY.Color.onboardingTextSecondary)
-            + Text(boldText).font(ABY.Font.calloutSemibold).foregroundStyle(ABY.Color.onboardingText))
-            .font(ABY.Font.callout)
-            .lineSpacing(3)
+            Text(onboardingInfoAttributedText)
+                .font(ABY.Font.callout)
+                .lineSpacing(3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .abyJournalGlass(cornerRadius: 22)
+    }
+
+    private var onboardingInfoAttributedText: AttributedString {
+        var leading = AttributedString(orbText)
+        leading.foregroundColor = ABY.Color.onboardingTextSecondary
+        var emphasis = AttributedString(boldText)
+        emphasis.font = ABY.Font.calloutSemibold
+        emphasis.foregroundColor = ABY.Color.onboardingText
+        leading.append(emphasis)
+        return leading
     }
 }
 

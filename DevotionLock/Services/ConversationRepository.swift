@@ -149,6 +149,7 @@ final class ConversationRepository {
 
             let conversationIDs = rows.map(\.id)
             var latestMessages: [UUID: DBMessage] = [:]
+            var latestUserMessages: [UUID: DBMessage] = [:]
             var messageCounts: [UUID: Int] = [:]
 
             if !conversationIDs.isEmpty {
@@ -166,11 +167,15 @@ final class ConversationRepository {
                     if latestMessages[message.conversationId] == nil {
                         latestMessages[message.conversationId] = message
                     }
+                    if message.role == "user", latestUserMessages[message.conversationId] == nil {
+                        latestUserMessages[message.conversationId] = message
+                    }
                 }
             }
 
             conversations = rows.map { row in
-                let previewMessages = latestMessages[row.id].map { [$0] } ?? []
+                let previewSource = latestUserMessages[row.id] ?? latestMessages[row.id]
+                let previewMessages = previewSource.map { [$0] } ?? []
                 let count = messageCounts[row.id] ?? previewMessages.count
                 return mapConversation(
                     row,
@@ -179,10 +184,39 @@ final class ConversationRepository {
                     includeTranscript: false
                 )
             }
+            await purgeInternalChaplainLeaks()
             saveCache()
         } catch {
+            SyncErrorFilter.logPullFailure("ConversationRepository refresh", error)
+        }
+    }
+
+    func deleteConversation(id: UUID) async {
+        let existing = conversation(for: id)
+        let remoteID = existing?.remoteID ?? existing?.id ?? id
+
+        conversations.removeAll {
+            $0.id == id || $0.remoteID == id || $0.remoteID == remoteID
+        }
+        saveCache()
+
+        JournalLocalStore.shared.deleteChaplainConversation(id: id, remoteID: remoteID)
+
+        if ChaplainSessionStore.shared.resumableConversation?.id == remoteID {
+            ChaplainSessionStore.shared.clear()
+        }
+
+        guard AuthManager.shared.isAuthenticated else { return }
+
+        do {
+            try await SupabaseManager.client
+                .from("conversations")
+                .delete()
+                .eq("id", value: remoteID.uuidString)
+                .execute()
+        } catch {
             #if DEBUG
-            print("ConversationRepository refresh failed: \(error)")
+            print("ConversationRepository deleteConversation failed: \(error)")
             #endif
         }
     }
@@ -309,7 +343,34 @@ final class ConversationRepository {
             let data = UserDefaults.standard.data(forKey: Keys.cache),
             let stored = try? JSONDecoder().decode([StoredConversation].self, from: data)
         else { return }
-        conversations = stored.map(\.conversation)
+        conversations = stored.map(\.conversation).filter {
+            !ConversationMerger.isInternalChaplainRequest($0)
+        }
+    }
+
+    /// Deletes background Chaplain tasks (guided-prayer JSON prompts, etc.) that leaked into sync.
+    private func purgeInternalChaplainLeaks() async {
+        let leaks = conversations.filter(ConversationMerger.isInternalChaplainRequest)
+        guard !leaks.isEmpty else { return }
+
+        conversations.removeAll { ConversationMerger.isInternalChaplainRequest($0) }
+
+        for leak in leaks {
+            let remoteID = leak.remoteID ?? leak.id
+            JournalLocalStore.shared.deleteChaplainConversation(id: leak.id, remoteID: remoteID)
+            guard AuthManager.shared.isAuthenticated else { continue }
+            do {
+                try await SupabaseManager.client
+                    .from("conversations")
+                    .delete()
+                    .eq("id", value: remoteID.uuidString)
+                    .execute()
+            } catch {
+                #if DEBUG
+                print("ConversationRepository purgeInternalChaplainLeaks failed: \(error)")
+                #endif
+            }
+        }
     }
 
     private func saveCache() {

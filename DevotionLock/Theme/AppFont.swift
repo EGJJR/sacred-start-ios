@@ -5,7 +5,6 @@
 //  Inter Tight — UI sans (ABY Journal / Fabric-style). Instrument Serif — editorial headlines & paywall brand.
 //
 
-import CoreText
 import SwiftUI
 import UIKit
 
@@ -126,8 +125,6 @@ enum AppFont {
         guard !didResolve else { return }
         didResolve = true
 
-        registerBundledFontsIfNeeded()
-
         variableFontAvailable = UIFont(name: variablePSName, size: 12) != nil
         serifRegularAvailable = UIFont(name: serifRegularPSName, size: 12) != nil
         serifItalicAvailable = UIFont(name: serifItalicPSName, size: 12) != nil
@@ -137,20 +134,6 @@ enum AppFont {
                 resolvedNames[weight] = candidate
                 break
             }
-        }
-    }
-
-    private static func registerBundledFontsIfNeeded() {
-        var urls: [URL] = []
-        urls += Bundle.main.urls(forResourcesWithExtension: "ttf", subdirectory: nil) ?? []
-        urls += Bundle.main.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? []
-
-        var seen = Set<String>()
-        for url in urls {
-            let key = url.lastPathComponent
-            guard seen.insert(key).inserted else { continue }
-            var error: Unmanaged<CFError>?
-            CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
         }
     }
 }

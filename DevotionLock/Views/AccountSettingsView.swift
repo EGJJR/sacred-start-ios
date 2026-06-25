@@ -9,13 +9,15 @@ import PhotosUI
 import SwiftUI
 
 struct AccountSettingsView: View {
+    private var auth = AuthManager.shared
     @Environment(\.sanctuaryPalette) private var palette
-    @Environment(\.authManager) private var auth
     @Environment(\.dismiss) private var dismiss
 
     @State private var usernameDraft = ""
     @State private var usernameStatus: UsernameStatus = .idle
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var pickedPreviewData: Data?
+    @State private var isLoadingPhoto = false
     @State private var isSaving = false
     @State private var localError: String?
     @State private var availabilityTask: Task<Void, Never>?
@@ -43,8 +45,7 @@ struct AccountSettingsView: View {
     }
 
     private var canSave: Bool {
-        guard !isSaving else { return false }
-        if hasPhotoSelected { return true }
+        guard !isSaving, !isLoadingPhoto else { return false }
         guard hasUsernameChange else { return false }
         switch usernameStatus {
         case .available, .idle:
@@ -122,8 +123,7 @@ struct AccountSettingsView: View {
                 .padding(.top, 20)
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar { ABYBackToolbar() }
+        .abySettingsBackNavigation()
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             usernameDraft = auth.username ?? ""
@@ -132,24 +132,42 @@ struct AccountSettingsView: View {
             }
         }
         .onChange(of: selectedPhoto) { _, item in
-            guard item != nil else { return }
+            guard let item else {
+                pickedPreviewData = nil
+                isLoadingPhoto = false
+                return
+            }
             localError = nil
+            loadSelectedPhotoPreview(from: item)
         }
     }
 
     private var photoSection: some View {
-        VStack(spacing: 12) {
+        let displayName = auth.displayName
+        let avatarURL = auth.avatarURL
+        let cachedAvatar = auth.localAvatarData
+
+        return VStack(spacing: 12) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                ProfileAvatarView(
-                    name: auth.displayName,
-                    avatarURL: auth.avatarURL,
-                    size: 96,
-                    showsEditBadge: true
-                )
+                ZStack {
+                    ProfileAvatarView(
+                        name: displayName,
+                        avatarURL: avatarURL,
+                        localImageData: pickedPreviewData ?? cachedAvatar,
+                        size: 96,
+                        showsEditBadge: true
+                    )
+
+                    if isLoadingPhoto {
+                        ProgressView()
+                            .tint(palette.textPrimary)
+                    }
+                }
             }
             .buttonStyle(.plain)
+            .disabled(isLoadingPhoto)
 
-            Text("Tap to change photo")
+            Text(isLoadingPhoto ? "Loading photo…" : isSaving ? "Uploading photo…" : "Tap to change photo")
                 .font(ABY.Font.caption)
                 .foregroundStyle(palette.textTertiary)
         }
@@ -213,6 +231,43 @@ struct AccountSettingsView: View {
         }
     }
 
+    private func loadSelectedPhotoPreview(from item: PhotosPickerItem) {
+        isLoadingPhoto = true
+        Task {
+            defer { isLoadingPhoto = false }
+            do {
+                guard let picked = try await item.loadTransferable(type: AvatarPickerImage.self) else {
+                    localError = ProfileError.uploadFailed.localizedDescription
+                    pickedPreviewData = nil
+                    return
+                }
+                pickedPreviewData = AvatarImageProcessor.jpegData(from: picked.data) ?? picked.data
+                await uploadPickedPhoto()
+            } catch {
+                localError = ProfileError.uploadFailed.localizedDescription
+                pickedPreviewData = nil
+            }
+        }
+    }
+
+    private func uploadPickedPhoto() async {
+        guard let pickedPreviewData else { return }
+        isSaving = true
+        localError = nil
+        defer {
+            isSaving = false
+            selectedPhoto = nil
+        }
+
+        do {
+            try await auth.updateAvatar(data: pickedPreviewData, contentType: "image/jpeg")
+            self.pickedPreviewData = nil
+            DevotionHaptics.success()
+        } catch {
+            localError = error.localizedDescription
+        }
+    }
+
     private func saveChanges() {
         Task {
             isSaving = true
@@ -222,16 +277,6 @@ struct AccountSettingsView: View {
             do {
                 if hasUsernameChange, let normalizedDraft {
                     try await auth.updateUsername(normalizedDraft)
-                }
-
-                if let selectedPhoto {
-                    guard let rawData = try await selectedPhoto.loadTransferable(type: Data.self) else {
-                        localError = ProfileError.uploadFailed.localizedDescription
-                        return
-                    }
-                    let uploadData = AvatarImageProcessor.jpegData(from: rawData) ?? rawData
-                    try await auth.updateAvatar(data: uploadData, contentType: "image/jpeg")
-                    self.selectedPhoto = nil
                 }
 
                 dismiss()

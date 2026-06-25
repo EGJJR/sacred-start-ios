@@ -14,12 +14,24 @@ struct ChaplainMessage: Identifiable, Equatable, Hashable {
     var role: Role
     var text: String
     var sentAt: Date?
+    var scriptures: [ChaplainScriptureCitation]
 
-    init(id: UUID = UUID(), role: Role, text: String, sentAt: Date? = nil) {
+    init(
+        id: UUID = UUID(),
+        role: Role,
+        text: String,
+        sentAt: Date? = nil,
+        scriptures: [ChaplainScriptureCitation] = []
+    ) {
         self.id = id
         self.role = role
         self.text = text
         self.sentAt = sentAt
+        self.scriptures = scriptures
+    }
+
+    var displayText: String {
+        ScriptureReplyFormatter.displayText(for: self)
     }
 }
 
@@ -30,7 +42,9 @@ struct ChaplainChatView: View {
     var starterText: String
     var contextIntent: String? = nil
     var resumeConversationID: UUID? = nil
+    var resumedContext: Conversation? = nil
     var onVoice: (() -> Void)? = nil
+    var playsPortalEntrance: Bool = false
 
     @State private var messages: [ChaplainMessage] = []
     @State private var draft = ""
@@ -40,94 +54,151 @@ struct ChaplainChatView: View {
     @State private var savedBanner: String?
     @State private var revealedMessageIDs: Set<UUID> = []
     @State private var showChatHistory = false
+    @State private var scriptureSearchLabel: String?
+    @State private var readerPresentation: BibleReaderPresentation?
+    @State private var threadContext: Conversation?
+    @State private var isHydratingResume = false
     @FocusState private var inputFocused: Bool
+    @State private var sessionRevealed = false
+
+    private var contentRevealed: Bool {
+        playsPortalEntrance ? sessionRevealed : true
+    }
+
+    private var isResumedThread: Bool {
+        resumeConversationID != nil || threadContext != nil
+    }
 
     private var showSuggestions: Bool {
-        messages.isEmpty && !isReplying
+        messages.isEmpty && !isReplying && !isResumedThread && !isHydratingResume
+    }
+
+    private var headerThreadTitle: String? {
+        guard isResumedThread else { return nil }
+        return threadContext?.chaplainHistoryTitle
+    }
+
+    private var hasActiveChaplainDraft: Bool {
+        guard let last = messages.last, last.role == .chaplain else { return false }
+        return !last.text.isEmpty || !last.scriptures.isEmpty
+    }
+
+    private var presenceMode: ChaplainPresenceMode? {
+        if isHydratingResume { return .loadingThread }
+        if let scriptureSearchLabel { return .searchingScripture(scriptureSearchLabel) }
+        if isReplying, !hasActiveChaplainDraft { return .thinking }
+        return nil
+    }
+
+    private func isStreamingMessage(_ message: ChaplainMessage) -> Bool {
+        guard isReplying, message.role == .chaplain, message.id == messages.last?.id else { return false }
+        return !message.text.isEmpty
     }
 
     var body: some View {
-        ZStack {
-            ABYCleanGradientBackground()
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    if showSuggestions {
+                        GeminiChatGreeting()
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
-            VStack(spacing: 0) {
-                ABYChatScreenHeader(
-                    voiceName: voice.name,
-                    onClose: { dismiss() },
-                    onHistory: { showChatHistory = true },
-                    geminiStyle: true
-                )
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
+                    if isHydratingResume {
+                        EmptyView()
+                    } else if let threadContext, isResumedThread, !messages.isEmpty {
+                        ChaplainResumedThreadHeader(conversation: threadContext)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
-                ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            if showSuggestions {
-                                GeminiChatGreeting()
-                            }
-
-                            ForEach(messages) { message in
-                                ChaplainChatBubble(
-                                    message: message,
-                                    timestamp: message.role == .chaplain ? formattedTime(message.sentAt) : nil,
-                                    isRevealed: revealedMessageIDs.contains(message.id)
+                    ForEach(messages) { message in
+                        VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 8) {
+                            if message.role == .chaplain, !message.scriptures.isEmpty {
+                                ChaplainScriptureCitationStack(
+                                    citations: message.scriptures,
+                                    onReadChapter: openReader(for:),
+                                    onSave: saveCitation(_:)
                                 )
-                                .id(message.id)
+                                .transition(.opacity.combined(with: .move(edge: .leading)))
                             }
 
-                            if isReplying {
-                                ChaplainTypingIndicator()
-                                    .id("typing")
-                            }
-
-                            if let errorMessage {
-                                Text(errorMessage)
-                                    .font(ABY.Font.footnote)
-                                    .foregroundStyle(.red.opacity(0.85))
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                            }
-
-                            if let savedBanner {
-                                Text(savedBanner)
-                                    .font(ABY.Font.footnote)
-                                    .foregroundStyle(ABY.Color.pillPurple)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(ABY.Color.pillPurple.opacity(0.08))
-                                    .clipShape(Capsule())
-                            }
+                            ChaplainChatBubble(
+                                message: message,
+                                timestamp: message.role == .chaplain ? formattedTime(message.sentAt) : nil,
+                                isRevealed: revealedMessageIDs.contains(message.id),
+                                isStreaming: isStreamingMessage(message)
+                            )
                         }
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.top, 8)
-                        .padding(.bottom, messages.isEmpty ? 12 : 24)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
+                        .id(message.id)
+                        .transition(messageTransition(for: message))
                     }
-                    .defaultScrollAnchor(messages.isEmpty ? .top : .bottom)
-                    .scrollDismissesKeyboard(.interactively)
-                    .abyScrollEdgeFades(bottom: false)
-                    .onChange(of: messages.count) { _, _ in
-                        scrollToBottom(proxy: proxy)
+
+                    if let presenceMode {
+                        ChaplainPresenceIndicator(mode: presenceMode)
+                            .padding(.top, messages.isEmpty && presenceMode == .loadingThread ? 28 : 0)
+                            .id("presence")
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
-                    .onChange(of: messages.last?.text) { _, _ in
-                        scrollToBottom(proxy: proxy)
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(ABY.Font.footnote)
+                            .foregroundStyle(.red.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
-                    .onChange(of: isReplying) { _, replying in
-                        if replying {
-                            scrollToBottom(proxy: proxy, anchor: "typing")
-                        } else {
-                            scrollToBottom(proxy: proxy)
-                        }
+
+                    if let savedBanner {
+                        Text(savedBanner)
+                            .font(ABY.Font.footnote)
+                            .foregroundStyle(ABY.Color.pillPurple)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(ABY.Color.pillPurple.opacity(0.08))
+                            .clipShape(Capsule())
                     }
                 }
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 4)
+                .padding(.bottom, messages.isEmpty ? 8 : 20)
+                .frame(maxWidth: .infinity)
+                .blurReveal(contentRevealed, blurRadius: playsPortalEntrance ? 10 : 0, scale: 1.008)
+                .animation(AppTheme.springGentle, value: messages.count)
+                .animation(AppTheme.springGentle, value: presenceMode)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                chatComposer
+            .defaultScrollAnchor(messages.isEmpty ? .top : .bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: messages.count) { _, _ in
+                scrollToBottom(proxy: proxy)
             }
+            .onChange(of: messages.last?.text) { _, _ in
+                scrollToBottom(proxy: proxy)
+            }
+            .onChange(of: presenceMode) { _, mode in
+                if mode != nil {
+                    scrollToBottom(proxy: proxy, anchor: "presence")
+                }
+            }
+            .onChange(of: isReplying) { _, replying in
+                if replying {
+                    scrollToBottom(proxy: proxy, anchor: "presence")
+                } else {
+                    scrollToBottom(proxy: proxy)
+                }
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            chatHeader
+                .blurReveal(contentRevealed, blurRadius: playsPortalEntrance ? 6 : 0, scale: 1.004)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            chatComposer
+        }
+        .background {
+            ABYChatWashBackground()
         }
         .abyScreen()
         .sheet(isPresented: $showChatHistory) {
@@ -135,14 +206,35 @@ struct ChaplainChatView: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
         }
-        .onAppear(perform: beginSession)
+        .sheet(item: $readerPresentation) { presentation in
+            NavigationStack {
+                BibleChapterReaderView(
+                    content: presentation.content,
+                    highlightReference: presentation.highlightReference
+                )
+            }
+        }
+        .onAppear(perform: beginSessionAppearance)
         .task(id: resumeConversationID) {
             await hydrateResumeConversationIfNeeded()
         }
     }
 
+    private var chatHeader: some View {
+        ABYChatScreenHeader(
+            voiceName: voice.name,
+            threadTitle: headerThreadTitle,
+            onClose: { dismiss() },
+            onHistory: { showChatHistory = true },
+            geminiStyle: true
+        )
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
     private var chatComposer: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if showSuggestions {
                 GeminiChatSuggestionRail { prompt in
                     inputFocused = false
@@ -157,10 +249,11 @@ struct ChaplainChatView: View {
                 placeholder: "Ask Chaplain",
                 onSend: sendDraft,
                 onVoice: onVoice,
+                floatingStyle: true,
+                isBusy: isReplying,
                 focused: $inputFocused
             )
             .padding(.horizontal, ABY.Spacing.screen)
-            .disabled(isReplying)
 
             if showSuggestions, !inputFocused {
                 ABYChatDisclaimer()
@@ -168,27 +261,26 @@ struct ChaplainChatView: View {
                     .transition(.opacity)
             }
         }
-        .padding(.top, inputFocused ? 10 : (messages.isEmpty ? 10 : 6))
-        .padding(.bottom, inputFocused ? 6 : 10)
-        .background {
-            if messages.isEmpty {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .ignoresSafeArea(edges: .bottom)
-                    .allowsHitTesting(false)
-            } else if inputFocused {
-                VStack(spacing: 0) {
-                    Divider().opacity(0.35)
-                    Rectangle()
-                        .fill(Color.white.opacity(0.94))
-                }
-                .ignoresSafeArea(edges: .bottom)
-                .allowsHitTesting(false)
-            }
-        }
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+        .blurReveal(contentRevealed, blurRadius: playsPortalEntrance ? 8 : 0, scale: 1.01)
         .animation(AppTheme.springSnappy, value: showSuggestions)
         .animation(.easeOut(duration: 0.2), value: inputFocused)
-        .animation(.easeOut(duration: 0.2), value: messages.isEmpty)
+    }
+
+    private func messageTransition(for message: ChaplainMessage) -> AnyTransition {
+        switch message.role {
+        case .user:
+            .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .opacity
+            )
+        case .chaplain:
+            .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity),
+                removal: .opacity
+            )
+        }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, anchor: String? = nil) {
@@ -210,17 +302,29 @@ struct ChaplainChatView: View {
         seeds
     }
 
+    private func beginSessionAppearance() {
+        beginSession()
+        guard playsPortalEntrance else { return }
+        withAnimation(AppTheme.springGentle.delay(0.05)) {
+            sessionRevealed = true
+        }
+        DevotionHaptics.success()
+    }
+
     private func beginSession() {
         errorMessage = nil
         isReplying = false
         draft = ""
         revealedMessageIDs = []
+        threadContext = resumedContext
 
         if resumeConversationID == nil {
             conversationID = nil
             messages = Self.initialMessages(from: seedMessages)
+            isHydratingResume = false
         } else if messages.isEmpty {
             messages = Self.initialMessages(from: seedMessages)
+            isHydratingResume = true
         }
 
         for message in messages {
@@ -247,17 +351,23 @@ struct ChaplainChatView: View {
     private func hydrateResumeConversationIfNeeded() async {
         guard let resumeConversationID else { return }
 
+        isHydratingResume = true
+        defer { isHydratingResume = false }
+
         let conversation = await ConversationRepository.shared.loadTranscript(for: resumeConversationID)
             ?? ConversationRepository.shared.conversation(for: resumeConversationID)
             ?? ConversationMerger.mergedTimeline().first {
                 $0.id == resumeConversationID || $0.remoteID == resumeConversationID
             }
+            ?? resumedContext
 
         guard let conversation else {
             messages = Self.initialMessages(from: seedMessages)
+            threadContext = resumedContext
             return
         }
 
+        threadContext = conversation
         conversationID = conversation.remoteID ?? conversation.id
         messages = conversation.transcript.map {
             ChaplainMessage(
@@ -282,9 +392,12 @@ struct ChaplainChatView: View {
         inputFocused = false
         errorMessage = nil
         let userMessage = ChaplainMessage(role: .user, text: trimmed, sentAt: Date())
-        messages.append(userMessage)
+        withAnimation(AppTheme.springSnappy) {
+            messages.append(userMessage)
+        }
         revealMessage(userMessage.id)
         isReplying = true
+        DevotionHaptics.light()
 
         Task {
             await streamChaplainReply()
@@ -294,14 +407,31 @@ struct ChaplainChatView: View {
     @MainActor
     private func streamChaplainReply() async {
         let apiMessages = messages
-        let chaplainIndex = messages.count
-        let chaplainMessage = ChaplainMessage(role: .chaplain, text: "", sentAt: Date())
-        messages.append(chaplainMessage)
-        revealMessage(chaplainMessage.id, delay: 0.2)
+        var chaplainIndex: Int?
+        var draftMessageID: UUID?
+
+        func ensureChaplainDraft() -> Int {
+            if let chaplainIndex { return chaplainIndex }
+            let chaplainMessage = ChaplainMessage(role: .chaplain, text: "", sentAt: Date())
+            draftMessageID = chaplainMessage.id
+            withAnimation(AppTheme.springGentle) {
+                messages.append(chaplainMessage)
+            }
+            let index = messages.count - 1
+            chaplainIndex = index
+            revealMessage(chaplainMessage.id, delay: 0.08)
+            return index
+        }
 
         do {
             let intent = resolvedIntent(for: apiMessages.last(where: { $0.role == .user })?.text)
-            let context = ChaplainContextBuilder.build(intent: intent)
+            let userText = apiMessages.last(where: { $0.role == .user })?.text ?? ""
+            let mood = UserDefaults.standard.string(forKey: "intentionMood") ?? "Peaceful"
+            let prefetched = await ScriptureCorpus.prefetch(for: userText, mood: mood)
+            let context = ChaplainContextBuilder.build(
+                intent: intent,
+                prefetchedScripture: prefetched
+            )
             let stream = try await ChaplainService.shared.streamReply(
                 conversationID: conversationID,
                 messages: apiMessages,
@@ -312,36 +442,140 @@ struct ChaplainChatView: View {
                 switch event {
                 case .conversationID(let id):
                     conversationID = id
+                case .scriptureSearch(let label):
+                    scriptureSearchLabel = label
+                case .scriptureResult(let citations):
+                    scriptureSearchLabel = nil
+                    let index = ensureChaplainDraft()
+                    var merged = messages[index].scriptures
+                    for citation in citations {
+                        let normalized = ChaplainScriptureCitation(
+                            id: citation.id,
+                            reference: citation.reference,
+                            text: citation.displayText,
+                            source: citation.source,
+                            bookSlug: citation.bookSlug,
+                            chapter: citation.chapter,
+                            startVerse: citation.startVerse,
+                            endVerse: citation.endVerse,
+                            catalogPassageID: citation.catalogPassageID,
+                            version: citation.version
+                        )
+                        guard !merged.contains(normalized) else { continue }
+                        merged.append(normalized)
+                    }
+                    messages[index].scriptures = merged
                 case .token(let text):
-                    messages[chaplainIndex].text += text
+                    scriptureSearchLabel = nil
+                    let index = ensureChaplainDraft()
+                    messages[index].text += text
                 case .done:
+                    scriptureSearchLabel = nil
+                    if let index = chaplainIndex {
+                        messages[index].text = ScriptureReplyFormatter.displayText(
+                            for: messages[index]
+                        )
+                    }
                     break
                 }
             }
 
-            if messages[chaplainIndex].text.isEmpty {
-                messages[chaplainIndex].text = "I'm here with you. Could you share a little more?"
+            if let index = chaplainIndex {
+                if messages[index].text.isEmpty {
+                    messages[index].text = "I'm here with you. Could you share a little more?"
+                }
+            } else {
+                let fallback = ChaplainMessage(
+                    role: .chaplain,
+                    text: "I'm here with you. Could you share a little more?",
+                    sentAt: Date()
+                )
+                withAnimation(AppTheme.springGentle) {
+                    messages.append(fallback)
+                }
+                revealMessage(fallback.id, delay: 0.08)
+                chaplainIndex = messages.count - 1
             }
 
-            if let conversationID {
+            if let conversationID, let index = chaplainIndex {
                 let title = messages.first(where: { $0.role == .user })?.text
                 ChaplainSessionStore.shared.recordActiveConversation(
                     id: conversationID,
                     title: title,
-                    preview: messages[chaplainIndex].text
+                    preview: messages[index].text
                 )
             }
 
             await ConversationRepository.shared.refresh()
         } catch {
             errorMessage = error.localizedDescription
-            if messages[chaplainIndex].text.isEmpty {
-                messages.remove(at: chaplainIndex)
-                revealedMessageIDs.remove(chaplainMessage.id)
+            if let index = chaplainIndex,
+               messages[index].text.isEmpty,
+               messages[index].scriptures.isEmpty {
+                withAnimation(AppTheme.springGentle) {
+                    messages.remove(at: index)
+                    ()
+                }
+                if let draftMessageID {
+                    revealedMessageIDs.remove(draftMessageID)
+                }
             }
         }
 
         isReplying = false
+        scriptureSearchLabel = nil
+    }
+
+    @MainActor
+    private func openReader(for citation: ChaplainScriptureCitation) {
+        guard let slug = citation.bookSlug, let chapter = citation.chapter else { return }
+        Task {
+            do {
+                let content = try await BibleAPIService.shared.fetchChapter(bookSlug: slug, chapter: chapter)
+                readerPresentation = BibleReaderPresentation(
+                    content: content,
+                    highlightReference: citation.reference
+                )
+            } catch {
+                errorMessage = "Couldn't open that chapter right now."
+            }
+        }
+    }
+
+    @MainActor
+    private func saveCitation(_ citation: ChaplainScriptureCitation) {
+        if let catalogID = citation.catalogPassageID,
+           let passage = SpiritualPassageCatalog.all.first(where: { $0.id == catalogID }) {
+            ScriptureLibraryStore.shared.toggleCurated(passage)
+            savedBanner = ScriptureLibraryStore.shared.isSaved(passage: passage)
+                ? "Saved to your sanctuary library"
+                : "Removed from library"
+            return
+        }
+
+        if let slug = citation.bookSlug, let chapter = citation.chapter {
+            Task {
+                do {
+                    let content = try await BibleAPIService.shared.fetchChapter(bookSlug: slug, chapter: chapter)
+                    let verses = content.verses
+                    let filtered: [BibleVerse]
+                    if let start = citation.startVerse {
+                        let end = citation.endVerse ?? start
+                        filtered = verses.filter { $0.verseNumber >= start && $0.verseNumber <= end }
+                    } else {
+                        filtered = verses
+                    }
+                    let saved = ScriptureLibraryStore.shared.toggleBible(
+                        verses: filtered.isEmpty ? verses : filtered,
+                        content: content,
+                        reference: citation.reference
+                    )
+                    savedBanner = saved ? "Saved to your sanctuary library" : "Removed from library"
+                } catch {
+                    errorMessage = "Couldn't save that passage right now."
+                }
+            }
+        }
     }
 
     private func resolvedIntent(for userText: String?) -> String? {

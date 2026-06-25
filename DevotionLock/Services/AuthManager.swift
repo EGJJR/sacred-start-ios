@@ -28,6 +28,7 @@ final class AuthManager {
     private(set) var email: String?
     private(set) var username: String?
     private(set) var avatarURL: URL?
+    private(set) var localAvatarData: Data?
 
     var provider: AuthProvider? {
         isAuthenticated ? .email : nil
@@ -159,12 +160,28 @@ final class AuthManager {
     func updateAvatar(data: Data, contentType: String = "image/jpeg") async throws {
         guard isAuthenticated, let userId else { throw ProfileError.notAuthenticated }
 
+        let processed = AvatarImageProcessor.jpegData(from: data) ?? data
         let url = try await ProfileRepository.shared.uploadAvatar(
             userId: userId,
-            data: data,
+            data: processed,
             contentType: contentType
         )
-        avatarURL = url
+        AvatarLocalCache.save(processed, for: userId)
+        localAvatarData = processed
+        avatarURL = Self.cacheBustedAvatarURL(url)
+    }
+
+    func refreshProfileFromServer() async {
+        guard let userId else { return }
+        await refreshProfile(for: userId)
+    }
+
+    private static func cacheBustedAvatarURL(_ url: URL) -> URL {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        var queryItems = (components?.queryItems ?? []).filter { $0.name != "v" }
+        queryItems.append(URLQueryItem(name: "v", value: String(Int(Date().timeIntervalSince1970))))
+        components?.queryItems = queryItems
+        return components?.url ?? url
     }
 
     func deleteAccount() async throws {
@@ -172,6 +189,9 @@ final class AuthManager {
 
         let deletingUserId = userId
         try await ProfileRepository.shared.deleteAccount()
+        if let deletingUserId {
+            AvatarLocalCache.remove(for: deletingUserId)
+        }
         try? await SupabaseManager.client.auth.signOut()
         clearCachedUsername()
         if let deletingUserId {
@@ -210,16 +230,16 @@ final class AuthManager {
             case .initialSession:
                 hasResolvedInitialSession = true
                 if let session, !session.isExpired {
-                    applySession(session)
-                    Task { await SyncCoordinator.shared.onAuthenticated() }
+                    applySession(session, clearGuestDemoData: true)
+                    SyncCoordinator.shared.scheduleFlush(force: true)
                 } else if session == nil {
                     clearSessionState()
                 }
             case .signedIn:
                 if let session, !session.isExpired {
-                    applySession(session)
+                    applySession(session, clearGuestDemoData: true)
                     // Full sync only on sign-in — not on tokenRefreshed (avoids redundant pulls).
-                    Task { await SyncCoordinator.shared.onAuthenticated() }
+                    SyncCoordinator.shared.scheduleFlush(force: true)
                 }
             case .tokenRefreshed, .passwordRecovery, .userUpdated, .mfaChallengeVerified:
                 if let session, !session.isExpired {
@@ -235,10 +255,11 @@ final class AuthManager {
         email = nil
         username = nil
         avatarURL = nil
+        localAvatarData = nil
         JournalLocalStore.shared.activateAccount(userId: nil)
     }
 
-    private func applySession(_ session: Session, fallbackUsername: String? = nil) {
+    private func applySession(_ session: Session, fallbackUsername: String? = nil, clearGuestDemoData: Bool = false) {
         guard !session.isExpired else { return }
         isAuthenticated = true
         userId = session.user.id
@@ -248,7 +269,9 @@ final class AuthManager {
         if let username {
             cacheUsername(username, for: session.user.id)
         }
-        DemoDataCleaner.clearIfAuthenticated()
+        if clearGuestDemoData {
+            DemoDataCleaner.clearIfAuthenticated()
+        }
         Task { await refreshProfile(for: session.user.id) }
     }
 
@@ -259,12 +282,16 @@ final class AuthManager {
                     username = profileUsername
                     cacheUsername(profileUsername, for: userId)
                 }
-                avatarURL = profile.avatarURLValue
+                avatarURL = profile.avatarURLValue.map(Self.cacheBustedAvatarURL)
+                await syncLocalAvatar(for: userId)
                 if let voice = profile.chaplainVoiceId, !voice.isEmpty {
                     UserDefaults.standard.set(voice, forKey: "selectedChaplainVoice")
                 }
                 if let mood = profile.intentionMood, !mood.isEmpty {
                     UserDefaults.standard.set(mood, forKey: "intentionMood")
+                }
+                if profile.isPremium == true {
+                    PaywallAccess.markPurchaseSucceeded()
                 }
             } else {
                 try await ProfileRepository.shared.ensureProfileExists()
@@ -281,7 +308,34 @@ final class AuthManager {
         if let userId {
             cacheUsername(self.username ?? username, for: userId)
         }
-        avatarURL = profile.avatarURLValue
+        avatarURL = profile.avatarURLValue.map(Self.cacheBustedAvatarURL)
+        if let userId {
+            Task { await syncLocalAvatar(for: userId) }
+        }
+    }
+
+    private func syncLocalAvatar(for userId: UUID) async {
+        if let cached = AvatarLocalCache.load(for: userId) {
+            localAvatarData = cached
+            return
+        }
+
+        guard let avatarURL else {
+            localAvatarData = nil
+            return
+        }
+
+        let fetchURL = Self.cacheBustedAvatarURL(avatarURL)
+        guard let (data, response) = try? await URLSession.shared.data(from: fetchURL),
+              let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              !data.isEmpty else {
+            return
+        }
+
+        let processed = AvatarImageProcessor.jpegData(from: data) ?? data
+        AvatarLocalCache.save(processed, for: userId)
+        localAvatarData = processed
     }
 
     private func username(from user: User) -> String? {

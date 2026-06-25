@@ -66,9 +66,7 @@ final class DailyRhythmRepository {
                 rows.map { (completionDate: $0.completionDate, ringKind: $0.ringKind) }
             )
         } catch {
-            #if DEBUG
-            print("DailyRhythmRepository pull failed: \(error)")
-            #endif
+            SyncErrorFilter.logPullFailure("DailyRhythmRepository", error)
         }
     }
 

@@ -70,6 +70,7 @@ final class MorningProfile {
         static let seenPassages = "morningProfile.seenPassages"
         static let inputPreference = "morningProfile.inputPreference"
         static let preferredTier = "morningProfile.preferredTier"
+        static let preferredPath = "morningProfile.preferredPath"
         static let completionCount = "morningProfile.completionCount"
     }
 
@@ -79,6 +80,7 @@ final class MorningProfile {
     private(set) var completionCount: Int = 0
     var inputPreference: MorningInputPreference = .unset
     var preferredTier: MorningTier = .standard
+    var preferredPath: MorningPath = .pray
 
     init() { load() }
 
@@ -204,6 +206,12 @@ final class MorningProfile {
         Task { await UserPreferencesSync.shared.pushMorningProfile() }
     }
 
+    func notePathChoice(_ path: MorningPath) {
+        preferredPath = path
+        save()
+        Task { await UserPreferencesSync.shared.pushMorningProfile() }
+    }
+
     func noteInputChoice(_ choice: MorningInputPreference) {
         inputPreference = choice
         save()
@@ -220,6 +228,9 @@ final class MorningProfile {
         }
         if let tier = MorningTier(rawValue: payload.preferredTier) {
             preferredTier = tier
+        }
+        if let path = MorningPath(rawValue: payload.preferredPath ?? "") {
+            preferredPath = path
         }
         save()
     }
@@ -242,6 +253,10 @@ final class MorningProfile {
            let tier = MorningTier(rawValue: raw) {
             preferredTier = tier
         }
+        if let raw = defaults.string(forKey: Keys.preferredPath),
+           let path = MorningPath(rawValue: raw) {
+            preferredPath = path
+        }
     }
 
     private func save() {
@@ -252,5 +267,6 @@ final class MorningProfile {
         defaults.set(completionCount, forKey: Keys.completionCount)
         defaults.set(inputPreference.rawValue, forKey: Keys.inputPreference)
         defaults.set(preferredTier.rawValue, forKey: Keys.preferredTier)
+        defaults.set(preferredPath.rawValue, forKey: Keys.preferredPath)
     }
 }

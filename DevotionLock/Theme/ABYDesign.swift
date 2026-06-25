@@ -661,9 +661,9 @@ struct SanctuaryPalette: Equatable {
         trackFill: ABY.Color.trackFill,
         buttonFill: ABY.Color.textPrimary,
         buttonForeground: Color.white,
-        navBarFill: Color.white.opacity(0.62),
-        navBarStrokeTop: Color.white.opacity(0.95),
-        navBarStrokeBottom: Color.white.opacity(0.35),
+        navBarFill: Color.white.opacity(0.80),
+        navBarStrokeTop: Color.black.opacity(0.06),
+        navBarStrokeBottom: Color.black.opacity(0.03),
         glassFill: ABY.Color.glassFill,
         glassStroke: ABY.Color.glassStroke,
         cardShadowOpacity: 0.04
@@ -922,11 +922,11 @@ struct ABYGlassBarBackground: View {
                             startPoint: .top,
                             endPoint: .bottom
                         ),
-                        lineWidth: 1
+                        lineWidth: 0.5
                     )
             }
-            .shadow(color: .black.opacity(palette.isNight ? 0.35 : 0.07), radius: 24, y: 10)
-            .shadow(color: .black.opacity(palette.isNight ? 0.18 : 0.03), radius: 6, y: 2)
+            .shadow(color: .black.opacity(palette.isNight ? 0.35 : 0.06), radius: 20, y: 8)
+            .shadow(color: .black.opacity(palette.isNight ? 0.18 : 0.025), radius: 5, y: 2)
     }
 }
 

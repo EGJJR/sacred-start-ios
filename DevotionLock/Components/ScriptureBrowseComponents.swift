@@ -2,12 +2,22 @@
 //  ScriptureBrowseComponents.swift
 //  DevotionLock
 //
-//  Mobbin-informed scripture UI: Headway nav, Goodreads tiles, Fable rows, Medium topics.
+//  Mobbin-informed scripture UI: TIDE glass on tab wash, Deepstash chips, stoic passage cards.
 //
 
 import SwiftUI
 
-// MARK: - Bottom navigation (Headway / Blinkist)
+// MARK: - Glass chrome (TIDE / ABY tab bar)
+
+private struct ScriptureGlassSurface: View {
+    var cornerRadius: CGFloat = ABY.Radius.cardLarge
+
+    var body: some View {
+        ABYGlassBarBackground(cornerRadius: cornerRadius)
+    }
+}
+
+// MARK: - Bottom navigation (TIDE floating glass bar)
 
 enum ScriptureTab: String, CaseIterable, Identifiable {
     case discover = "Discover"
@@ -58,21 +68,24 @@ struct ScriptureTabBar: View {
                     .foregroundStyle(selection == tab ? palette.textPrimary : palette.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(
-                        selection == tab
-                            ? palette.surface.opacity(0.9)
-                            : Color.clear,
-                        in: Capsule()
-                    )
+                    .background {
+                        if selection == tab {
+                            Capsule()
+                                .fill(palette.surface.opacity(0.94))
+                                .overlay {
+                                    Capsule()
+                                        .strokeBorder(palette.divider.opacity(0.4), lineWidth: 0.5)
+                                }
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(6)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
+        .background {
+            ScriptureGlassSurface(cornerRadius: 999)
+        }
     }
 }
 
@@ -104,11 +117,8 @@ struct ScriptureSearchField: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(palette.divider, lineWidth: 1)
+        .background {
+            ScriptureGlassSurface(cornerRadius: 14)
         }
     }
 }
@@ -143,11 +153,8 @@ struct ScriptureReferenceBanner: View {
                     .foregroundStyle(paletteMuted)
             }
             .padding(14)
-            .background(ABY.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(ABY.Color.divider, lineWidth: 1)
+            .background {
+                ScriptureGlassSurface(cornerRadius: ABY.Radius.cardLarge)
             }
         }
         .buttonStyle(ScaleButtonStyle())
@@ -200,6 +207,7 @@ private struct ScriptureTopicTile: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(isSelected ? .white : tint)
                 Text(label)
                     .font(ABY.Font.calloutMedium)
                 Spacer(minLength: 0)
@@ -210,18 +218,11 @@ private struct ScriptureTopicTile: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if isSelected {
-                    tint
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(tint)
                 } else {
-                    ZStack {
-                        tint.opacity(0.18)
-                        palette.surface.opacity(0.55)
-                    }
+                    ScriptureGlassSurface(cornerRadius: 14)
                 }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? Color.clear : palette.divider, lineWidth: 1)
             }
         }
         .buttonStyle(ScaleButtonStyle())
@@ -231,52 +232,66 @@ private struct ScriptureTopicTile: View {
 // MARK: - Testament tiles (Goodreads genre cards)
 
 struct ScriptureTestamentTile: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
     let testament: BibleTestament
     let bookCount: Int
     let action: () -> Void
 
+    private var accentTint: Color {
+        testament == .old ? ABY.Color.pillPurple : ABY.Color.pillTeal
+    }
+
+    private var badge: String {
+        testament == .old ? "OT" : "NT"
+    }
+
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: gradientColors,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(height: 108)
+            HStack(spacing: 14) {
+                Text(badge)
+                    .font(ABY.Font.editorialFootnote)
+                    .foregroundStyle(accentTint)
+                    .frame(width: 40, height: 40)
+                    .background(accentTint.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(testament.label)
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(.white)
+                        .font(ABY.Font.bodySemibold)
+                        .foregroundStyle(palette.textPrimary)
                     Text("\(bookCount) books")
                         .font(ABY.Font.caption)
-                        .foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(palette.textSecondary)
                 }
-                .padding(16)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.captionSemibold)
+                    .foregroundStyle(palette.textTertiary)
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(.white.opacity(0.15), lineWidth: 1)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                ScriptureGlassSurface(cornerRadius: ABY.Radius.cardLarge)
             }
         }
         .buttonStyle(ScaleButtonStyle())
     }
-
-    private var gradientColors: [Color] {
-        switch testament {
-        case .old:
-            [ABY.Color.pillPurple.opacity(0.85), ABY.Color.meshLavender.opacity(0.7)]
-        case .new:
-            [ABY.Color.pillTeal.opacity(0.85), ABY.Color.meshSage.opacity(0.65)]
-        }
-    }
 }
 
 // MARK: - List row (Fable / Blinkist)
+
+struct ScriptureNavigationRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(AppTheme.springSnappy, value: configuration.isPressed)
+    }
+}
 
 struct ScriptureListRow: View {
     @Environment(\.sanctuaryPalette) private var palette
@@ -349,8 +364,15 @@ struct ScriptureSectionHeader: View {
                     .foregroundStyle(palette.textTertiary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(palette.surface)
-                    .clipShape(Capsule())
+                    .background {
+                        Capsule()
+                            .fill(palette.navBarFill.opacity(0.7))
+                            .background { Capsule().fill(.ultraThinMaterial).opacity(0.5) }
+                    }
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(palette.navBarStrokeTop.opacity(0.5), lineWidth: 0.5)
+                    }
             }
             Spacer()
         }
@@ -420,11 +442,8 @@ struct ScripturePassageCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                .stroke(palette.divider, lineWidth: 1)
+        .background {
+            ScriptureGlassSurface(cornerRadius: ABY.Radius.cardLarge)
         }
     }
 }
@@ -439,11 +458,8 @@ struct ScriptureGroupedList<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                .stroke(palette.divider, lineWidth: 1)
+        .background {
+            ScriptureGlassSurface(cornerRadius: ABY.Radius.cardLarge)
         }
     }
 }

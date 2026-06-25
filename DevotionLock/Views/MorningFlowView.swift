@@ -2,27 +2,19 @@
 //  MorningFlowView.swift
 //  DevotionLock
 //
-//  Adaptive, card-based morning devotion. Replaces the fixed multi-step
-//  GuidedJournalFlowView. Content branches on the chosen tier, mood, and
-//  focus, and personalizes over time via MorningProfile.
+//  Adaptive morning devotion — tier-aware choreography, mood check-in,
+//  guided prayer or reflection, then a word to carry into the day.
 //
 
 import SwiftUI
-
-enum MorningStep: Equatable {
-    case arrival
-    case pulse
-    case prompt
-    case reveal
-    case depth
-    case complete
-}
 
 struct MorningFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
     var streakManager: StreakManager
     var userName: String
+    var initialMorningPath: MorningPath = .reflect
+    var initialStep: MorningStep? = nil
     var onDevotionFinished: ((DevotionFinishResult) -> Void)? = nil
     var onOpenChaplainChat: ((String) -> Void)? = nil
 
@@ -39,24 +31,35 @@ struct MorningFlowView: View {
 
     @State private var voiceMode: VoiceMode?
     @State private var showPassageSearch = false
-    @FocusState private var promptFocused: Bool
 
     @State private var finishResult: DevotionFinishResult?
     @State private var completedStreak = 0
     @State private var shouldCelebrate = false
     @State private var appeared = false
+    @State private var stepRevealed = false
+    @State private var morningPath: MorningPath = .pray
+    @State private var committedPath: MorningPath?
+    @State private var showGuidedPrayer = false
+    @State private var showReflection = false
+    @State private var passageRevealed = false
+
+    private var morningGuidedPrayer: GuidedPrayer {
+        GuidedPrayerCatalog.all.first { $0.id == "morning" } ?? GuidedPrayerCatalog.all[0]
+    }
 
     private enum VoiceMode: Identifiable {
-        case prompt
         case depth
         var id: Int { hashValue }
     }
 
-    private var steps: [MorningStep] {
-        var result: [MorningStep] = [.arrival, .pulse, .prompt, .reveal]
-        if tier.includesDepth { result.append(.depth) }
-        result.append(.complete)
-        return result
+    private var flowPlan: MorningFlowPlan {
+        MorningFlowPlan(tier: tier, path: committedPath ?? morningPath)
+    }
+
+    private var steps: [MorningStep] { flowPlan.steps }
+
+    private var liturgyContext: LiturgyWeaveContext {
+        LiturgyWeaveContext(mood: mood, focus: selectedTag, userName: userName, passage: passage)
     }
 
     private var currentStep: MorningStep {
@@ -65,7 +68,19 @@ struct MorningFlowView: View {
     }
 
     private var progress: CGFloat {
-        CGFloat(stepIndex + 1) / CGFloat(steps.count)
+        if currentStep == .pulse, committedPath == nil {
+            let maxSteps = MorningFlowPlan.maxStepCount(tier: tier)
+            return CGFloat(stepIndex + 1) / CGFloat(maxSteps)
+        }
+        return flowPlan.progress(stepIndex: stepIndex)
+    }
+
+    private var stepCaptionParts: (current: Int, total: Int, title: String) {
+        if currentStep == .pulse, committedPath == nil {
+            return (stepIndex + 1, MorningFlowPlan.maxStepCount(tier: tier), "Check in")
+        }
+        let (current, total) = flowPlan.displayIndex(stepIndex: stepIndex)
+        return (current, total, flowPlan.phaseLabel(for: currentStep))
     }
 
     private var tags: [FocusTag] { selectedTag.map { [$0] } ?? [] }
@@ -85,44 +100,46 @@ struct MorningFlowView: View {
                 .transition(.opacity)
             } else {
                 ZStack {
-                    ABYCleanGradientBackground().ignoresSafeArea()
+                    ABYGuidedJournalBackground().ignoresSafeArea()
 
                     VStack(spacing: 0) {
-                    topBar
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.top, 8)
+                        topBar
+                            .padding(.horizontal, ABY.Spacing.screen)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
 
-                    cardContent
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .id(currentStep)
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: 16)),
-                            removal: .opacity.combined(with: .offset(y: -16))
-                        ))
+                        cardContent
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .id(currentStep)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: 16)),
+                                removal: .opacity.combined(with: .offset(y: -16))
+                            ))
 
-                    bottomBar
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.bottom, 28)
+                        bottomBar
+                            .padding(.horizontal, ABY.Spacing.screen)
+                            .padding(.bottom, 32)
                     }
                 }
+                .environment(\.onboardingSurface, .light)
+                .environment(\.abyJournalOnboardingStyle, .warmSunset)
+                .abyScreen()
             }
         }
         .animation(AppTheme.springGentle, value: stepIndex)
-        .fullScreenCover(item: $voiceMode) { mode in
+        .fullScreenCover(item: $voiceMode) { _ in
             RecordingSessionView(
                 isPresented: Binding(get: { voiceMode != nil }, set: { if !$0 { voiceMode = nil } }),
-                initialPrompt: mode == .prompt ? currentPrompt : "What else is on your heart?",
+                initialPrompt: "What else is on your heart?",
                 onComplete: { transcript in
-                    handleVoiceComplete(mode: mode, transcript: transcript)
+                    handleVoiceComplete(transcript: transcript)
                 },
                 onSwitchToChat: { transcript in
                     voiceMode = nil
-                    let seed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if mode == .prompt, !seed.isEmpty { promptResponse = seed }
-                    finalizeAndOpenChat(seed)
+                    finalizeAndOpenChat(transcript.trimmingCharacters(in: .whitespacesAndNewlines))
                 },
                 voiceTranscript: nil,
-                saveOnlyLabel: mode == .prompt ? "Use in my answer only" : "Save without chat"
+                saveOnlyLabel: "Save without chat"
             )
         }
         .sheet(isPresented: $showPassageSearch) {
@@ -131,19 +148,75 @@ struct MorningFlowView: View {
                 showPassageSearch = false
             }
         }
+        .fullScreenCover(isPresented: $showGuidedPrayer, onDismiss: {
+            if currentStep == .pulse {
+                committedPath = nil
+            }
+        }) {
+            ThresholdPrayerFlowView(
+                prayer: morningGuidedPrayer,
+                prayerBeats: LiturgyWeaveBuilder.repeatablePrayerBeats(
+                    prayer: morningGuidedPrayer,
+                    context: liturgyContext
+                ),
+                onComplete: handleGuidedPrayerComplete
+            )
+        }
+        .fullScreenCover(isPresented: $showReflection) {
+            GuidedJournalEntryView(
+                navigationTitle: "Morning devotion",
+                seedPrompt: currentPrompt,
+                text: $promptResponse,
+                starterPhrases: [
+                    "This morning I'm…",
+                    "I'm grateful for…",
+                    "I'm asking God for…",
+                ],
+                showsShuffle: false,
+                allowsEmptyFinish: true,
+                onSave: { saved in
+                    promptResponse = saved
+                    profile.noteInputChoice(saved.isEmpty ? .unset : .type)
+                    handleReflectionComplete()
+                }
+            )
+        }
         .onAppear {
             mood = intentionMood
             tier = profile.preferredTier
             selectedTag = profile.dominantTags.first
+            morningPath = initialMorningPath == .reflect ? .reflect : profile.preferredPath
+            committedPath = nil
+            if initialMorningPath == .pray {
+                passage = SpiritualPassageCatalog.recommended(
+                    mood: mood,
+                    focusTags: tags,
+                    excludingIDs: profile.recentlySeen
+                )
+            }
+            if let initialStep, let index = steps.firstIndex(of: initialStep) {
+                stepIndex = index
+            }
             withAnimation(AppTheme.springGentle) { appeared = true }
+            revealStep()
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { promptFocused = false }
-                    .font(ABY.Font.bodyMedium)
+        .onChange(of: currentStep) { _, step in
+            revealStep()
+            if step == .reveal {
+                passageRevealed = false
+                withAnimation(AppTheme.springGentle.delay(0.12)) {
+                    passageRevealed = true
+                }
+            }
+            if step == .prompt {
+                showReflection = true
             }
         }
+    }
+
+    private func revealStep() {
+        stepRevealed = false
+        withAnimation(AppTheme.onboardingStepIn) { stepRevealed = true }
     }
 
     // MARK: - Chrome
@@ -151,6 +224,11 @@ struct MorningFlowView: View {
     private var topBar: some View {
         VStack(spacing: 14) {
             ABYThinProgressBar(progress: progress)
+            ABYGuidedJournalStepLabel(
+                stepTitle: stepCaptionParts.title,
+                stepIndex: stepCaptionParts.current,
+                totalSteps: stepCaptionParts.total
+            )
             HStack {
                 if stepIndex > 0 {
                     ABYIconButton(icon: "chevron.left") { goBack() }
@@ -177,7 +255,8 @@ struct MorningFlowView: View {
                 switch currentStep {
                 case .arrival: arrivalCard
                 case .pulse: pulseCard
-                case .prompt: promptCard
+                case .prompt:
+                    Color.clear.frame(height: 1)
                 case .reveal: revealCard
                 case .depth: depthCard
                 case .complete: EmptyView()
@@ -187,6 +266,7 @@ struct MorningFlowView: View {
             .padding(.top, 12)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity)
+            .onboardingStepReveal(stepRevealed)
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -195,21 +275,28 @@ struct MorningFlowView: View {
     private var bottomBar: some View {
         switch currentStep {
         case .arrival:
-            ABYPrimaryButton(title: "Begin", icon: "arrow.right", action: advance)
+            ABYLightOnboardingPrimaryButton(title: "Step in", action: advance)
         case .pulse:
-            ABYPrimaryButton(title: "Continue", icon: "arrow.right", action: advance)
+            EmptyView()
         case .prompt:
-            VStack(spacing: 12) {
-                ABYPrimaryButton(title: promptResponse.isEmpty ? "Skip for now" : "Continue", icon: "arrow.right", action: advanceFromPrompt)
-            }
+            EmptyView()
         case .reveal:
-            ABYPrimaryButton(
-                title: tier.includesDepth ? "Go deeper" : "Finish",
-                icon: tier.includesDepth ? "arrow.down" : "checkmark",
+            ABYLightOnboardingPrimaryButton(
+                title: tier.includesDepth ? "Carry this forward" : "Finish morning",
                 action: advance
             )
         case .depth:
-            ABYPrimaryButton(title: "Finish", icon: "checkmark", action: advance)
+            VStack(spacing: 10) {
+                ABYLightOnboardingPrimaryButton(title: "Finish morning", action: advance)
+                Button(action: advance) {
+                    Text("Skip for now")
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
         case .complete:
             EmptyView()
         }
@@ -218,53 +305,54 @@ struct MorningFlowView: View {
     // MARK: - Arrival
 
     private var arrivalCard: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: 28) {
+            Spacer(minLength: 12)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text(profile.greeting(name: userName))
-                    .font(ABY.Font.onboardingTitle)
+                    .font(ABY.Font.title2)
                     .foregroundStyle(palette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(arrivalSubtitle)
                     .font(ABY.Font.callout)
                     .foregroundStyle(palette.textSecondary)
-                    .lineSpacing(4)
+                    .lineSpacing(5)
             }
 
             if streakManager.currentStreak > 0 {
                 HStack(spacing: 8) {
                     Image(systemName: "flame.fill")
+                        .font(ABY.Font.captionSemibold)
                         .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.22))
-                    Text("\(streakManager.currentStreak) day streak")
+                    Text("\(streakManager.currentStreak) mornings in a row")
                         .font(ABY.Font.captionMedium)
-                        .foregroundStyle(palette.textPrimary)
+                        .foregroundStyle(palette.textSecondary)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(palette.surface)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("How much time this morning?")
-                    .font(ABY.Font.captionMedium)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Pace for today")
+                    .font(ABY.Font.section)
+                    .tracking(0.8)
                     .foregroundStyle(palette.textSecondary)
+                    .textCase(.uppercase)
 
-                VStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ForEach(MorningTier.allCases) { option in
-                        MorningTierRow(tier: option, isSelected: tier == option) {
+                        MorningTierChip(tier: option, isSelected: tier == option) {
                             withAnimation(AppTheme.springSnappy) { tier = option }
                             DevotionHaptics.light()
                         }
                     }
                 }
             }
-            .padding(.top, 4)
 
-            Spacer(minLength: 8)
+            Text(tier.subtitle)
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textTertiary)
+
+            Spacer(minLength: 12)
         }
     }
 
@@ -278,26 +366,24 @@ struct MorningFlowView: View {
     // MARK: - Pulse (mood + one focus)
 
     private var pulseCard: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            ABYHeadline(title: "How are you arriving?", subtitle: "One word for your heart, and one thing in focus.")
+        VStack(alignment: .leading, spacing: 28) {
+            ABYHeadline(
+                title: "How are you arriving?",
+                subtitle: "No perfect words — just what's true before the day begins."
+            )
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Mood")
+                Text("Your heart")
                     .font(ABY.Font.captionMedium)
                     .foregroundStyle(palette.textSecondary)
-                FlowChips(items: MoodCatalog.options.map(\.label)) { label in
-                    MorningChip(
-                        label: label,
-                        icon: MoodCatalog.icon(for: label),
-                        isSelected: mood == label
-                    ) {
-                        withAnimation(AppTheme.springSnappy) {
-                            mood = label
-                            intentionMood = label
-                        }
-                        Task { await UserPreferencesSync.shared.pushPreferences(intentionMood: label) }
-                        DevotionHaptics.light()
+
+                ABYGuidedMoodGrid(selectedMood: $mood) { label in
+                    withAnimation(AppTheme.springSnappy) {
+                        mood = label
+                        intentionMood = label
                     }
+                    Task { await UserPreferencesSync.shared.pushPreferences(intentionMood: label) }
+                    DevotionHaptics.light()
                 }
             }
 
@@ -305,6 +391,10 @@ struct MorningFlowView: View {
                 Text("In focus today")
                     .font(ABY.Font.captionMedium)
                     .foregroundStyle(palette.textSecondary)
+                Text("Optional — one thing to hold gently")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+
                 FlowChips(items: FocusTag.allCases.map(\.rawValue)) { raw in
                     let tag = FocusTag(rawValue: raw)!
                     MorningChip(
@@ -319,153 +409,106 @@ struct MorningFlowView: View {
                     }
                 }
             }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Meet God through")
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(palette.textSecondary)
+
+                VStack(spacing: 10) {
+                    MorningPathCard(
+                        path: .pray,
+                        isRecommended: profile.preferredPath == .pray,
+                        action: { chooseMorningPath(.pray) }
+                    )
+                    MorningPathCard(
+                        path: .reflect,
+                        isRecommended: profile.preferredPath == .reflect,
+                        action: { chooseMorningPath(.reflect) }
+                    )
+                }
+            }
+            .padding(.top, 4)
         }
     }
 
-    // MARK: - Prompt
+    // MARK: - Prompt (GuidedJournalEntryView full-screen)
 
     private var currentPrompt: String {
         profile.openPrompt(mood: mood, tags: tags)
     }
 
-    private var promptCard: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("A question to sit with")
-                    .font(ABY.Font.captionMedium)
-                    .foregroundStyle(palette.textSecondary)
-                Text(currentPrompt)
-                    .font(ABY.Font.editorialTitle)
-                    .foregroundStyle(palette.textPrimary)
-                    .lineSpacing(6)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    profile.noteInputChoice(.type)
-                    promptFocused = true
-                } label: {
-                    inputModeLabel(icon: "keyboard", title: "Type")
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    profile.noteInputChoice(.speak)
-                    promptFocused = false
-                    voiceMode = .prompt
-                } label: {
-                    inputModeLabel(icon: "waveform", title: "Speak")
-                }
-                .buttonStyle(.plain)
-            }
-
-            ZStack(alignment: .topLeading) {
-                if promptResponse.isEmpty {
-                    Text("Let your honest answer land here…")
-                        .font(ABY.Font.body)
-                        .foregroundStyle(palette.textTertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 16)
-                }
-                TextEditor(text: $promptResponse)
-                    .focused($promptFocused)
-                    .font(ABY.Font.body)
-                    .foregroundStyle(palette.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(minHeight: 150)
-            }
-            .background(palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(promptFocused ? palette.textSecondary : palette.divider, lineWidth: promptFocused ? 1.5 : 1)
-            }
-        }
-    }
-
-    private func inputModeLabel(icon: String, title: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-            Text(title)
-        }
-        .font(ABY.Font.captionMedium)
-        .foregroundStyle(palette.textPrimary)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(palette.surfaceMuted)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
-    }
-
     // MARK: - Reveal
 
     private var revealCard: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Spacer(minLength: 8)
+        VStack(spacing: 28) {
+            Spacer(minLength: 16)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: passage.source == .scripture ? "book.closed.fill" : "quote.opening")
-                        .font(ABY.Font.emojiSmall)
-                    Text(passage.source == .scripture ? "For you today" : "A word for today")
-                        .font(ABY.Font.section)
-                        .tracking(0.6)
-                }
-                .foregroundStyle(palette.textSecondary)
+            VStack(spacing: 10) {
+                MoodPill(label: mood)
+                Text(passage.source == .scripture ? "For you today" : "A word for today")
+                    .font(ABY.Font.section)
+                    .tracking(1.4)
+                    .foregroundStyle(palette.textSecondary)
+                    .textCase(.uppercase)
             }
 
             Text(passage.text)
                 .font(ABY.Font.editorialTitle)
                 .foregroundStyle(palette.textPrimary)
-                .lineSpacing(8)
+                .multilineTextAlignment(.center)
+                .lineSpacing(10)
                 .fixedSize(horizontal: false, vertical: true)
+                .blurReveal(passageRevealed, blurRadius: 8, scale: 1.01)
+                .padding(.horizontal, 8)
 
             Text(passage.attribution)
                 .font(ABY.Font.calloutMedium)
                 .foregroundStyle(palette.textSecondary)
+                .multilineTextAlignment(.center)
 
-            Divider().overlay(palette.divider)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Carry this with you")
+            VStack(spacing: 10) {
+                Text("Carry with you")
                     .font(ABY.Font.section)
-                    .tracking(0.6)
-                    .foregroundStyle(palette.textSecondary)
+                    .tracking(1.2)
+                    .foregroundStyle(palette.textTertiary)
+                    .textCase(.uppercase)
+
                 Text(profile.affirmation(mood: mood, tags: tags))
                     .font(ABY.Font.bodyMedium)
                     .foregroundStyle(palette.textPrimary)
-                    .lineSpacing(4)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .frame(maxWidth: .infinity)
             .background(palette.surfaceMuted)
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+            .blurReveal(passageRevealed, blurRadius: 6, scale: 1.005)
 
             Button {
                 showPassageSearch = true
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Find another passage")
-                }
-                .font(ABY.Font.captionMedium)
-                .foregroundStyle(palette.textSecondary)
+                Text("Find another passage")
+                    .font(ABY.Font.captionMedium)
+                    .foregroundStyle(palette.textTertiary)
             }
             .buttonStyle(.plain)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 16)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Depth
 
     private var depthCard: some View {
         VStack(alignment: .leading, spacing: 22) {
-            ABYHeadline(title: "Stay a little longer", subtitle: "Optional — go as deep as you'd like this morning.")
+            ABYHeadline(
+                title: "Stay a little longer",
+                subtitle: "Only if you have capacity — there's no extra credit here."
+            )
 
             DepthOptionRow(icon: "waveform", title: "Speak it out", subtitle: "Pray aloud with your Chaplain") {
                 voiceMode = .depth
@@ -493,15 +536,65 @@ struct MorningFlowView: View {
 
     // MARK: - Navigation
 
+    private func chooseMorningPath(_ path: MorningPath) {
+        DevotionHaptics.medium()
+        committedPath = path
+        morningPath = path
+        profile.notePathChoice(path)
+        passage = SpiritualPassageCatalog.recommended(
+            mood: mood,
+            focusTags: tags,
+            excludingIDs: profile.recentlySeen
+        )
+        if path == .pray {
+            showGuidedPrayer = true
+        } else {
+            advance()
+        }
+    }
+
+    private func handleReflectionComplete() {
+        profile.notePathChoice(.reflect)
+        TodayFocusStore.save(tags.map(\.rawValue))
+        JourneyTimelineStore.shared.logMood(mood, tags: tags)
+        if !promptResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            JourneyTimelineStore.shared.add(JourneyTimelineEntry(
+                kind: .reflection,
+                title: "Morning reflection",
+                body: promptResponse
+            ))
+        }
+        showReflection = false
+        advance()
+    }
+
+    private func handleGuidedPrayerComplete() {
+        let beats = LiturgyWeaveBuilder.repeatablePrayerBeats(
+            prayer: morningGuidedPrayer,
+            context: liturgyContext
+        )
+        JourneyTimelineStore.shared.add(JourneyTimelineEntry(
+            kind: .reflection,
+            title: "Morning prayer",
+            body: beats.map(\.fullText).joined(separator: " ")
+        ))
+        advance()
+        showGuidedPrayer = false
+    }
+
     private func goBack() {
-        promptFocused = false
         withAnimation(AppTheme.springSnappy) {
+            if currentStep == .prompt {
+                showReflection = false
+            }
+            if currentStep == .reveal, committedPath == .pray {
+                committedPath = nil
+            }
             if stepIndex > 0 { stepIndex -= 1 }
         }
     }
 
     private func advance() {
-        promptFocused = false
         let nextIndex = stepIndex + 1
         guard nextIndex < steps.count else { return }
 
@@ -521,27 +614,15 @@ struct MorningFlowView: View {
         withAnimation(AppTheme.springSnappy) { stepIndex = nextIndex }
     }
 
-    private func advanceFromPrompt() {
-        TodayFocusStore.save(tags.map(\.rawValue))
-        JourneyTimelineStore.shared.logMood(mood, tags: tags)
-        advance()
-    }
-
     // MARK: - Voice handling
 
-    private func handleVoiceComplete(mode: VoiceMode, transcript: String) {
+    private func handleVoiceComplete(transcript: String) {
         let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         voiceMode = nil
-        switch mode {
-        case .prompt:
-            if !spoken.isEmpty { promptResponse = spoken }
-            advanceFromPrompt()
-        case .depth:
-            if !spoken.isEmpty {
-                gratitudeLine = gratitudeLine.isEmpty ? spoken : gratitudeLine
-            }
-            finalize()
+        if !spoken.isEmpty {
+            gratitudeLine = gratitudeLine.isEmpty ? spoken : gratitudeLine
         }
+        finalize()
     }
 
     // MARK: - Completion
@@ -610,7 +691,7 @@ struct MorningFlowView: View {
 
 // MARK: - Components
 
-private struct MorningTierRow: View {
+private struct MorningTierChip: View {
     @Environment(\.sanctuaryPalette) private var palette
     let tier: MorningTier
     let isSelected: Bool
@@ -618,37 +699,100 @@ private struct MorningTierRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            VStack(spacing: 4) {
                 Image(systemName: tier.icon)
+                    .font(ABY.Font.captionSemibold)
+                Text(tier.title)
+                    .font(ABY.Font.captionMedium)
+                Text(tier.minutesLabel)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(isSelected ? palette.buttonForeground.opacity(0.8) : palette.textTertiary)
+            }
+            .foregroundStyle(isSelected ? palette.buttonForeground : palette.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(isSelected ? palette.buttonFill : palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: ABY.Radius.card, style: .continuous)
+                    .stroke(isSelected ? Color.clear : palette.divider, lineWidth: 1)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+private struct MorningPathCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let path: MorningPath
+    var isRecommended: Bool = false
+    let action: () -> Void
+
+    private var title: String {
+        switch path {
+        case .pray: "Guided prayer"
+        case .reflect: "Journal reflection"
+        }
+    }
+
+    private var subtitle: String {
+        switch path {
+        case .pray: "Breath, orb, and words woven to your morning"
+        case .reflect: "Type or speak — saved with today's devotion"
+        }
+    }
+
+    private var icon: String {
+        switch path {
+        case .pray: "hands.sparkles"
+        case .reflect: "square.and.pencil"
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
                     .font(ABY.Font.iconMedium)
-                    .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
+                    .foregroundStyle(ABY.Color.pillTeal)
+                    .frame(width: 40, height: 40)
+                    .background(ABY.Color.pillTeal.opacity(0.12))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(tier.title)
+                        Text(title)
                             .font(ABY.Font.bodySemibold)
                             .foregroundStyle(palette.textPrimary)
-                        Text(tier.minutesLabel)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textTertiary)
+                        if isRecommended {
+                            Text("Usual")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(ABY.Color.pillTeal)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(ABY.Color.pillTeal.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
                     }
-                    Text(tier.subtitle)
+                    Text(subtitle)
                         .font(ABY.Font.caption)
                         .foregroundStyle(palette.textSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(palette.textPrimary)
-                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "arrow.right")
+                    .font(ABY.Font.footnoteSemibold)
+                    .foregroundStyle(palette.textTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(isSelected ? palette.surfaceElevated : palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
+            .padding(16)
+            .background(palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.card)
-                    .stroke(isSelected ? palette.textSecondary : palette.divider, lineWidth: isSelected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                    .stroke(isRecommended ? ABY.Color.pillTeal.opacity(0.35) : palette.divider, lineWidth: isRecommended ? 1.5 : 1)
             }
         }
         .buttonStyle(ScaleButtonStyle())

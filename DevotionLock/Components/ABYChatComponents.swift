@@ -1032,88 +1032,100 @@ struct ABYChatDisclaimer: View {
 struct ABYChatScreenHeader: View {
     @Environment(\.sanctuaryPalette) private var palette
     let voiceName: String
-    var threadTitle: String? = nil
     var onClose: () -> Void
     var onHistory: (() -> Void)? = nil
     var onSave: (() -> Void)? = nil
     var onClear: (() -> Void)? = nil
     var saveDisabled: Bool = false
-    var geminiStyle: Bool = false
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onClose) {
-                Image(systemName: geminiStyle ? "chevron.down" : "chevron.down")
+            chatHeaderIconButton("chevron.down", action: onClose)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 6) {
+                ABYChaplainAvatar(size: 24)
+                Text("Chaplain \(voiceName)")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.textPrimary)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 4) {
+                if let onHistory {
+                    chatHeaderIconButton("clock.arrow.circlepath", action: onHistory)
+                }
+                if let onSave {
+                    chatHeaderIconButton("square.and.arrow.down", action: onSave)
+                        .opacity(saveDisabled ? 0.35 : 1)
+                        .disabled(saveDisabled)
+                }
+                if let onClear {
+                    chatHeaderIconButton("arrow.counterclockwise", action: onClear)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Gemini thread chrome (Mobbin Google Gemini title bar)
+
+/// Centered conversation title, new chat, and overflow menu — [Gemini chat](https://mobbin.com/screens/8cb0be56-3634-46eb-bc04-7fd121164726).
+struct GeminiChatScreenHeader: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let title: String
+    let onClose: () -> Void
+    let onNewChat: () -> Void
+    let onShowHistory: () -> Void
+    var onDeleteConversation: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 2) {
+            chatHeaderIconButton("chevron.down", action: onClose)
+
+            Spacer(minLength: 8)
+
+            Text(title)
+                .font(ABY.Font.calloutSemibold)
+                .foregroundStyle(palette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 8)
+
+            chatHeaderIconButton("square.and.pencil", action: onNewChat)
+
+            Menu {
+                Button("Past conversations", action: onShowHistory)
+                if let onDeleteConversation {
+                    Divider()
+                    Button("Delete conversation", role: .destructive, action: onDeleteConversation)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
                     .font(ABY.Font.bodySemibold)
                     .foregroundStyle(palette.textSecondary)
                     .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-
-            Spacer(minLength: 0)
-
-            if geminiStyle {
-                if let threadTitle, !threadTitle.isEmpty {
-                    VStack(spacing: 2) {
-                        Text(threadTitle)
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textPrimary)
-                            .lineLimit(1)
-                        Text("Chaplain")
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textTertiary)
-                    }
-                } else {
-                    Text("Chaplain")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                }
-            } else {
-                HStack(spacing: 6) {
-                    ABYChaplainAvatar(size: 24)
-                    Text("Chaplain \(voiceName)")
-                        .font(ABY.Font.calloutSemibold)
-                        .foregroundStyle(palette.textPrimary)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            if geminiStyle {
-                if let onHistory {
-                    compactIconButton("clock.arrow.circlepath", action: onHistory)
-                } else {
-                    Color.clear.frame(width: 36, height: 36)
-                }
-            } else {
-                HStack(spacing: 4) {
-                    if let onHistory {
-                        compactIconButton("clock.arrow.circlepath", action: onHistory)
-                    }
-                    if let onSave {
-                        compactIconButton("square.and.arrow.down", action: onSave)
-                            .opacity(saveDisabled ? 0.35 : 1)
-                            .disabled(saveDisabled)
-                    }
-                    if let onClear {
-                        compactIconButton("arrow.counterclockwise", action: onClear)
-                    }
-                }
-            }
+            .accessibilityLabel("More options")
         }
     }
+}
 
-    private func compactIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(ABY.Font.footnoteMedium)
-                .foregroundStyle(palette.textSecondary)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
+@ViewBuilder
+private func chatHeaderIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        Image(systemName: icon)
+            .font(ABY.Font.bodySemibold)
+            .foregroundStyle(Color.primary.opacity(0.72))
+            .frame(width: 36, height: 36)
+            .contentShape(Rectangle())
     }
+    .buttonStyle(.borderless)
 }
 
 // MARK: - Chaplain hub (Mobbin ChatGPT / Copilot refs)
@@ -1317,6 +1329,28 @@ extension Conversation {
             return nil
         }
         return String(trimmedPreview.prefix(88))
+    }
+
+    /// Slim date line for resumed thread divider in chat.
+    var chaplainThreadDateLabel: String {
+        guard let date = recordedAt else { return timeAgo }
+        let day: String
+        if Calendar.current.isDateInToday(date) {
+            day = "Today"
+        } else if Calendar.current.isDateInYesterday(date) {
+            day = "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            day = formatter.string(from: date)
+        }
+        return "\(day) · \(timelineTime)"
+    }
+
+    static func truncatedChaplainTitle(_ text: String, limit: Int = 48) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 }
 

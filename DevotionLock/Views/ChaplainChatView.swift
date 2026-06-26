@@ -58,6 +58,10 @@ struct ChaplainChatView: View {
     @State private var readerPresentation: BibleReaderPresentation?
     @State private var threadContext: Conversation?
     @State private var isHydratingResume = false
+    @State private var dismissedResume = false
+    @State private var showDiscardDraftAlert = false
+    @State private var showStillReplyingAlert = false
+    @State private var showDeleteConversationAlert = false
     @FocusState private var inputFocused: Bool
     @State private var sessionRevealed = false
 
@@ -66,16 +70,30 @@ struct ChaplainChatView: View {
     }
 
     private var isResumedThread: Bool {
-        resumeConversationID != nil || threadContext != nil
+        !dismissedResume && (resumeConversationID != nil || threadContext != nil)
     }
 
     private var showSuggestions: Bool {
         messages.isEmpty && !isReplying && !isResumedThread && !isHydratingResume
     }
 
-    private var headerThreadTitle: String? {
-        guard isResumedThread else { return nil }
-        return threadContext?.chaplainHistoryTitle
+    private var headerTitle: String {
+        if let firstUser = messages.first(where: { $0.role == .user })?.text {
+            let trimmed = firstUser.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return Conversation.truncatedChaplainTitle(trimmed, limit: 48)
+            }
+        }
+        return "Chaplain"
+    }
+
+    private var canDeleteConversation: Bool {
+        conversationID != nil
+    }
+
+    private var resumedThreadDateLabel: String? {
+        guard isResumedThread, let threadContext else { return nil }
+        return threadContext.chaplainThreadDateLabel
     }
 
     private var hasActiveChaplainDraft: Bool {
@@ -106,8 +124,8 @@ struct ChaplainChatView: View {
 
                     if isHydratingResume {
                         EmptyView()
-                    } else if let threadContext, isResumedThread, !messages.isEmpty {
-                        ChaplainResumedThreadHeader(conversation: threadContext)
+                    } else if let resumedThreadDateLabel, isResumedThread, !messages.isEmpty {
+                        ChaplainThreadDateDivider(label: resumedThreadDateLabel)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
@@ -216,17 +234,40 @@ struct ChaplainChatView: View {
         }
         .onAppear(perform: beginSessionAppearance)
         .task(id: resumeConversationID) {
+            guard !dismissedResume else { return }
             await hydrateResumeConversationIfNeeded()
+        }
+        .alert("Still replying", isPresented: $showStillReplyingAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Wait for Chaplain to finish before starting a new conversation.")
+        }
+        .alert("Discard unsent message?", isPresented: $showDiscardDraftAlert) {
+            Button("Discard", role: .destructive) {
+                draft = ""
+                startNewChat()
+            }
+            Button("Keep writing", role: .cancel) {}
+        } message: {
+            Text("You have text in the composer that hasn't been sent yet.")
+        }
+        .alert("Delete conversation?", isPresented: $showDeleteConversationAlert) {
+            Button("Delete", role: .destructive) {
+                Task { await deleteCurrentConversation() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the conversation from your Chaplain history.")
         }
     }
 
     private var chatHeader: some View {
-        ABYChatScreenHeader(
-            voiceName: voice.name,
-            threadTitle: headerThreadTitle,
+        GeminiChatScreenHeader(
+            title: headerTitle,
             onClose: { dismiss() },
-            onHistory: { showChatHistory = true },
-            geminiStyle: true
+            onNewChat: requestNewChat,
+            onShowHistory: { showChatHistory = true },
+            onDeleteConversation: canDeleteConversation ? { showDeleteConversationAlert = true } : nil
         )
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 6)
@@ -302,6 +343,13 @@ struct ChaplainChatView: View {
         seeds
     }
 
+    private static func role(forTranscriptSpeaker speaker: String) -> ChaplainMessage.Role {
+        switch speaker.lowercased() {
+        case "you", "user": .user
+        default: .chaplain
+        }
+    }
+
     private func beginSessionAppearance() {
         beginSession()
         guard playsPortalEntrance else { return }
@@ -316,6 +364,7 @@ struct ChaplainChatView: View {
         isReplying = false
         draft = ""
         revealedMessageIDs = []
+        dismissedResume = false
         threadContext = resumedContext
 
         if resumeConversationID == nil {
@@ -349,6 +398,7 @@ struct ChaplainChatView: View {
 
     @MainActor
     private func hydrateResumeConversationIfNeeded() async {
+        guard !dismissedResume else { return }
         guard let resumeConversationID else { return }
 
         isHydratingResume = true
@@ -369,10 +419,11 @@ struct ChaplainChatView: View {
 
         threadContext = conversation
         conversationID = conversation.remoteID ?? conversation.id
-        messages = conversation.transcript.map {
+        messages = conversation.transcript.map { segment in
             ChaplainMessage(
-                role: $0.speaker == "You" ? .user : .chaplain,
-                text: $0.text
+                role: Self.role(forTranscriptSpeaker: segment.speaker),
+                text: segment.text,
+                sentAt: conversation.recordedAt
             )
         }
         if messages.isEmpty {
@@ -586,6 +637,44 @@ struct ChaplainChatView: View {
             return "bible_question"
         }
         return nil
+    }
+
+    private func requestNewChat() {
+        if isReplying {
+            showStillReplyingAlert = true
+            return
+        }
+        let trimmedDraft = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedDraft.isEmpty {
+            showDiscardDraftAlert = true
+            return
+        }
+        startNewChat()
+    }
+
+    @MainActor
+    private func startNewChat() {
+        dismissedResume = true
+        conversationID = nil
+        threadContext = nil
+        messages = Self.initialMessages(from: [])
+        draft = ""
+        errorMessage = nil
+        savedBanner = nil
+        revealedMessageIDs = []
+        isHydratingResume = false
+        isReplying = false
+        scriptureSearchLabel = nil
+        inputFocused = false
+        DevotionHaptics.light()
+    }
+
+    @MainActor
+    private func deleteCurrentConversation() async {
+        guard let conversationID else { return }
+        await ConversationRepository.shared.deleteConversation(id: conversationID)
+        startNewChat()
+        DevotionHaptics.success()
     }
 }
 

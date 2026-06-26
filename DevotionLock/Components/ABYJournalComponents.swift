@@ -604,12 +604,19 @@ struct ABYAssistedJournalHeader: View {
 }
 
 struct ABYAssistedJournalFinishButton: View {
+    let title: String
     let isEnabled: Bool
     let action: () -> Void
 
+    init(_ title: String = "Finish", isEnabled: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
-            Text("Finish")
+            Text(title)
                 .font(ABY.Font.calloutSemibold)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)

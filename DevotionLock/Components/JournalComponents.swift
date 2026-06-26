@@ -118,6 +118,21 @@ extension Conversation {
         return preview.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Single-block reflections the user can revise (guided entry, voice transcript).
+    @MainActor
+    var isEditableJournalEntry: Bool {
+        if ConversationMerger.isChaplainChat(self) { return false }
+        if transcript.contains(where: { segment in
+            let speaker = segment.speaker.lowercased()
+            return speaker != "you" && speaker != "user"
+        }) {
+            return false
+        }
+        guard !journalReadBody.isEmpty else { return false }
+        guard let local = JournalLocalStore.shared.entry(id: id) else { return false }
+        return local.kind == .assisted || local.kind == .voiceNote
+    }
+
     var journalReadDateLabel: String {
         guard let recordedAt else { return timelineDateLabel.uppercased() }
         return recordedAt

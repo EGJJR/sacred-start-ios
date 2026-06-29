@@ -12,6 +12,8 @@ enum SplashTiming {
 }
 
 struct AppLoadingView: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    @AppStorage(SanctuaryGradientMode.storageKey) private var sanctuaryModeRaw = SanctuaryGradientMode.light.rawValue
     @Binding var progress: CGFloat
     var isBrief = false
 
@@ -21,11 +23,49 @@ struct AppLoadingView: View {
     @State private var referenceRevealed = false
     @State private var fieldVisible = false
 
+    private var isEvening: Bool {
+        let mode = SanctuaryGradientMode(rawValue: sanctuaryModeRaw) ?? .light
+        return SanctuaryGradientMode.resolved(mode) == .night
+    }
+
+    private var progressFill: Color {
+        isEvening ? ABY.Color.starlight : Color(red: 0.42, green: 0.62, blue: 0.88)
+    }
+
     var body: some View {
         ZStack {
-            ZStack {
-                SanctuarySplashBackground()
+            splashBackdrop
+                .ignoresSafeArea()
 
+            VStack(spacing: 0) {
+                Spacer()
+
+                quoteBlock
+                    .frame(maxWidth: 340)
+
+                Spacer()
+
+                footerChrome
+                    .padding(.bottom, 48)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            splashBackdrop
+                .ignoresSafeArea()
+        }
+        .abyScreen()
+        .onAppear { runRevealAnimation() }
+    }
+
+    @ViewBuilder
+    private var splashBackdrop: some View {
+        ZStack {
+            SanctuarySplashBackground()
+
+            if isEvening {
+                eveningAccentGlow
+            } else {
                 SoftLightFieldView(intensity: fieldVisible ? 1 : 0.2)
                     .opacity(fieldVisible ? 1 : 0)
                     .blur(radius: fieldVisible ? 0 : 8)
@@ -41,74 +81,96 @@ struct AppLoadingView: View {
                     endRadius: 220
                 )
             }
-            .ignoresSafeArea()
+        }
+    }
 
-            VStack(spacing: 0) {
-                Spacer()
+    private var eveningAccentGlow: some View {
+        RadialGradient(
+            colors: [
+                ABY.Color.orbTeal.opacity(0.12),
+                ABY.Color.pillPurple.opacity(0.06),
+                Color.clear,
+            ],
+            center: .center,
+            startRadius: 40,
+            endRadius: 200
+        )
+        .blur(radius: 24)
+    }
 
-                VStack(spacing: 18) {
-                    Text("“")
-                        .font(ABY.Font.editorialLargeTitle)
-                        .foregroundStyle(ABY.Color.pillPurple.opacity(0.35))
-                        .opacity(quoteRevealed ? 1 : 0)
+    private var quoteBlock: some View {
+        VStack(spacing: 18) {
+            Text("“")
+                .font(ABY.Font.editorialLargeTitle)
+                .foregroundStyle(isEvening ? ABY.Color.starlight.opacity(0.7) : ABY.Color.pillPurple.opacity(0.35))
+                .opacity(quoteRevealed ? 1 : 0)
 
-                    Text(quote.text)
-                        .font(ABY.Font.editorialTitle)
-                        .foregroundStyle(ABY.Color.textPrimary.opacity(0.92))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(8)
-                        .padding(.horizontal, 28)
-                        .blurReveal(quoteRevealed)
+            Text(quote.text)
+                .font(ABY.Font.editorialTitle)
+                .foregroundStyle(isEvening ? Color.white.opacity(0.96) : palette.textPrimary.opacity(0.92))
+                .multilineTextAlignment(.center)
+                .lineSpacing(8)
+                .padding(.horizontal, 28)
+                .modifier(SplashTextReveal(isRevealed: quoteRevealed, isEvening: isEvening))
 
-                    Text("— \(quote.reference)")
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(ABY.Color.textSecondary)
-                        .blurReveal(referenceRevealed, blurRadius: 10, scale: 1.02)
-                }
-                .frame(maxWidth: 340)
+            Text("— \(quote.reference)")
+                .font(ABY.Font.callout)
+                .foregroundStyle(isEvening ? Color.white.opacity(0.72) : palette.textSecondary)
+                .modifier(SplashTextReveal(isRevealed: referenceRevealed, isEvening: isEvening, blurRadius: 6))
+        }
+    }
 
-                Spacer()
-
-                VStack(spacing: 14) {
+    private var footerChrome: some View {
+        VStack(spacing: 14) {
+            Capsule()
+                .fill(isEvening ? Color.white.opacity(0.14) : palette.track)
+                .frame(width: 120, height: 3)
+                .overlay(alignment: .leading) {
                     Capsule()
-                        .fill(Color.black.opacity(0.08))
-                        .frame(width: 120, height: 3)
-                        .overlay(alignment: .leading) {
-                            Capsule()
-                                .fill(Color(red: 0.42, green: 0.62, blue: 0.88))
-                                .frame(width: max(8, 120 * progress))
-                        }
-
-                    Text("Sacred Start")
-                        .font(ABY.Font.captionMedium)
-                        .foregroundStyle(ABY.Color.textTertiary)
-                        .opacity(referenceRevealed ? 0.8 : 0)
+                        .fill(progressFill)
+                        .frame(width: max(8, 120 * progress))
                 }
-                .padding(.bottom, 48)
-            }
+
+            Text("Sacred Start")
+                .font(ABY.Font.captionMedium)
+                .foregroundStyle(isEvening ? Color.white.opacity(0.55) : palette.textTertiary)
+                .opacity(referenceRevealed ? 1 : 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            SanctuarySplashBackground()
-                .ignoresSafeArea()
-        }
-        .abyScreen()
-        .onAppear { runRevealAnimation() }
     }
 
     private func runRevealAnimation() {
         let fieldDelay = isBrief ? 0 : 0.05
-        let quoteDelay = isBrief ? 0.08 : 0.35
-        let referenceDelay = isBrief ? 0.25 : 0.85
+        let quoteDelay = isBrief ? 0.08 : (isEvening ? 0.2 : 0.35)
+        let referenceDelay = isBrief ? 0.25 : (isEvening ? 0.55 : 0.85)
 
-        withAnimation(.easeOut(duration: isBrief ? 0.5 : 0.9).delay(fieldDelay)) {
-            fieldVisible = true
+        if !isEvening {
+            withAnimation(.easeOut(duration: isBrief ? 0.5 : 0.9).delay(fieldDelay)) {
+                fieldVisible = true
+            }
         }
-        withAnimation(.easeOut(duration: isBrief ? 0.7 : 1.25).delay(quoteDelay)) {
+        withAnimation(.easeOut(duration: isBrief ? 0.7 : (isEvening ? 0.9 : 1.25)).delay(quoteDelay)) {
             quoteRevealed = true
         }
-        withAnimation(.easeOut(duration: isBrief ? 0.5 : 0.8).delay(referenceDelay)) {
+        withAnimation(.easeOut(duration: isBrief ? 0.5 : (isEvening ? 0.65 : 0.8)).delay(referenceDelay)) {
             referenceRevealed = true
+        }
+    }
+}
+
+/// Evening splash uses a soft fade; light mode keeps the blur reveal.
+private struct SplashTextReveal: ViewModifier {
+    let isRevealed: Bool
+    var isEvening: Bool
+    var blurRadius: CGFloat = 12
+
+    func body(content: Content) -> some View {
+        if isEvening {
+            content
+                .opacity(isRevealed ? 1 : 0)
+                .offset(y: isRevealed ? 0 : 6)
+        } else {
+            content
+                .blurReveal(isRevealed, blurRadius: blurRadius, scale: 1.02)
         }
     }
 }
@@ -215,6 +277,7 @@ struct AppRootView: View {
 
 struct LoadingScreenPreviewView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.sanctuaryPalette) private var palette
 
     @State private var progress: CGFloat = 0
     @State private var replayToken = UUID()
@@ -231,7 +294,7 @@ struct LoadingScreenPreviewView: View {
                     } label: {
                         Text("Close")
                             .font(ABY.Font.callout)
-                            .foregroundStyle(ABY.Color.textPrimary)
+                            .foregroundStyle(palette.textPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(.ultraThinMaterial)
@@ -243,7 +306,7 @@ struct LoadingScreenPreviewView: View {
                     } label: {
                         Label("Replay", systemImage: "arrow.clockwise")
                             .font(ABY.Font.callout)
-                            .foregroundStyle(ABY.Color.textPrimary)
+                            .foregroundStyle(palette.textPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(.ultraThinMaterial)
@@ -262,6 +325,7 @@ struct LoadingScreenPreviewView: View {
                 .ignoresSafeArea()
         }
         .ignoresSafeArea()
+        .abyScreen()
         .task(id: replayToken) {
             await runPreviewAnimation()
         }
@@ -283,8 +347,16 @@ struct LoadingScreenPreviewView: View {
 
 #Preview("Launch") {
     AppLoadingView(progress: .constant(0.45))
+        .abyScreen()
 }
 
 #Preview("Brief") {
     AppLoadingView(progress: .constant(0.7), isBrief: true)
+        .abyScreen()
+}
+
+#Preview("Launch evening") {
+    AppLoadingView(progress: .constant(0.45))
+        .environment(\.sanctuaryPalette, .night)
+        .preferredColorScheme(.dark)
 }

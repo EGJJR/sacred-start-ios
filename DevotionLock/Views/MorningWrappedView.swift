@@ -219,7 +219,7 @@ struct MorningWrappedView: View {
             if currentPage < storyBeats.count - 1 {
                 Button("Skip for now", action: onDismiss)
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
             }
         }
     }

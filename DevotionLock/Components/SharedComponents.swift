@@ -116,6 +116,7 @@ struct FilterIconButton: View {
     }
 }
 
+/// Orbiting dots around a centered cross — the sacred mark on the dynamic orb.
 struct DotPatternIcon: View {
     var dotColor: Color = .black.opacity(0.75)
     var rotationDuration: Double = 20
@@ -140,21 +141,43 @@ struct DotPatternIcon: View {
 
     private func drawDots(in context: inout GraphicsContext, size: CGSize, rotation: Double) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let radius: CGFloat = 10
+        let canvasRadius = min(size.width, size.height) / 2
+        let orbitRadius = canvasRadius * 0.88
         let dotCount = 12
-        let dotRadius: CGFloat = 1.8
+        let dotRadius = canvasRadius * 0.075
         let rotationRadians = CGFloat(rotation * .pi / 180)
 
         for index in 0..<dotCount {
             let angle = (CGFloat(index) / CGFloat(dotCount)) * 2 * .pi - .pi / 2 + rotationRadians
-            let x = center.x + cos(angle) * radius
-            let y = center.y + sin(angle) * radius
+            let x = center.x + cos(angle) * orbitRadius
+            let y = center.y + sin(angle) * orbitRadius
             let rect = CGRect(x: x - dotRadius, y: y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)
             context.fill(Path(ellipseIn: rect), with: .color(dotColor))
         }
 
-        let innerRect = CGRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)
-        context.fill(Path(ellipseIn: innerRect), with: .color(dotColor))
+        drawCenterCross(in: &context, center: center, canvasRadius: canvasRadius)
+    }
+
+    private func drawCenterCross(in context: inout GraphicsContext, center: CGPoint, canvasRadius: CGFloat) {
+        let armHalfLength = canvasRadius * 0.26
+        let thickness = canvasRadius * 0.058
+        let corner = thickness / 2
+
+        let vertical = CGRect(
+            x: center.x - thickness / 2,
+            y: center.y - armHalfLength,
+            width: thickness,
+            height: armHalfLength * 2
+        )
+        let horizontal = CGRect(
+            x: center.x - armHalfLength,
+            y: center.y - thickness / 2,
+            width: armHalfLength * 2,
+            height: thickness
+        )
+
+        context.fill(Path(roundedRect: vertical, cornerRadius: corner), with: .color(dotColor))
+        context.fill(Path(roundedRect: horizontal, cornerRadius: corner), with: .color(dotColor))
     }
 }
 

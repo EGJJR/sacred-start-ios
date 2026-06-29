@@ -42,7 +42,6 @@ enum MainSheetPresentation: Identifiable {
     case journalEntryHub
     case dailyVerse
     case eveningReflection
-    case sacredOrbMenu
 
     var id: String {
         switch self {
@@ -58,8 +57,6 @@ enum MainSheetPresentation: Identifiable {
             "daily-verse"
         case .eveningReflection:
             "evening-reflection"
-        case .sacredOrbMenu:
-            "sacred-orb-menu"
         }
     }
 }
@@ -71,7 +68,7 @@ enum MainFullScreenPresentation: Identifiable {
     case voiceJournal
     case streakBorn
     case morningWrapped
-    case widgetOnboarding
+    // case widgetOnboarding
     case journeyTimeline
     case celebration(DevotionFinishResult)
     case milestone(MilestonePresentation)
@@ -90,8 +87,8 @@ enum MainFullScreenPresentation: Identifiable {
             "streak-born"
         case .morningWrapped:
             "morning-wrapped"
-        case .widgetOnboarding:
-            "widget-onboarding"
+        // case .widgetOnboarding:
+        //     "widget-onboarding"
         case .journeyTimeline:
             "journey-timeline"
         case .celebration(let result):

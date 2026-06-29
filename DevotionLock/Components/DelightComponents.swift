@@ -263,26 +263,58 @@ private struct SoftLightDot: Identifiable {
 }
 
 struct SanctuarySplashBackground: View {
+    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+
+    private var isNight: Bool {
+        let mode = SanctuaryGradientMode(rawValue: modeRaw) ?? .light
+        return SanctuaryGradientMode.resolved(mode) == .night
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.93, green: 0.90, blue: 0.97),
-                    Color(red: 0.95, green: 0.92, blue: 0.98),
-                    Color(red: 0.94, green: 0.91, blue: 0.97),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            RadialGradient(
-                colors: [
-                    ABY.Color.meshLilac.opacity(0.22),
-                    Color.clear,
-                ],
-                center: .center,
-                startRadius: 20,
-                endRadius: 300
-            )
+            if isNight {
+                ABYEveningReflectionBackground()
+
+                RadialGradient(
+                    colors: [
+                        ABY.Color.nightMeshIndigo.opacity(0.22),
+                        Color.clear,
+                    ],
+                    center: .topLeading,
+                    startRadius: 40,
+                    endRadius: 420
+                )
+
+                RadialGradient(
+                    colors: [
+                        ABY.Color.nightMeshPlum.opacity(0.16),
+                        Color.clear,
+                    ],
+                    center: .bottomTrailing,
+                    startRadius: 20,
+                    endRadius: 360
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.93, green: 0.90, blue: 0.97),
+                        Color(red: 0.95, green: 0.92, blue: 0.98),
+                        Color(red: 0.94, green: 0.91, blue: 0.97),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                RadialGradient(
+                    colors: [
+                        ABY.Color.meshLilac.opacity(0.22),
+                        Color.clear,
+                    ],
+                    center: .center,
+                    startRadius: 20,
+                    endRadius: 300
+                )
+            }
         }
     }
 }

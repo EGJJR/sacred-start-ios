@@ -153,6 +153,37 @@ final class JournalLocalStore {
         entries.map { $0.asConversation() }
     }
 
+    func entry(id: UUID) -> JournalLocalEntry? {
+        entries.first { $0.id == id }
+    }
+
+    @discardableResult
+    func updateEntry(id: UUID, body: String) -> JournalLocalEntry? {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return nil }
+        let existing = entries[index]
+        guard existing.kind == .assisted || existing.kind == .voiceNote else { return nil }
+
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let updated = JournalLocalEntry(
+            id: existing.id,
+            createdAt: existing.createdAt,
+            kind: existing.kind,
+            title: existing.title,
+            body: trimmed,
+            moodLabel: existing.moodLabel,
+            moodEmoji: existing.moodEmoji,
+            chatLines: nil,
+            conversationID: existing.conversationID
+        )
+        entries[index] = updated
+        persist()
+        JourneyTimelineStore.shared.updateEntryBody(id: id, body: trimmed)
+        NotificationCenter.default.post(name: .devotionRhythmDidUpdate, object: nil)
+        return updated
+    }
+
     @discardableResult
     func addAssistedEntry(
         body: String,

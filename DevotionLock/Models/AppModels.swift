@@ -23,14 +23,13 @@ enum AppTab: Int, CaseIterable, Identifiable {
         }
     }
 
-    /// Mobbin-informed tab icons — thin stroke inactive, filled active
-    /// Home: timeline/today (Alan Today, ABY Timeline)
+    /// Home: house (Iconly / standard tab chrome)
     /// Journal: open book (Liven Journey, ABY Journal)
     /// Chaplain: companion chat (Liven Companion)
     /// Profile: avatar circle (Alan profile slot)
     var icon: String {
         switch self {
-        case .home: "clock"
+        case .home: "house"
         case .conversations: "book.pages"
         case .insights: "ellipsis.bubble"
         case .profile: "person.crop.circle"
@@ -39,7 +38,7 @@ enum AppTab: Int, CaseIterable, Identifiable {
 
     var iconSelected: String {
         switch self {
-        case .home: "clock.fill"
+        case .home: "house.fill"
         case .conversations: "book.pages.fill"
         case .insights: "ellipsis.bubble.fill"
         case .profile: "person.crop.circle.fill"

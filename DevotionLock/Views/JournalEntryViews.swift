@@ -27,6 +27,7 @@ struct GuidedJournalEntryView: View {
     ]
     var showsShuffle: Bool = true
     var allowsEmptyFinish: Bool = false
+    var finishButtonTitle: String = "Finish"
     var onExpandWithAI: ((String) -> Void)? = nil
     var onSave: (String) -> Void
 
@@ -152,7 +153,7 @@ struct GuidedJournalEntryView: View {
 
             Spacer()
 
-            ABYAssistedJournalFinishButton(isEnabled: finishEnabled, action: save)
+            ABYAssistedJournalFinishButton(finishButtonTitle, isEnabled: finishEnabled, action: save)
         }
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 8)
@@ -337,6 +338,34 @@ struct JournalEntryHubSheet: View {
 }
 
 // MARK: - Guided entry (journal)
+
+/// Edit an existing single-block journal capture — same surface as create.
+struct EditJournalEntryView: View {
+    let conversation: Conversation
+    var onSaved: (Conversation) -> Void
+
+    @State private var text = ""
+
+    var body: some View {
+        GuidedJournalEntryView(
+            navigationTitle: "Edit entry",
+            seedPrompt: conversation.journalReadPrompt,
+            text: $text,
+            showsShuffle: false,
+            finishButtonTitle: "Save",
+            onSave: { saved in
+                if JournalLocalStore.shared.updateEntry(id: conversation.id, body: saved) != nil,
+                   let updated = JournalLocalStore.shared.entry(id: conversation.id)?.asConversation() {
+                    DevotionHaptics.success()
+                    onSaved(updated)
+                }
+            }
+        )
+        .onAppear {
+            text = conversation.journalReadBody
+        }
+    }
+}
 
 struct AssistedJournalView: View {
     @State private var text = ""

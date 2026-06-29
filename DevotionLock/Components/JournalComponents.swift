@@ -118,6 +118,21 @@ extension Conversation {
         return preview.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Single-block reflections the user can revise (guided entry, voice transcript).
+    @MainActor
+    var isEditableJournalEntry: Bool {
+        if ConversationMerger.isChaplainChat(self) { return false }
+        if transcript.contains(where: { segment in
+            let speaker = segment.speaker.lowercased()
+            return speaker != "you" && speaker != "user"
+        }) {
+            return false
+        }
+        guard !journalReadBody.isEmpty else { return false }
+        guard let local = JournalLocalStore.shared.entry(id: id) else { return false }
+        return local.kind == .assisted || local.kind == .voiceNote
+    }
+
     var journalReadDateLabel: String {
         guard let recordedAt else { return timelineDateLabel.uppercased() }
         return recordedAt
@@ -297,17 +312,7 @@ struct JournalFreeWritePromptCard: View {
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 6) {
-                    Text("Start writing")
-                        .font(ABY.Font.captionMedium)
-                    Image(systemName: "arrow.right")
-                        .font(ABY.Font.emojiSmall)
-                }
-                .foregroundStyle(palette.buttonForeground)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(palette.buttonFill)
-                .clipShape(Capsule())
+                SanctuaryInlinePill(title: "Start writing")
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -319,23 +324,23 @@ struct JournalFreeWritePromptCard: View {
             }
             .shadow(color: .black.opacity(palette.isNight ? 0.24 : 0.07), radius: 18, y: 6)
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private var freeWriteCardBackground: some View {
         ZStack {
-            palette.isNight ? palette.surface : Color.white
+            palette.cardFill
 
             RadialGradient(
-                colors: [ABY.Color.meshLilac.opacity(0.3), .clear],
+                colors: [ABY.Color.meshLilac.opacity(palette.isNight ? 0.22 : 0.3), .clear],
                 center: .topLeading,
                 startRadius: 0,
                 endRadius: 200
             )
 
             RadialGradient(
-                colors: [ABY.Color.pillPurple.opacity(0.14), .clear],
+                colors: [ABY.Color.pillPurple.opacity(palette.isNight ? 0.2 : 0.14), .clear],
                 center: .topTrailing,
                 startRadius: 0,
                 endRadius: 160
@@ -380,7 +385,7 @@ struct JournalEntryHub: View {
             }
         }
         .padding(ABY.Spacing.card)
-        .background(palette.surface)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge + 4, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: ABY.Radius.cardLarge + 4, style: .continuous)
@@ -496,17 +501,7 @@ struct JournalPromptCard: View {
                     .lineSpacing(4)
                     .multilineTextAlignment(.leading)
 
-                HStack(spacing: 6) {
-                    Text("Start today's entry")
-                        .font(ABY.Font.captionMedium)
-                    Image(systemName: "arrow.right")
-                        .font(ABY.Font.emojiSmall)
-                }
-                .foregroundStyle(palette.buttonForeground)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(palette.buttonFill)
-                .clipShape(Capsule())
+                SanctuaryInlinePill(title: "Start today's entry")
             }
             .padding(ABY.Spacing.card)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -534,7 +529,7 @@ struct JournalPromptCard: View {
             }
             .shadow(color: .black.opacity(palette.isNight ? 0.2 : 0.05), radius: 12, y: 4)
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(.plain)
     }
 }
 
@@ -731,6 +726,7 @@ struct JournalTagChip: View {
 struct JournalEntryReadCard: View {
     @Environment(\.sanctuaryPalette) private var palette
     let conversation: Conversation
+    var onEdit: (() -> Void)? = nil
 
     private let cornerRadius: CGFloat = 24
 
@@ -786,6 +782,28 @@ struct JournalEntryReadCard: View {
                 .foregroundStyle(palette.textPrimary)
                 .lineSpacing(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let onEdit {
+                Button(action: onEdit) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "pencil.line")
+                            .font(ABY.Font.calloutMedium)
+                        Text("Edit reflection")
+                            .font(ABY.Font.calloutSemibold)
+                    }
+                    .foregroundStyle(ABY.Color.pillPurple)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(ABY.Color.pillPurple.opacity(palette.isNight ? 0.16 : 0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(ABY.Color.pillPurple.opacity(0.22), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .padding(.top, 4)
+            }
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -801,7 +819,7 @@ struct JournalEntryReadCard: View {
     @ViewBuilder
     private var readCardBackground: some View {
         ZStack {
-            palette.isNight ? palette.surface : Color.white
+            palette.cardFill
 
             RadialGradient(
                 colors: [conversation.journalAccent.opacity(0.1), .clear],
@@ -857,9 +875,13 @@ struct JournalComposerBar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 20)
-                .background(Color.white)
+                .background(palette.cardFill)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.07), radius: 14, y: 4)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 14, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
     }
@@ -1340,9 +1362,9 @@ struct JournalDayInsightCard: View {
         }
         .padding(ABY.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.isNight ? palette.surface : Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(palette.isNight ? 0.22 : 0.06), radius: 14, y: 5)
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 14, y: 5)
     }
 }
 
@@ -1472,7 +1494,7 @@ struct JournalPromptsPanel: View {
 
             Text("More coming soon…")
                 .font(ABY.Font.caption)
-                .foregroundStyle(palette.textTertiary)
+                .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 4)
         }

@@ -259,7 +259,7 @@ struct SacredOrbShell: View {
     }
 }
 
-/// Constant sacred mark — state is expressed through motion and the orb shell, not swapped icons.
+/// Constant sacred mark — cross at center, orbiting dots, shell carries state through motion.
 struct SacredOrbMark: View {
     let visualStyle: SacredOrbVisualStyle
     var showsNudge: Bool = false
@@ -299,7 +299,7 @@ struct SacredOrbMark: View {
                 dotColor: .white.opacity(dotOpacity),
                 rotationDuration: rotationDuration
             )
-            .frame(width: 22 * scale, height: 22 * scale)
+            .frame(width: 28 * scale, height: 28 * scale)
 
             if showsNudge {
                 Circle()

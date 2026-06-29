@@ -11,7 +11,7 @@ import SwiftUI
 enum ProfileDestination: Hashable {
     case reminders
     case notifications
-    case widgets
+    // case widgets
     case voice
     case shield
     case appearance
@@ -38,6 +38,7 @@ private enum AccountFlowSheet: Identifiable {
 }
 
 struct ProfileView: View {
+    @AppStorage(SanctuaryGradientMode.storageKey) private var sanctuaryModeRaw = SanctuaryGradientMode.light.rawValue
     private var auth = AuthManager.shared
     @Environment(\.sanctuaryPalette) private var palette
     @Environment(\.presentDevotionPaywall) private var presentPaywall
@@ -45,7 +46,6 @@ struct ProfileView: View {
     @Environment(\.streakManager) private var streakManager
 
     @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
-    @AppStorage("intentionMood") private var intentionMood = "Peaceful"
     @AppStorage("morningReminderEnabled") private var morningReminder = true
     @AppStorage("shieldEnabled") private var shieldEnabled = true
     #if DEBUG
@@ -55,7 +55,6 @@ struct ProfileView: View {
 
     @State private var path = NavigationPath()
     @State private var appeared = false
-    @State private var showMoodPicker = false
     private let inAppKit = InAppKit.shared
 
     @State private var accountSheet: AccountFlowSheet?
@@ -65,6 +64,11 @@ struct ProfileView: View {
 
     private var voiceName: String {
         ChaplainVoice.options.first { $0.id == selectedVoiceID }?.name ?? "Grace"
+    }
+
+    private var sanctuaryModeLabel: String {
+        let mode = SanctuaryGradientMode(rawValue: sanctuaryModeRaw) ?? .light
+        return SanctuaryGradientMode.resolved(mode).label
     }
 
     var body: some View {
@@ -126,6 +130,7 @@ struct ProfileView: View {
                         ) {
                             path.append(ProfileDestination.notifications)
                         }
+                        /*
                         ABYSettingsDivider()
                         ABYSettingsRow(
                             icon: "square.grid.2x2.fill",
@@ -135,6 +140,7 @@ struct ProfileView: View {
                         ) {
                             path.append(ProfileDestination.widgets)
                         }
+                        */
                     }
 
                     settingsSection("Experience") {
@@ -148,12 +154,12 @@ struct ProfileView: View {
                         }
                         ABYSettingsDivider()
                         ABYSettingsRow(
-                            icon: "leaf.fill",
-                            title: "Default mood",
-                            detail: "Morning check-in",
-                            value: intentionMood
+                            icon: "moon.stars.fill",
+                            title: "Appearance",
+                            detail: "Light or evening sanctuary",
+                            value: sanctuaryModeLabel
                         ) {
-                            showMoodPicker = true
+                            path.append(ProfileDestination.appearance)
                         }
                         ABYSettingsDivider()
                         ABYSettingsRow(
@@ -222,9 +228,9 @@ struct ProfileView: View {
                 switch destination {
                 case .reminders: RemindersSettingsView()
                 case .notifications: NotificationSettingsView()
-                case .widgets: WidgetSettingsView()
+                // case .widgets: WidgetSettingsView()
                 case .voice: VoiceSettingsView()
-                case .appearance: EmptyView()
+                case .appearance: SanctuaryAppearanceSettingsView()
                 case .shield: ShieldSettingsView()
                 case .search: SearchView(showsHeader: false)
                 case .about: AboutView()
@@ -237,17 +243,6 @@ struct ProfileView: View {
         }
         .background(Color.clear)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .confirmationDialog("Default mood", isPresented: $showMoodPicker, titleVisibility: .visible) {
-            ForEach(MoodCatalog.options, id: \.label) { mood in
-                Button(mood.label) {
-                    intentionMood = mood.label
-                    Task { await UserPreferencesSync.shared.pushPreferences(intentionMood: mood.label) }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Used when you begin a morning devotion.")
-        }
         .sheet(item: $accountSheet) { sheet in
             switch sheet {
             case .signOut:

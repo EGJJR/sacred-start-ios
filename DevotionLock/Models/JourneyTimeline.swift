@@ -107,6 +107,28 @@ final class JourneyTimelineStore {
         JourneyEntryRepository.shared.enqueue(entry)
     }
 
+    func updateEntryBody(id: UUID, body: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let existing = entries[index]
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let updated = JourneyTimelineEntry(
+            id: existing.id,
+            createdAt: existing.createdAt,
+            kind: existing.kind,
+            title: existing.title,
+            body: trimmed,
+            moodEmoji: existing.moodEmoji,
+            focusTags: existing.focusTags,
+            verseReference: existing.verseReference
+        )
+        entries[index] = updated
+        revision += 1
+        persist()
+        JourneyEntryRepository.shared.enqueue(updated)
+    }
+
     func logMood(_ mood: String, tags: [FocusTag]) {
         add(JourneyTimelineEntry(
             kind: .mood,

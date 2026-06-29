@@ -74,14 +74,21 @@ enum ABY {
         static let gradientMid = sanctuaryGradientMid
         static let gradientBottom = sanctuaryGradientBottom
 
-        // Night sanctuary — Headspace midnight navy → Calm indigo/violet (Mobbin ref)
-        // Top ~#0A0D21, mid ~#141838, bottom ~#1E1648
-        static let nightGradientTop = SwiftUI.Color(red: 0.039, green: 0.051, blue: 0.129)
-        static let nightGradientMid = SwiftUI.Color(red: 0.078, green: 0.094, blue: 0.220)
-        static let nightGradientBottom = SwiftUI.Color(red: 0.118, green: 0.086, blue: 0.282)
-        static let nightMeshIndigo = SwiftUI.Color(red: 0.165, green: 0.149, blue: 0.376)
-        static let nightMeshPlum = SwiftUI.Color(red: 0.243, green: 0.169, blue: 0.522)
-        static let nightMeshViolet = SwiftUI.Color(red: 0.290, green: 0.278, blue: 0.639)
+        // Night sanctuary — Evening reflection twilight (Mobbin ABY / Close the day)
+        /// Warm champagne off-white — primary CTA on evening sanctuary (Apple Starlight).
+        static let starlight = SwiftUI.Color(red: 0.958, green: 0.938, blue: 0.902)
+
+        static let eveningReflectionTop = SwiftUI.Color(red: 0.10, green: 0.09, blue: 0.18)
+        static let eveningReflectionMid = SwiftUI.Color(red: 0.14, green: 0.12, blue: 0.24)
+        static let eveningReflectionBottom = SwiftUI.Color(red: 0.08, green: 0.10, blue: 0.16)
+        /// Opaque elevated surface — cards & composer on evening tabs (not alpha-stacked on safe area).
+        static let eveningSurfaceElevated = SwiftUI.Color(red: 0.22, green: 0.20, blue: 0.32)
+        static let nightGradientTop = eveningReflectionTop
+        static let nightGradientMid = eveningReflectionMid
+        static let nightGradientBottom = eveningReflectionBottom
+        static let nightMeshIndigo = SwiftUI.Color(red: 0.14, green: 0.12, blue: 0.30)
+        static let nightMeshPlum = SwiftUI.Color(red: 0.22, green: 0.14, blue: 0.36)
+        static let nightMeshViolet = SwiftUI.Color(red: 0.18, green: 0.14, blue: 0.32)
 
         static let onboardingText = SwiftUI.Color.white
         static let onboardingTextSecondary = SwiftUI.Color.white.opacity(0.78)
@@ -144,7 +151,7 @@ enum ABY {
         /// Pic-a-Book PLUS–style paywall typography.
         static var paywallBrand: SwiftUI.Font { AppFont.serif(size: 24) }
         static var paywallBadge: SwiftUI.Font { AppFont.font(size: 11, weight: .bold) }
-        static var paywallHeadline: SwiftUI.Font { AppFont.font(size: 28, weight: .bold) }
+        static var paywallHeadline: SwiftUI.Font { AppFont.font(size: 26, weight: .bold) }
         static var paywallFeature: SwiftUI.Font { AppFont.font(size: 16, weight: .medium) }
         static var paywallPlanLabel: SwiftUI.Font { AppFont.font(size: 13, weight: .regular) }
         static var paywallPrice: SwiftUI.Font { AppFont.font(size: 22, weight: .bold) }
@@ -561,9 +568,9 @@ typealias ABYLightBackground = ABYBackground
 
 // MARK: - Night sanctuary feature flag
 
-/// Night sanctuary gradient / dark-mode UI — disabled for now.
+/// Night sanctuary gradient / evening reflection dark UI.
 enum SanctuaryAppearance {
-    static let nightGradientEnabled = false
+    static let nightGradientEnabled = true
 }
 
 enum SanctuaryGradientMode: String, CaseIterable, Identifiable {
@@ -577,14 +584,14 @@ enum SanctuaryGradientMode: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .light: "Light sanctuary"
-        case .night: "Night sanctuary"
+        case .night: "Evening sanctuary"
         }
     }
 
     var subtitle: String {
         switch self {
         case .light: "Soft lavender, pink & sky blue mist"
-        case .night: "Midnight navy with indigo & violet glow"
+        case .night: "Twilight plum & indigo — like Close the day"
         }
     }
 
@@ -669,26 +676,26 @@ struct SanctuaryPalette: Equatable {
         cardShadowOpacity: 0.04
     )
 
-    /// Headspace Sleep dark — navy cards (#1A1C3D), white/lavender text, dark nav bar.
+    /// Evening reflection — frosted cards on twilight plum (Mobbin ABY).
     static let night = SanctuaryPalette(
-        textPrimary: Color(red: 0.941, green: 0.941, blue: 0.973),
-        textSecondary: Color(red: 0.690, green: 0.702, blue: 0.839),
-        textTertiary: Color(red: 0.541, green: 0.600, blue: 0.788),
-        surface: Color(red: 0.102, green: 0.110, blue: 0.239),
-        surfaceMuted: Color(red: 0.129, green: 0.145, blue: 0.302),
-        surfaceElevated: Color(red: 0.149, green: 0.169, blue: 0.302),
-        background: Color(red: 0.082, green: 0.094, blue: 0.176),
-        divider: Color.white.opacity(0.08),
+        textPrimary: Color.white.opacity(0.94),
+        textSecondary: Color.white.opacity(0.72),
+        textTertiary: Color.white.opacity(0.45),
+        surface: Color.white.opacity(0.10),
+        surfaceMuted: Color.white.opacity(0.07),
+        surfaceElevated: Color.white.opacity(0.14),
+        background: ABY.Color.eveningReflectionTop,
+        divider: Color.white.opacity(0.10),
         track: Color.white.opacity(0.12),
         trackFill: Color.white,
-        buttonFill: Color.white,
-        buttonForeground: Color(red: 0.039, green: 0.051, blue: 0.129),
-        navBarFill: Color(red: 0.059, green: 0.067, blue: 0.157).opacity(0.94),
-        navBarStrokeTop: Color.white.opacity(0.14),
-        navBarStrokeBottom: Color.white.opacity(0.06),
+        buttonFill: ABY.Color.starlight,
+        buttonForeground: ABY.Color.eveningReflectionTop,
+        navBarFill: Color.white.opacity(0.10),
+        navBarStrokeTop: Color.white.opacity(0.18),
+        navBarStrokeBottom: Color.white.opacity(0.08),
         glassFill: Color.white.opacity(0.08),
-        glassStroke: Color.white.opacity(0.12),
-        cardShadowOpacity: 0.28
+        glassStroke: Color.white.opacity(0.14),
+        cardShadowOpacity: 0.22
     )
 
     static func forMode(_ mode: SanctuaryGradientMode) -> SanctuaryPalette {
@@ -696,6 +703,12 @@ struct SanctuaryPalette: Equatable {
     }
 
     var isNight: Bool { self == .night }
+
+    /// Grouped list / explore card — white in light, opaque plum in night.
+    var cardFill: Color { isNight ? ABY.Color.eveningSurfaceElevated : .white }
+
+    /// Floating composer pills and compact banners.
+    var composerFill: Color { isNight ? ABY.Color.eveningSurfaceElevated : Color.white.opacity(0.96) }
 }
 
 private struct SanctuaryPaletteKey: EnvironmentKey {
@@ -752,14 +765,21 @@ struct ABYFlatTabWashBackground: View {
     }
 
     private var nightWash: some View {
+        ABYEveningReflectionBackground()
+    }
+}
+
+/// Shared twilight gradient — Evening reflection sheet & night sanctuary mode.
+struct ABYEveningReflectionBackground: View {
+    var body: some View {
         LinearGradient(
             colors: [
-                ABY.Color.nightGradientTop,
-                ABY.Color.nightGradientTop.opacity(0.96),
-                ABY.Color.nightGradientMid.opacity(0.92),
+                ABY.Color.eveningReflectionTop,
+                ABY.Color.eveningReflectionMid,
+                ABY.Color.eveningReflectionBottom,
             ],
-            startPoint: .top,
-            endPoint: .bottom
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 }
@@ -838,23 +858,13 @@ struct ABYNightSanctuaryBackground: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: ABY.Color.nightGradientTop, location: 0),
-                    .init(color: ABY.Color.nightGradientMid, location: 0.48),
-                    .init(color: ABY.Color.nightGradientBottom, location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            ABYEveningReflectionBackground()
 
-            // Headspace-style soft indigo/plum mesh glow
-            nightBlob(ABY.Color.nightMeshIndigo, size: 340, blur: 90, x: -100, y: -200)
-            nightBlob(ABY.Color.nightMeshPlum, size: 300, blur: 80, x: 120, y: -30)
-            nightBlob(ABY.Color.nightMeshViolet, size: 260, blur: 75, x: -80, y: 280)
-            nightBlob(ABY.Color.nightMeshIndigo.opacity(0.85), size: 280, blur: 70, x: 140, y: 420)
+            // Soft plum glow — pillowtalk / ABY evening refs
+            nightBlob(ABY.Color.nightMeshPlum, size: 320, blur: 88, x: -90, y: -160)
+            nightBlob(ABY.Color.nightMeshIndigo, size: 280, blur: 78, x: 110, y: 40)
+            nightBlob(ABY.Color.nightMeshViolet, size: 240, blur: 72, x: -60, y: 300)
 
-            // Calm-style subtle star field
             GeometryReader { geo in
                 ForEach(Array(Self.starField.enumerated()), id: \.offset) { _, star in
                     Circle()
@@ -957,7 +967,7 @@ struct ABYCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(palette.surface)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
     }
@@ -1210,23 +1220,61 @@ extension EnvironmentValues {
 }
 
 struct ABYLightOnboardingPrimaryButton: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
     let title: String
     var isEnabled = true
     let action: () -> Void
+
+    private var fill: Color {
+        palette.buttonFill.opacity(isEnabled ? 1 : 0.45)
+    }
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(ABY.Font.button)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.buttonForeground.opacity(isEnabled ? 1 : 0.55))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color.black.opacity(isEnabled ? 1 : 0.45))
+                .background(fill)
                 .clipShape(Capsule())
-                .shadow(color: .black.opacity(isEnabled ? 0.08 : 0), radius: 12, y: 4)
+                .shadow(
+                    color: .black.opacity(isEnabled ? (palette.isNight ? 0.28 : 0.08) : 0),
+                    radius: palette.isNight ? 20 : 12,
+                    y: palette.isNight ? 8 : 4
+                )
         }
         .buttonStyle(ScaleButtonStyle())
         .disabled(!isEnabled)
+    }
+}
+
+/// Compact filled pill inside cards — e.g. "Start writing →" on the Prompts tab.
+struct SanctuaryInlinePill: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    let title: String
+    var showsArrow: Bool = true
+
+    private var labelColor: Color {
+        palette.isNight ? ABY.Color.eveningReflectionTop : .white
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(ABY.Font.captionMedium)
+            if showsArrow {
+                Image(systemName: "arrow.right")
+                    .font(ABY.Font.emojiSmall)
+            }
+        }
+        .foregroundStyle(labelColor)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(palette.buttonFill)
+        .clipShape(Capsule())
     }
 }
 

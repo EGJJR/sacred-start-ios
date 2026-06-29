@@ -9,6 +9,7 @@ import SwiftUI
 
 struct StreakScreenView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.sanctuaryPalette) private var palette
     var streakManager: StreakManager
 
     @State private var displayedMonth = Date()
@@ -78,7 +79,7 @@ struct StreakScreenView: View {
                             Text("Your mood for today will be available after midnight")
                         }
                         .font(ABY.Font.caption)
-                        .foregroundStyle(ABY.Color.textTertiary)
+                        .foregroundStyle(palette.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 24)
@@ -88,7 +89,8 @@ struct StreakScreenView: View {
                 }
             }
         }
-        .preferredColorScheme(.light)
+        .abyScreen()
+        .preferredColorScheme(palette.isNight ? .dark : .light)
         .onAppear {
             withAnimation(AppTheme.springGentle.delay(0.08)) { appeared = true }
         }

@@ -76,7 +76,7 @@ struct ChaplainChatHistoryView: View {
                                         }
                                         .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                                         .listRowSeparator(.visible, edges: .bottom)
-                                        .listRowBackground(Color.white)
+                                        .listRowBackground(palette.cardFill)
                                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                             Button(role: .destructive) {
                                                 requestDelete(conversation)
@@ -106,12 +106,12 @@ struct ChaplainChatHistoryView: View {
                         .padding(.top, 4)
                         .background {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Color.white)
+                                .fill(palette.cardFill)
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                                         .stroke(palette.divider.opacity(0.45), lineWidth: 1)
                                 }
-                                .shadow(color: .black.opacity(0.03), radius: 10, y: 3)
+                                .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 10, y: 3)
                                 .padding(.horizontal, ABY.Spacing.screen)
                         }
                     }
@@ -171,8 +171,8 @@ struct ChaplainChatHistoryView: View {
                     .padding(.vertical, 10)
                     .background {
                         Capsule()
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+                            .fill(palette.cardFill)
+                            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 14, y: 6)
                     }
                     .padding(.bottom, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -194,6 +194,7 @@ struct ChaplainChatHistoryView: View {
             TextField("Search chats", text: $searchText)
                 .font(ABY.Font.callout)
                 .foregroundStyle(palette.textPrimary)
+                .tint(palette.textPrimary)
                 .focused($searchFocused)
                 .submitLabel(.search)
 
@@ -212,12 +213,13 @@ struct ChaplainChatHistoryView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.96))
+        .background(palette.composerFill)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(palette.divider.opacity(0.5), lineWidth: 1)
         }
+        .colorScheme(palette.isNight ? .dark : .light)
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 6)
         .padding(.bottom, 10)
@@ -251,7 +253,7 @@ struct ChaplainChatHistoryView: View {
         }
         .padding(ABY.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -310,7 +312,7 @@ private struct ChaplainChatHistoryRow: View {
                     if let subtitle = conversation.chaplainHistorySubtitle {
                         Text(subtitle)
                             .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textTertiary)
+                            .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
                             .lineLimit(1)
                     }
                 }

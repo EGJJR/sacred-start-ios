@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
             if (assistantMessage.content) {
               emit({ type: "token", text: assistantMessage.content });
               if (!ephemeral && convId) {
-                await persistChaplainMessage(supabase, convId, assistantMessage.content);
+                await persistChaplainMessage(supabase, user.id, convId, assistantMessage.content);
               }
             }
             emit({ type: "done" });
@@ -287,7 +287,7 @@ Deno.serve(async (req: Request) => {
         }
 
         if (fullResponse.trim() && !ephemeral && convId) {
-          await persistChaplainMessage(supabase, convId, fullResponse.trim());
+          await persistChaplainMessage(supabase, user.id, convId, fullResponse.trim());
         }
 
         emit({ type: "done" });
@@ -313,14 +313,20 @@ Deno.serve(async (req: Request) => {
 
 async function persistChaplainMessage(
   supabase: ReturnType<typeof createClient>,
+  userId: string,
   convId: string,
   content: string,
 ) {
-  await supabase.from("messages").insert({
+  const { error: insertError } = await supabase.from("messages").insert({
     conversation_id: convId,
+    user_id: userId,
     role: "chaplain",
     content,
   });
+  if (insertError) {
+    console.error("persistChaplainMessage failed:", insertError.message);
+    return;
+  }
   await supabase.from("conversations").update({
     updated_at: new Date().toISOString(),
   }).eq("id", convId);

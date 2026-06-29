@@ -16,16 +16,16 @@ enum OnboardingStep: Int, CaseIterable {
     case notifications
     case recap
 
-    static let progressStepCount = 5
+    static let progressStepCount = 4
 
     var progressIndex: Int? {
         switch self {
         case .entry: nil
         case .goal: 0
-        case .intention: 1
-        case .voice: 2
-        case .notifications: 3
-        case .recap: 4
+        case .intention: nil
+        case .voice: 1
+        case .notifications: 2
+        case .recap: 3
         }
     }
 
@@ -39,7 +39,6 @@ struct OnboardingFlowView: View {
     @State private var auth = AuthManager.shared
     @State private var step: OnboardingStep
     @State private var selectedGoal: String? = "Morning devotion"
-    @State private var selectedMood: String? = "Peaceful"
     @State private var intentionNote = ""
     @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
     @State private var stepRevealed = false
@@ -55,14 +54,6 @@ struct OnboardingFlowView: View {
         ("Less phone distraction", "Protect your mornings before the scroll.", "lock.shield.fill"),
         ("Prayer & reflection", "Journal and talk with your AI Chaplain.", "hands.sparkles.fill"),
         ("Spiritual growth", "Build a steady rhythm in the Word.", "leaf.fill"),
-    ]
-
-    private let moods: [(String, String)] = [
-        ("Peaceful", "leaf.fill"),
-        ("Overwhelmed", "cloud.rain.fill"),
-        ("Grateful", "heart.fill"),
-        ("Restless", "wind"),
-        ("Hopeful", "sun.horizon.fill"),
     ]
 
     init(initialStep: OnboardingStep = .entry, onComplete: @escaping () -> Void) {
@@ -155,7 +146,7 @@ struct OnboardingFlowView: View {
         case .goal:
             goalContent
         case .intention:
-            intentionContent
+            EmptyView()
         case .voice:
             voiceContent
         case .notifications:
@@ -163,7 +154,6 @@ struct OnboardingFlowView: View {
         case .recap:
             SacredStartRecapView(
                 goal: selectedGoal ?? "morning devotion",
-                mood: selectedMood ?? "Peaceful",
                 voiceName: selectedVoiceName,
                 weeklyCommitment: $weeklyCommitment,
                 beat: $recapBeat,
@@ -199,6 +189,7 @@ struct OnboardingFlowView: View {
         }
     }
 
+    /*
     private var intentionContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             OnboardingHeadline(
@@ -228,6 +219,7 @@ struct OnboardingFlowView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
+    */
 
     private var voiceContent: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -292,7 +284,7 @@ struct OnboardingFlowView: View {
                     .font(ABY.Font.footnoteMedium)
                     .foregroundStyle(ABY.Color.textTertiary)
             }
-        case .goal, .intention, .voice:
+        case .goal, .voice:
             OnboardingPoolPrimaryButton(title: ctaTitle, isEnabled: canAdvance, action: advance)
         default:
             EmptyView()
@@ -302,7 +294,6 @@ struct OnboardingFlowView: View {
     private var canAdvance: Bool {
         switch step {
         case .goal: selectedGoal != nil
-        case .intention: selectedMood != nil
         default: true
         }
     }
@@ -343,9 +334,6 @@ struct OnboardingFlowView: View {
     }
 
     private func finishOnboarding() {
-        if let mood = selectedMood {
-            UserDefaults.standard.set(mood, forKey: "intentionMood")
-        }
         if let goal = selectedGoal {
             UserDefaults.standard.set(goal, forKey: "onboardingGoal")
         }
@@ -357,8 +345,7 @@ struct OnboardingFlowView: View {
         }
         Task {
             await UserPreferencesSync.shared.pushPreferences(
-                chaplainVoiceID: selectedVoiceID,
-                intentionMood: selectedMood ?? "Peaceful"
+                chaplainVoiceID: selectedVoiceID
             )
         }
 
@@ -378,7 +365,7 @@ struct OnboardingFlowView: View {
         OnboardingStepTransition.animateChange(revealed: $stepRevealed) {
             if step == .goal {
                 step = .entry
-            } else if let prev = OnboardingStep(rawValue: step.rawValue - 1) {
+            } else if let prev = previousStep(before: step) {
                 step = prev
             }
             if step != .recap { recapBeat = 0 }
@@ -387,9 +374,31 @@ struct OnboardingFlowView: View {
 
     private func advance() {
         OnboardingStepTransition.animateChange(revealed: $stepRevealed) {
-            if let next = OnboardingStep(rawValue: step.rawValue + 1) {
+            if let next = nextStep(after: step) {
                 step = next
             }
+        }
+    }
+
+    private func nextStep(after step: OnboardingStep) -> OnboardingStep? {
+        switch step {
+        case .entry: .goal
+        case .goal: .voice
+        case .intention: .voice
+        case .voice: .notifications
+        case .notifications: .recap
+        case .recap: nil
+        }
+    }
+
+    private func previousStep(before step: OnboardingStep) -> OnboardingStep? {
+        switch step {
+        case .entry: nil
+        case .goal: .entry
+        case .intention: .goal
+        case .voice: .goal
+        case .notifications: .voice
+        case .recap: .notifications
         }
     }
 }

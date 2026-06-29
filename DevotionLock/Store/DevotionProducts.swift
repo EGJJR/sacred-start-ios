@@ -119,6 +119,12 @@ enum PaywallAccess {
     /// Reconcile StoreKit entitlements on launch / foreground.
     @MainActor
     static func syncFromStoreKit() async {
+        #if DEBUG
+        // Skip automatic sandbox restore on launch (avoids the Apple ID prompt every open).
+        // Enable Paywall Bypass in Profile, or use Restore on the paywall, to test subscriptions.
+        return
+        #endif
+
         await InAppKit.shared.restorePurchases()
         if InAppKit.shared.hasAnyPurchase {
             markPurchaseSucceeded()

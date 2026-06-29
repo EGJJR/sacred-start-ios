@@ -25,6 +25,7 @@ struct AIInsightsView: View {
     @Environment(\.openChaplainChatWithPortal) private var openChaplainChatWithPortal
     @Environment(\.resumeChaplainChat) private var resumeChaplainChat
     @Environment(\.presentDevotionPaywall) private var presentPaywall
+    @Environment(\.sanctuaryPalette) private var palette
     @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
     @State private var appeared = false
     @State private var insightsSheet: InsightsSheet?
@@ -155,11 +156,12 @@ struct AIInsightsView: View {
             Button(action: { insightsSheet = .chatHistory }) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(ABY.Font.bodyMedium)
-                    .foregroundStyle(ABY.Color.textSecondary)
+                    .foregroundStyle(palette.textSecondary)
                     .frame(width: 40, height: 40)
-                    .background(Color.white.opacity(0.9))
+                    .background(palette.composerFill)
                     .clipShape(Circle())
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+                    .overlay(Circle().stroke(palette.divider.opacity(0.5), lineWidth: 1))
+                    .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 6, y: 2)
                     .contentShape(Circle())
             }
             .buttonStyle(.borderless)
@@ -207,8 +209,15 @@ private struct GuidedPrayerPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.isNight ? ABY.Color.eveningReflectionTop : palette.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(palette.isNight ? ABY.Color.starlight : Color.clear)
+                        .clipShape(Capsule())
                 }
             }
+            .abyScreen()
         }
     }
 
@@ -232,7 +241,7 @@ private struct GuidedPrayerPickerSheet: View {
                 }
             }
             .padding(4)
-            .background(ABY.Color.fieldFill)
+            .background(palette.isNight ? palette.surfaceMuted : ABY.Color.fieldFill)
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
             .padding(.horizontal, ABY.Spacing.screen)
         }
@@ -253,7 +262,7 @@ private struct GuidedPrayerPickerSheet: View {
                 }
             }
         }
-        .background(palette.surface)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
@@ -270,6 +279,14 @@ private struct GuidedPrayerExperienceChip: View {
     let isSelected: Bool
     let action: () -> Void
 
+    private var subtitleColor: Color {
+        isSelected && palette.isNight ? palette.textSecondary : palette.textTertiary
+    }
+
+    private var selectedFill: Color {
+        palette.isNight ? palette.cardFill : Color.white
+    }
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
@@ -278,7 +295,7 @@ private struct GuidedPrayerExperienceChip: View {
                     .foregroundStyle(palette.textPrimary)
                 Text(style.subtitle)
                     .font(ABY.Font.micro)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(subtitleColor)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
@@ -288,19 +305,19 @@ private struct GuidedPrayerExperienceChip: View {
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: ABY.Radius.chip + 2, style: .continuous)
-                        .fill(palette.surface)
+                        .fill(selectedFill)
                         .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 6, y: 2)
                 }
             }
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: ABY.Radius.chip + 2, style: .continuous)
-                        .strokeBorder(ABY.Color.pillTeal.opacity(0.35), lineWidth: 1)
+                        .strokeBorder(ABY.Color.pillTeal.opacity(palette.isNight ? 0.5 : 0.35), lineWidth: 1)
                 }
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(.plain)
     }
 }
 
@@ -340,7 +357,7 @@ private struct GuidedPrayerPickerRow: View {
             .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(.plain)
     }
 }
 

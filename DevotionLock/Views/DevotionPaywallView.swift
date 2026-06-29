@@ -68,21 +68,20 @@ struct DevotionPaywallView: View {
             ABYPaywallBackground()
 
             VStack(spacing: 0) {
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 28) {
-                        Color.clear.frame(height: 44)
+                VStack(spacing: 16) {
+                    Color.clear.frame(height: 40)
 
-                        PaywallBrandMark()
+                    PaywallBrandMark()
 
-                        PaywallHeroBlock()
+                    PaywallHeroBlock()
 
-                        PaywallBenefitsCard(benefits: PaywallBenefit.premium)
+                    PaywallBenefitsCard(benefits: PaywallBenefit.premium, compact: true)
 
-                        planSection
-                    }
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.bottom, 16)
+                    planSection
                 }
+                .padding(.horizontal, ABY.Spacing.screen)
+
+                Spacer(minLength: 8)
 
                 PaywallPurchaseFooter(
                     ctaTitle: subscribeTitle,
@@ -149,7 +148,7 @@ struct DevotionPaywallView: View {
                     .tracking(0.6)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(planOptions) { option in
                         PaywallPlanCard(
                             option: option,
@@ -158,7 +157,7 @@ struct DevotionPaywallView: View {
                         )
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, planOptions.contains(where: { $0.promoBadge != nil }) ? 8 : 0)
 
                 if hasWeeklyPlan {
                     PaywallWeeklyOptionLink(

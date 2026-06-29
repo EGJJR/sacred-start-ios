@@ -143,6 +143,7 @@ final class MainTabCoordinator {
                 try? await Task.sleep(for: .milliseconds(400))
                 fullScreen = .celebration(result)
             }
+            /*
             if result.streak >= 2,
                !UserDefaults.standard.bool(forKey: "hasSeenWidgetOnboarding") {
                 UserDefaults.standard.set(true, forKey: "hasSeenWidgetOnboarding")
@@ -151,6 +152,7 @@ final class MainTabCoordinator {
                     fullScreen = .widgetOnboarding
                 }
             }
+            */
         }
     }
 
@@ -200,6 +202,7 @@ final class MainTabCoordinator {
     }
 
     var sacredOrbMenuActions: [SacredOrbQuickAction] = []
+    var sacredOrbQuickMenuPresented = false
 
     func presentSacredOrbQuickMenu(
         rhythmStore: DailyRhythmStore,
@@ -210,10 +213,15 @@ final class MainTabCoordinator {
             rhythmStore: rhythmStore,
             streakManager: streakManager
         )
-        sheet = .sacredOrbMenu
+        sacredOrbQuickMenuPresented = true
+    }
+
+    func dismissSacredOrbQuickMenu() {
+        sacredOrbQuickMenuPresented = false
     }
 
     func performSacredOrbQuickAction(_ action: SacredOrbQuickAction) {
+        sacredOrbQuickMenuPresented = false
         switch action {
         case .morningDevotion:
             sheet = nil

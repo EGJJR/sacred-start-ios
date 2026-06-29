@@ -61,7 +61,10 @@ struct ConversationDetailView: View {
                                 .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                             chatThread
                         } else if isSimpleJournalReflection {
-                            JournalEntryReadCard(conversation: displayConversation)
+                            JournalEntryReadCard(
+                                conversation: displayConversation,
+                                onEdit: isEditable ? { openEditSheet() } : nil
+                            )
                                 .blurReveal(appeared, blurRadius: 6, scale: 1.004)
                         } else {
                             journalHeader
@@ -130,14 +133,18 @@ struct ConversationDetailView: View {
             }
 
             if isEditable {
-                Button {
-                    showEditSheet = true
-                    DevotionHaptics.light()
-                } label: {
-                    Image(systemName: "square.and.pencil")
-                        .font(ABY.Font.calloutMedium)
-                        .foregroundStyle(palette.textSecondary)
-                        .frame(width: 32, height: 32)
+                Button(action: openEditSheet) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "pencil.line")
+                            .font(ABY.Font.captionMedium)
+                        Text("Edit")
+                            .font(ABY.Font.captionSemibold)
+                    }
+                    .foregroundStyle(ABY.Color.pillPurple)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(ABY.Color.pillPurple.opacity(palette.isNight ? 0.16 : 0.08))
+                    .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit entry")
@@ -317,6 +324,11 @@ struct ConversationDetailView: View {
             return "\(day) · \(time)"
         }
         return "\(displayConversation.timelineTime) · \(displayConversation.timeAgo)"
+    }
+
+    private func openEditSheet() {
+        showEditSheet = true
+        DevotionHaptics.light()
     }
 
     private func continueChaplainConversation() {

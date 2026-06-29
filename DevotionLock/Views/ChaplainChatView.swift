@@ -37,6 +37,7 @@ struct ChaplainMessage: Identifiable, Equatable, Hashable {
 
 struct ChaplainChatView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.sanctuaryPalette) private var palette
     var voice: ChaplainVoice
     var seedMessages: [ChaplainMessage]
     var starterText: String
@@ -304,6 +305,16 @@ struct ChaplainChatView: View {
         }
         .padding(.top, 14)
         .padding(.bottom, 10)
+        .background {
+            if palette.isNight {
+                LinearGradient(
+                    colors: [.clear, ABY.Color.eveningReflectionBottom.opacity(0.95)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            }
+        }
         .blurReveal(contentRevealed, blurRadius: playsPortalEntrance ? 8 : 0, scale: 1.01)
         .animation(AppTheme.springSnappy, value: showSuggestions)
         .animation(.easeOut(duration: 0.2), value: inputFocused)

@@ -14,24 +14,31 @@ import SwiftUI
 
 /// Warm sanctuary mesh for streak/stats (ABY lavender mesh, warm-shifted).
 struct ABYStatsMeshBackground: View {
+    @Environment(\.sanctuaryPalette) private var palette
     @State private var drift = false
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.97, green: 0.94, blue: 0.92),
-                    Color(red: 0.96, green: 0.93, blue: 0.98),
-                    Color(red: 0.94, green: 0.96, blue: 0.95),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if palette.isNight {
+                ABYEveningReflectionBackground()
+                meshBlob(ABY.Color.nightMeshPlum, size: 280, blur: 80, x: -90, y: -120)
+                meshBlob(ABY.Color.nightMeshIndigo, size: 240, blur: 72, x: 110, y: 280)
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.97, green: 0.94, blue: 0.92),
+                        Color(red: 0.96, green: 0.93, blue: 0.98),
+                        Color(red: 0.94, green: 0.96, blue: 0.95),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
 
-            meshBlob(Color(red: 0.82, green: 0.72, blue: 0.90), size: 320, blur: 78, x: -110, y: -190)
-            meshBlob(Color(red: 0.98, green: 0.78, blue: 0.62), size: 280, blur: 72, x: 130, y: 40)
-            meshBlob(Color(red: 0.62, green: 0.84, blue: 0.78), size: 260, blur: 68, x: -70, y: 320)
-            meshBlob(Color(red: 0.90, green: 0.70, blue: 0.82), size: 240, blur: 64, x: 120, y: 420)
+                meshBlob(Color(red: 0.82, green: 0.72, blue: 0.90), size: 320, blur: 78, x: -110, y: -190)
+                meshBlob(Color(red: 0.98, green: 0.78, blue: 0.62), size: 280, blur: 72, x: 130, y: 40)
+                meshBlob(Color(red: 0.62, green: 0.84, blue: 0.78), size: 260, blur: 68, x: -70, y: 320)
+                meshBlob(Color(red: 0.90, green: 0.70, blue: 0.82), size: 240, blur: 64, x: 120, y: 420)
+            }
         }
         .ignoresSafeArea()
         .onAppear {
@@ -43,7 +50,7 @@ struct ABYStatsMeshBackground: View {
 
     private func meshBlob(_ color: Color, size: CGFloat, blur: CGFloat, x: CGFloat, y: CGFloat) -> some View {
         Circle()
-            .fill(color.opacity(drift ? 0.42 : 0.28))
+            .fill(color.opacity(drift ? (palette.isNight ? 0.35 : 0.42) : (palette.isNight ? 0.22 : 0.28)))
             .frame(width: size, height: size)
             .blur(radius: blur)
             .offset(x: x, y: y)
@@ -52,6 +59,7 @@ struct ABYStatsMeshBackground: View {
 }
 
 struct ABYGlassPanel<Content: View>: View {
+    @Environment(\.sanctuaryPalette) private var palette
     var cornerRadius: CGFloat = 22
     var padding: CGFloat = 18
     @ViewBuilder let content: () -> Content
@@ -62,13 +70,23 @@ struct ABYGlassPanel<Content: View>: View {
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .background(Color.white.opacity(0.42))
+                    .background(
+                        palette.isNight
+                            ? palette.cardFill
+                            : Color.white.opacity(0.42)
+                    )
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(
+                        palette.isNight
+                            ? palette.divider.opacity(0.55)
+                            : Color.white.opacity(0.55),
+                        lineWidth: 1
+                    )
             }
+            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
     }
 }
 
@@ -184,13 +202,21 @@ struct ABYTimelineTimePill: View {
     @Environment(\.sanctuaryPalette) private var palette
     let time: String
 
+    private var pillFill: Color {
+        palette.isNight ? ABY.Color.starlight : Color.white.opacity(0.95)
+    }
+
+    private var labelColor: Color {
+        palette.isNight ? ABY.Color.eveningReflectionTop : palette.textSecondary
+    }
+
     var body: some View {
         Text(time)
             .font(ABY.Font.captionMedium)
-            .foregroundStyle(palette.textSecondary)
+            .foregroundStyle(labelColor)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.95))
+            .background(pillFill)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -198,7 +224,7 @@ struct ABYTimelineTimePill: View {
             }
             .overlay(alignment: .trailing) {
                 TrianglePointer()
-                    .fill(Color.white.opacity(0.95))
+                    .fill(pillFill)
                     .frame(width: 6, height: 8)
                     .offset(x: 5)
             }
@@ -409,6 +435,7 @@ struct ABYInsightsPeek: View {
 // MARK: - Streak hero
 
 struct ABYStreakHero: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let streak: Int
     let statusName: String
 
@@ -429,7 +456,7 @@ struct ABYStreakHero: View {
                     .foregroundStyle(StreakPalette.orange)
                 Text(statusName)
                     .font(ABY.Font.captionMedium)
-                    .foregroundStyle(ABY.Color.pillTeal)
+                    .foregroundStyle(palette.isNight ? palette.textSecondary : ABY.Color.pillTeal)
                     .padding(.top, 6)
             }
 
@@ -450,6 +477,7 @@ struct ABYStreakHero: View {
 }
 
 struct ABYGlassStatChip: View {
+    @Environment(\.sanctuaryPalette) private var palette
     var icon: String
     let value: String
     let label: String
@@ -461,7 +489,7 @@ struct ABYGlassStatChip: View {
                 .foregroundStyle(StreakPalette.orange)
             Text("\(value) \(label)")
                 .font(ABY.Font.captionMedium)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -470,13 +498,18 @@ struct ABYGlassStatChip: View {
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .background(Color.white.opacity(0.45))
+                .background(palette.isNight ? palette.cardFill : Color.white.opacity(0.45))
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(palette.divider.opacity(palette.isNight ? 0.5 : 0.25), lineWidth: 1)
+        }
     }
 }
 
 struct ABYStreakScreenHeader: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let onDismiss: () -> Void
 
     var body: some View {
@@ -484,7 +517,7 @@ struct ABYStreakScreenHeader: View {
             Button(action: onDismiss) {
                 Image(systemName: "chevron.down")
                     .font(ABY.Font.calloutSemibold)
-                    .foregroundStyle(ABY.Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
                     .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
             }
@@ -493,7 +526,7 @@ struct ABYStreakScreenHeader: View {
 
             Text("Streaks & Stats")
                 .font(ABY.Font.editorialHeadline)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
 
             Spacer(minLength: 0)
         }
@@ -571,7 +604,7 @@ struct ABYAssistedJournalHeader: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(prompt)
                 .font(ABY.Font.editorialHeadline)
-                .foregroundStyle(ABY.Color.journalPromptAccent)
+                .foregroundStyle(palette.isNight ? palette.textPrimary : ABY.Color.journalPromptAccent)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(.opacity)
@@ -604,6 +637,8 @@ struct ABYAssistedJournalHeader: View {
 }
 
 struct ABYAssistedJournalFinishButton: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
     let title: String
     let isEnabled: Bool
     let action: () -> Void
@@ -614,16 +649,25 @@ struct ABYAssistedJournalFinishButton: View {
         self.action = action
     }
 
+    private var fill: Color {
+        (palette.isNight ? palette.buttonFill : ABY.Color.journalFinish)
+            .opacity(isEnabled ? 1 : 0.35)
+    }
+
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(ABY.Font.calloutSemibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.isNight ? palette.buttonForeground : .white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(ABY.Color.journalFinish.opacity(isEnabled ? 1 : 0.35))
+                .background(fill)
                 .clipShape(Capsule())
-                .shadow(color: ABY.Color.journalFinish.opacity(isEnabled ? 0.28 : 0), radius: 8, y: 3)
+                .shadow(
+                    color: fill.opacity(isEnabled ? (palette.isNight ? 0.22 : 0.28) : 0),
+                    radius: 8,
+                    y: 3
+                )
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
@@ -662,7 +706,8 @@ struct ABYGuidedJournalWriteSurface: View {
 
                 TextEditor(text: $text)
                     .font(ABY.Font.body)
-                    .foregroundStyle(ABY.Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
+                    .tint(palette.textPrimary)
                     .scrollContentBackground(.hidden)
                     .lineSpacing(8)
                     .focused(focused)
@@ -715,7 +760,8 @@ struct ABYAssistedJournalComposer: View {
 
                 TextEditor(text: $text)
                     .font(ABY.Font.body)
-                    .foregroundStyle(ABY.Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
+                    .tint(palette.textPrimary)
                     .scrollContentBackground(.hidden)
                     .lineSpacing(7)
                     .focused(focused)
@@ -757,7 +803,8 @@ struct ABYMinimalJournalEditor: View {
 
             TextEditor(text: $text)
                 .font(ABY.Font.body)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
+                .tint(palette.textPrimary)
                 .scrollContentBackground(.hidden)
                 .lineSpacing(7)
                 .focused(focused)
@@ -952,25 +999,48 @@ struct ABYGuidedMoodGrid: View {
                             .font(ABY.Font.title2)
                         Text(mood.label)
                             .font(ABY.Font.calloutMedium)
-                            .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
+                            .foregroundStyle(moodLabelColor(isSelected: isSelected))
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 14)
-                    .background(isSelected ? Color.white : Color.white.opacity(0.55))
+                    .background(moodBackground(isSelected: isSelected, mood: mood.label))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(
-                                isSelected ? ABYGuidedMoodGrid.accent(for: mood.label).opacity(0.85) : palette.divider,
+                                isSelected
+                                    ? Self.accent(for: mood.label).opacity(palette.isNight ? 0.9 : 0.85)
+                                    : palette.divider,
                                 lineWidth: isSelected ? 2 : 1
                             )
                     }
-                    .shadow(color: .black.opacity(isSelected ? 0.06 : 0.02), radius: isSelected ? 10 : 4, y: 2)
+                    .shadow(
+                        color: .black.opacity(isSelected ? palette.cardShadowOpacity : palette.cardShadowOpacity * 0.35),
+                        radius: isSelected ? 10 : 4,
+                        y: 2
+                    )
                 }
                 .buttonStyle(ScaleButtonStyle())
             }
         }
+    }
+
+    private func moodLabelColor(isSelected: Bool) -> Color {
+        if palette.isNight {
+            return isSelected ? palette.textPrimary : palette.textSecondary
+        }
+        return isSelected ? ABY.Color.textPrimary : palette.textSecondary
+    }
+
+    private func moodBackground(isSelected: Bool, mood: String) -> Color {
+        if palette.isNight {
+            if isSelected {
+                return Self.accent(for: mood).opacity(0.24)
+            }
+            return palette.cardFill
+        }
+        return isSelected ? Color.white : Color.white.opacity(0.55)
     }
 }
 
@@ -1150,6 +1220,7 @@ struct ABYJourneyTimelineRow: View {
 // MARK: - Prompt templates (Mobbin ABY Journal templates 6bfa1cd3, quote card 4f9d087f)
 
 struct ABYJournalRuledLines: View {
+    @Environment(\.sanctuaryPalette) private var palette
     var lineCount: Int = 5
     var spacing: CGFloat = 18
 
@@ -1157,7 +1228,11 @@ struct ABYJournalRuledLines: View {
         VStack(spacing: spacing) {
             ForEach(0..<lineCount, id: \.self) { _ in
                 Rectangle()
-                    .fill(Color(red: 0.78, green: 0.86, blue: 0.96).opacity(0.85))
+                    .fill(
+                        palette.isNight
+                            ? Color.white.opacity(0.14)
+                            : Color(red: 0.78, green: 0.86, blue: 0.96).opacity(0.85)
+                    )
                     .frame(height: 1)
             }
         }
@@ -1193,9 +1268,13 @@ struct ABYJournalTemplateCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 10, y: 3)
     }
 }
 
@@ -1241,8 +1320,12 @@ struct ABYJournalDailyQuoteCard: View {
         }
         .padding(ABY.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
+        .overlay {
+            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
     }
 }

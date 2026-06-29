@@ -11,6 +11,41 @@ import SwiftUI
 enum SacredStartReleaseNotes {
     static let all: [NoteletVersionNotes] = [
         .init(
+            version: "1.2",
+            items: [
+                .list(
+                    title: "What's new in Sacred Start",
+                    rows: [
+                        .init(
+                            symbolSystemName: "moon.stars.fill",
+                            title: "Evening sanctuary",
+                            description: "A twilight appearance for night and low-light devotion — frosted cards, starlight buttons, and calm plum backgrounds."
+                        ),
+                        .init(
+                            symbolSystemName: "circle.hexagongrid.fill",
+                            title: "Sacred orb shortcuts",
+                            description: "Press and hold the orb for quick capture — morning devotion, journal, assisted write, or Chaplain."
+                        ),
+                        .init(
+                            symbolSystemName: "rectangle.bottomthird.inset.filled",
+                            title: "Refined navigation",
+                            description: "A clearer glass tab bar with the Sacred orb as your daily rhythm coach."
+                        ),
+                        .init(
+                            symbolSystemName: "textformat.size",
+                            title: "Easier to read",
+                            description: "Contrast and color fixes across journal, Chaplain, morning devotion, guided prayers, and your week in review."
+                        ),
+                        .init(
+                            symbolSystemName: "sparkles",
+                            title: "Sacred Start polish",
+                            description: "A refreshed app icon, evening-aware loading screen, and a smoother onboarding path."
+                        ),
+                    ]
+                ),
+            ]
+        ),
+        .init(
             version: "1.1",
             items: [
                 .list(

@@ -46,7 +46,7 @@ enum JournalLiveActivityManager {
 
     private static func devotionState(step: GuidedJournalStep, elapsedSeconds: Int) -> JournalActivityAttributes.ContentState {
         let title: String = switch step {
-        case .mood: "How are you arriving?"
+        case .mood: "How are you?"
         case .focusTags: "What's in focus?"
         case .madLibs: "Tell your story"
         case .gratitude: "Three gratitudes"

@@ -350,7 +350,7 @@ struct MorningFlowView: View {
 
             Text(tier.subtitle)
                 .font(ABY.Font.caption)
-                .foregroundStyle(palette.textTertiary)
+                .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
 
             Spacer(minLength: 12)
         }
@@ -368,7 +368,7 @@ struct MorningFlowView: View {
     private var pulseCard: some View {
         VStack(alignment: .leading, spacing: 28) {
             ABYHeadline(
-                title: "How are you arriving?",
+                title: "How are you?",
                 subtitle: "No perfect words — just what's true before the day begins."
             )
 
@@ -393,7 +393,7 @@ struct MorningFlowView: View {
                     .foregroundStyle(palette.textSecondary)
                 Text("Optional — one thing to hold gently")
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
 
                 FlowChips(items: FocusTag.allCases.map(\.rawValue)) { raw in
                     let tag = FocusTag(rawValue: raw)!
@@ -525,9 +525,10 @@ struct MorningFlowView: View {
                     .lineLimit(1...3)
                     .font(ABY.Font.body)
                     .foregroundStyle(palette.textPrimary)
+                    .tint(palette.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(palette.surface)
+                    .background(palette.cardFill)
                     .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
                     .overlay(RoundedRectangle(cornerRadius: ABY.Radius.card).stroke(palette.divider, lineWidth: 1))
             }
@@ -706,12 +707,12 @@ private struct MorningTierChip: View {
                     .font(ABY.Font.captionMedium)
                 Text(tier.minutesLabel)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(isSelected ? palette.buttonForeground.opacity(0.8) : palette.textTertiary)
+                    .foregroundStyle(isSelected ? palette.buttonForeground.opacity(0.75) : palette.textTertiary)
             }
             .foregroundStyle(isSelected ? palette.buttonForeground : palette.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(isSelected ? palette.buttonFill : palette.surface)
+            .background(isSelected ? palette.buttonFill : (palette.isNight ? palette.cardFill : palette.surface))
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: ABY.Radius.card, style: .continuous)
@@ -767,10 +768,14 @@ private struct MorningPathCard: View {
                         if isRecommended {
                             Text("Usual")
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .foregroundStyle(ABY.Color.pillTeal)
+                                .foregroundStyle(palette.isNight ? .white : ABY.Color.pillTeal)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
-                                .background(ABY.Color.pillTeal.opacity(0.12))
+                                .background(
+                                    palette.isNight
+                                        ? ABY.Color.pillTeal.opacity(0.72)
+                                        : ABY.Color.pillTeal.opacity(0.12)
+                                )
                                 .clipShape(Capsule())
                         }
                     }
@@ -788,7 +793,7 @@ private struct MorningPathCard: View {
                     .foregroundStyle(palette.textTertiary)
             }
             .padding(16)
-            .background(palette.surface)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
@@ -817,7 +822,7 @@ private struct MorningChip: View {
             .foregroundStyle(isSelected ? palette.buttonForeground : palette.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(isSelected ? palette.buttonFill : palette.surface)
+            .background(isSelected ? palette.buttonFill : (palette.isNight ? palette.cardFill : palette.surface))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(isSelected ? Color.clear : palette.divider, lineWidth: 1))
         }
@@ -854,7 +859,7 @@ private struct DepthOptionRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
-            .background(palette.surface)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.card))
             .overlay(RoundedRectangle(cornerRadius: ABY.Radius.card).stroke(palette.divider, lineWidth: 1))
         }

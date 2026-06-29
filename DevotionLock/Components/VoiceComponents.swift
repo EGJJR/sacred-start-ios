@@ -127,13 +127,20 @@ struct VoiceOrb: View {
 
 // MARK: - ABY voice entry (Mobbin ref)
 
+enum ABYVoiceCaptureStyle {
+    case light
+    case evening
+}
+
 struct ABYVoiceWaveformBars: View {
     var active: Bool = true
     var barCount: Int = 38
+    var barColor: Color? = nil
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
+            let fill = barColor ?? ABY.Color.textSecondary
             HStack(spacing: 3) {
                 ForEach(0..<barCount, id: \.self) { index in
                     let normalized = CGFloat(index) / CGFloat(max(barCount - 1, 1))
@@ -143,7 +150,7 @@ struct ABYVoiceWaveformBars: View {
                         ? 8 + envelope * (6 + wave * 24)
                         : 6 + envelope * 5
                     RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .fill(ABY.Color.textSecondary.opacity(active ? 0.82 : 0.42))
+                        .fill(fill.opacity(active ? 0.82 : 0.42))
                         .frame(width: 3, height: height)
                 }
             }
@@ -186,46 +193,77 @@ struct ABYVoiceCaptureCard: View {
     @Environment(\.sanctuaryPalette) private var palette
     let timerText: String
     var isListening: Bool
+    var style: ABYVoiceCaptureStyle = .light
     let onCancel: () -> Void
     let onSubmit: () -> Void
 
+    private var isEvening: Bool { style == .evening }
+
+    private var timerColor: Color {
+        isEvening ? Color.white.opacity(0.72) : palette.textSecondary
+    }
+
+    private var controlForeground: Color {
+        isEvening ? Color(red: 0.12, green: 0.10, blue: 0.22) : .white
+    }
+
+    private var controlBackground: Color {
+        isEvening ? Color.white.opacity(0.92) : Color.black
+    }
+
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: isEvening ? 12 : 14) {
             Text(timerText)
                 .font(ABY.Font.captionMedium)
-                .foregroundStyle(palette.textSecondary)
+                .foregroundStyle(timerColor)
+                .monospacedDigit()
 
             HStack(spacing: 14) {
                 Button(action: onCancel) {
                     Image(systemName: "xmark")
                         .font(ABY.Font.bodySemibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(controlForeground)
                         .frame(width: 44, height: 44)
-                        .background(Color.black)
+                        .background(controlBackground)
                         .clipShape(Circle())
                 }
                 .buttonStyle(ScaleButtonStyle())
 
-                ABYVoiceWaveformBars(active: isListening)
+                ABYVoiceWaveformBars(active: isListening, barColor: isEvening ? Color.white.opacity(0.55) : nil)
 
                 Button(action: onSubmit) {
                     Image(systemName: "arrow.up")
                         .font(ABY.Font.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(controlForeground)
                         .frame(width: 44, height: 44)
-                        .background(Color.black)
+                        .background(controlBackground)
                         .clipShape(Circle())
                 }
                 .buttonStyle(ScaleButtonStyle())
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
+        .padding(.horizontal, isEvening ? 16 : 20)
+        .padding(.vertical, isEvening ? 14 : 18)
         .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(palette.isNight ? palette.surfaceElevated : Color(red: 0.97, green: 0.97, blue: 0.99))
+            RoundedRectangle(cornerRadius: isEvening ? 20 : 28, style: .continuous)
+                .fill(cardFill)
+                .overlay {
+                    if isEvening {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    }
+                }
         }
-        .shadow(color: .black.opacity(palette.isNight ? 0.24 : 0.08), radius: 20, y: 8)
+        .shadow(color: .black.opacity(isEvening ? 0.18 : (palette.isNight ? 0.24 : 0.08)), radius: isEvening ? 12 : 20, y: isEvening ? 4 : 8)
+    }
+
+    private var cardFill: Color {
+        switch style {
+        case .evening:
+            Color.white.opacity(0.10)
+        case .light:
+            palette.isNight ? palette.surfaceElevated : Color(red: 0.97, green: 0.97, blue: 0.99)
+        }
     }
 }
 
@@ -304,6 +342,7 @@ struct ABYSpeechPolishReview: View {
     @Environment(\.sanctuaryPalette) private var palette
 
     let rawTranscript: String
+    var style: ABYVoiceCaptureStyle = .light
     let onKeepRaw: () -> Void
     let onTidyComplete: (String) -> Void
     let onCancel: () -> Void
@@ -314,6 +353,24 @@ struct ABYSpeechPolishReview: View {
     @State private var showOrganizedPreview = false
     @State private var revealed = false
 
+    private var isEvening: Bool { style == .evening }
+
+    private var primaryText: Color {
+        isEvening ? .white : palette.textPrimary
+    }
+
+    private var secondaryText: Color {
+        isEvening ? Color.white.opacity(0.72) : palette.textSecondary
+    }
+
+    private var cardFill: Color {
+        isEvening ? Color.white.opacity(0.10) : Color.white.opacity(palette.isNight ? 0.12 : 0.98)
+    }
+
+    private var cardStroke: Color {
+        isEvening ? Color.white.opacity(0.14) : palette.divider.opacity(0.5)
+    }
+
     private var displayText: String {
         showOrganizedPreview ? previewOrganized : rawTranscript
     }
@@ -323,10 +380,10 @@ struct ABYSpeechPolishReview: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your words are here")
                     .font(ABY.Font.calloutSemibold)
-                    .foregroundStyle(palette.textPrimary)
+                    .foregroundStyle(primaryText)
                 Text("Keep them exactly as spoken, or let us tidy spacing — never changing what you meant.")
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textSecondary)
+                    .foregroundStyle(secondaryText)
                     .lineSpacing(3)
             }
 
@@ -341,24 +398,24 @@ struct ABYSpeechPolishReview: View {
                     }
                 }
                 .font(ABY.Font.body)
-                .foregroundStyle(palette.textPrimary)
+                .foregroundStyle(primaryText)
                 .lineSpacing(7)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .animation(AppTheme.springGentle, value: showOrganizedPreview)
             }
             .padding(16)
-            .frame(minHeight: 140, alignment: .topLeading)
-            .background(Color.white.opacity(palette.isNight ? 0.12 : 0.98))
+            .frame(minHeight: 120, alignment: .topLeading)
+            .background(cardFill)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(palette.divider.opacity(0.5), lineWidth: 1)
+                    .stroke(cardStroke, lineWidth: 1)
             }
             .overlay {
                 if isPolishing {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .fill(.ultraThinMaterial)
-                        .opacity(palette.isNight ? 0.28 : 0.22)
+                        .opacity(isEvening ? 0.22 : (palette.isNight ? 0.28 : 0.22))
                         .allowsHitTesting(false)
                         .transition(.opacity)
                 }
@@ -377,10 +434,10 @@ struct ABYSpeechPolishReview: View {
                         Text("Tidy gently")
                     }
                     .font(ABY.Font.calloutSemibold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(isEvening ? Color(red: 0.12, green: 0.10, blue: 0.22) : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(palette.buttonFill)
+                    .background(isEvening ? Color.white.opacity(0.92) : palette.buttonFill)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(ScaleButtonStyle())
@@ -389,18 +446,24 @@ struct ABYSpeechPolishReview: View {
                 Button(action: onKeepRaw) {
                     Text("Keep my words")
                         .font(ABY.Font.calloutMedium)
-                        .foregroundStyle(palette.textPrimary)
+                        .foregroundStyle(primaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
-                        .background(palette.surfaceMuted.opacity(0.45))
+                        .background(isEvening ? Color.white.opacity(0.10) : palette.surfaceMuted.opacity(0.45))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay {
+                            if isEvening {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                            }
+                        }
                 }
                 .buttonStyle(ScaleButtonStyle())
                 .disabled(isPolishing)
 
                 Button("Discard", action: onCancel)
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(isEvening ? Color.white.opacity(0.55) : palette.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 2)
             }
@@ -477,6 +540,7 @@ struct ABYInlineDictationCapture: View {
     @Binding var text: String
     @Binding var isActive: Bool
     var offersPolishChoice: Bool = false
+    var style: ABYVoiceCaptureStyle = .light
 
     @State private var transcription = SpeechTranscriptionService()
     @State private var elapsed: TimeInterval = 0
@@ -485,33 +549,61 @@ struct ABYInlineDictationCapture: View {
     @State private var dictationBase = ""
     @State private var pendingSpoken: String?
 
+    private var isEvening: Bool { style == .evening }
+
+    private var liveTranscriptColor: Color {
+        isEvening ? Color.white.opacity(0.92) : palette.textPrimary
+    }
+
+    private var liveTranscript: String {
+        transcription.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             if let pendingSpoken {
                 ABYSpeechPolishReview(
                     rawTranscript: pendingSpoken,
+                    style: style,
                     onKeepRaw: { applySpoken(pendingSpoken) },
                     onTidyComplete: { polished in applySpoken(polished) },
                     onCancel: cancelPolishReview
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                if !transcription.transcript.isEmpty {
-                    Text(transcription.transcript)
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(palette.textPrimary)
-                        .lineSpacing(4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 4)
-                        .animation(AppTheme.springGentle, value: transcription.transcript)
-                }
+                VStack(alignment: .leading, spacing: 10) {
+                    if isEvening || !liveTranscript.isEmpty {
+                        Text(liveTranscript.isEmpty ? "Listening…" : liveTranscript)
+                            .font(isEvening ? ABY.Font.editorialBody : ABY.Font.callout)
+                            .foregroundStyle(
+                                liveTranscript.isEmpty
+                                    ? (isEvening ? Color.white.opacity(0.38) : palette.textTertiary)
+                                    : liveTranscriptColor
+                            )
+                            .lineSpacing(5)
+                            .frame(maxWidth: .infinity, minHeight: isEvening ? 72 : 0, alignment: .topLeading)
+                            .animation(AppTheme.springGentle, value: liveTranscript)
+                    }
 
-                ABYVoiceCaptureCard(
-                    timerText: timerText,
-                    isListening: transcription.isListening,
-                    onCancel: cancelDictation,
-                    onSubmit: finishDictation
-                )
+                    ABYVoiceCaptureCard(
+                        timerText: timerText,
+                        isListening: transcription.isListening,
+                        style: style,
+                        onCancel: cancelDictation,
+                        onSubmit: finishDictation
+                    )
+                }
+                .padding(isEvening ? 14 : 0)
+                .background {
+                    if isEvening {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                            }
+                    }
+                }
             }
         }
         .onAppear {

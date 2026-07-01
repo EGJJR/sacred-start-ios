@@ -17,14 +17,14 @@ struct SanctuaryAppearanceSettingsView: View {
         ABYScreenContainer {
             VStack(alignment: .leading, spacing: 0) {
                 ABYDetailHeader(
-                    title: "Sanctuary gradient",
-                    subtitle: "Choose the backdrop mood for Home, Chaplain, Journal, and your prayer wall."
+                    title: "Appearance",
+                    subtitle: "Evening sanctuary uses the same twilight palette as Close the day — plum, indigo, and soft glass."
                 )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
 
-                ABYSectionHeader(title: "Gradient style")
+                ABYSectionHeader(title: "Sanctuary mood")
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 12)
 

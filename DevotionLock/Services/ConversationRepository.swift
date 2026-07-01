@@ -225,12 +225,10 @@ final class ConversationRepository {
         guard AuthManager.shared.isAuthenticated else { return conversation(for: conversationID) }
 
         let existing = conversation(for: conversationID)
-        if let existing, !existing.transcript.isEmpty {
-            return existing
-        }
-
         let remoteID = existing?.remoteID ?? existing?.id ?? conversationID
 
+        // Always fetch from Supabase when signed in — metadata refresh clears in-memory
+        // transcripts, and older builds failed to persist chaplain rows (missing user_id).
         do {
             let row: DBConversation = try await SupabaseManager.client
                 .from("conversations")
@@ -261,11 +259,15 @@ final class ConversationRepository {
             } else {
                 conversations.insert(loaded, at: 0)
             }
+            saveCache()
             return loaded
         } catch {
             #if DEBUG
             print("ConversationRepository loadTranscript failed: \(error)")
             #endif
+            if let existing, !existing.transcript.isEmpty {
+                return existing
+            }
             return existing
         }
     }
@@ -284,7 +286,7 @@ final class ConversationRepository {
         let transcript = includeTranscript
             ? messages.map { message in
                 TranscriptSegment(
-                    speaker: message.role == "user" ? "You" : "Chaplain",
+                    speaker: message.role.lowercased() == "user" ? "You" : "Chaplain",
                     text: message.content,
                     timestamp: formattedTimestamp(message.createdAt)
                 )

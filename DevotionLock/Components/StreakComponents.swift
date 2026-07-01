@@ -12,13 +12,27 @@ enum StreakPalette {
     static let pastCircle = Color.black.opacity(0.08)
     static let missedStroke = Color.black.opacity(0.22)
     static let faceInk = Color.black.opacity(0.72)
+
+    static func pastCircle(isNight: Bool) -> Color {
+        isNight ? Color.white.opacity(0.12) : Color.black.opacity(0.08)
+    }
+
+    static func missedStroke(isNight: Bool) -> Color {
+        isNight ? Color.white.opacity(0.40) : Color.black.opacity(0.22)
+    }
+
+    static func faceInk(isNight: Bool) -> Color {
+        isNight ? Color.white.opacity(0.88) : Color.black.opacity(0.72)
+    }
 }
 
 /// ABY-style line-art smiley — avoids emoji + custom-font tofu glyphs.
 struct StreakMoodFace: View {
     @Environment(\.sanctuaryPalette) private var palette
+
     var body: some View {
         Canvas { context, size in
+            let ink = StreakPalette.faceInk(isNight: palette.isNight)
             let w = size.width
             let h = size.height
             let cx = w / 2
@@ -33,7 +47,7 @@ struct StreakMoodFace: View {
                     width: eyeRadius * 2,
                     height: eyeRadius * 2
                 )
-                context.fill(Path(ellipseIn: rect), with: .color(StreakPalette.faceInk))
+                context.fill(Path(ellipseIn: rect), with: .color(ink))
             }
 
             var smile = Path()
@@ -46,7 +60,7 @@ struct StreakMoodFace: View {
             )
             context.stroke(
                 smile,
-                with: .color(StreakPalette.faceInk),
+                with: .color(ink),
                 style: StrokeStyle(lineWidth: 1.2, lineCap: .round)
             )
         }
@@ -57,16 +71,18 @@ struct StreakMoodFace: View {
 
 /// Past day with no devotion — empty ring + muted dash (distinct from future dotted outline).
 struct StreakMissedMark: View {
+    @Environment(\.sanctuaryPalette) private var palette
     var size: CGFloat = 32
 
     var body: some View {
+        let stroke = StreakPalette.missedStroke(isNight: palette.isNight)
         ZStack {
             Circle()
-                .stroke(StreakPalette.missedStroke, lineWidth: 1.5)
+                .stroke(stroke, lineWidth: 1.5)
                 .frame(width: size, height: size)
 
             Capsule()
-                .fill(StreakPalette.missedStroke)
+                .fill(stroke)
                 .frame(width: size * 0.34, height: 1.5)
         }
         .frame(width: size, height: size)
@@ -182,7 +198,7 @@ struct ABYWeeklyStrip: View {
                     .frame(width: 28, height: 28)
             } else {
                 Circle()
-                    .fill(StreakPalette.pastCircle)
+                    .fill(StreakPalette.pastCircle(isNight: palette.isNight))
                     .frame(width: 28, height: 28)
             }
         }
@@ -314,7 +330,7 @@ struct StreakCalendarGrid: View {
                 StreakMissedMark(size: indicatorSize)
             } else {
                 Circle()
-                    .fill(StreakPalette.pastCircle)
+                    .fill(StreakPalette.pastCircle(isNight: palette.isNight))
                     .frame(width: indicatorSize, height: indicatorSize)
             }
         }
@@ -349,6 +365,11 @@ struct StreakCalendarGrid: View {
     }
 
     private func dayLabelColor(for day: StreakCalendarDay) -> Color {
+        if palette.isNight {
+            if day.isFuture { return palette.textTertiary }
+            if day.isMissed { return palette.textSecondary.opacity(0.75) }
+            return palette.textPrimary.opacity(0.88)
+        }
         if day.isFuture { return palette.textTertiary }
         if day.isMissed { return palette.textTertiary.opacity(0.85) }
         return palette.textSecondary
@@ -397,9 +418,9 @@ struct StreakChallengeBar: View {
                         Spacer()
                         Text("\(goal)")
                             .font(ABY.Font.captionMedium)
-                            .foregroundStyle(palette.textTertiary)
+                            .foregroundStyle(palette.isNight ? palette.textPrimary : palette.textTertiary)
                             .frame(width: 22, height: 22)
-                            .background(palette.background)
+                            .background(palette.isNight ? palette.cardFill : palette.background)
                             .clipShape(Circle())
                     }
                 }

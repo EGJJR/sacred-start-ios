@@ -69,7 +69,7 @@ struct WrappedStoryChrome: View {
 
                 Text("Week in review")
                     .font(ABY.Font.captionMedium)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
                     .textCase(.uppercase)
                     .tracking(1.1)
 
@@ -159,6 +159,7 @@ struct WrappedStoryStatCard: View {
 }
 
 struct WrappedMoodStoryOrb: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let emoji: String
     let mood: String
     var appeared: Bool
@@ -183,7 +184,7 @@ struct WrappedMoodStoryOrb: View {
 
             Text(mood)
                 .font(ABY.Font.title)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
         }
     }
 }
@@ -191,6 +192,7 @@ struct WrappedMoodStoryOrb: View {
 // MARK: - Hero counter
 
 struct WrappedHeroCounter: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let value: Int
     let label: String
     var tint: Color = ABY.Color.pillOrange
@@ -224,13 +226,13 @@ struct WrappedHeroCounter: View {
 
                 Text("\(displayValue)")
                     .font(ABY.Font.displayLarge)
-                    .foregroundStyle(ABY.Color.textPrimary)
+                    .foregroundStyle(palette.textPrimary)
                     .contentTransition(.numericText())
             }
 
             Text(label)
                 .font(ABY.Font.title2)
-                .foregroundStyle(ABY.Color.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .onAppear { animateCount() }
@@ -288,6 +290,7 @@ struct WrappedWeekRhythmPanel: View {
 // MARK: - Mood reveal
 
 struct WrappedMoodReveal: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let emoji: String
     let mood: String
     var appeared: Bool
@@ -312,7 +315,7 @@ struct WrappedMoodReveal: View {
 
             Text(mood)
                 .font(ABY.Font.largeTitle)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
                 .blurReveal(appeared, blurRadius: 8)
         }
         .onAppear {
@@ -334,6 +337,7 @@ struct WrappedMoodReveal: View {
 // MARK: - Streak flame
 
 struct WrappedStreakFlame: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let streak: Int
     var appeared: Bool
 
@@ -361,7 +365,7 @@ struct WrappedStreakFlame: View {
 
             Text("\(streak) day streak")
                 .font(ABY.Font.title2)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
                 .contentTransition(.numericText())
         }
         .opacity(appeared ? 1 : 0)
@@ -376,6 +380,7 @@ struct WrappedStreakFlame: View {
 // MARK: - Chaplain note
 
 struct WrappedChaplainNote: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let insight: String
     var appeared: Bool
 
@@ -386,14 +391,14 @@ struct WrappedChaplainNote: View {
                     .foregroundStyle(ABY.Color.pillPurple)
                 Text("Chaplain's note")
                     .font(ABY.Font.captionMedium)
-                    .foregroundStyle(ABY.Color.textTertiary)
+                    .foregroundStyle(palette.textTertiary)
                     .textCase(.uppercase)
                     .tracking(1.2)
             }
 
             Text(insight)
                 .font(ABY.Font.editorialHeadline)
-                .foregroundStyle(ABY.Color.textPrimary)
+                .foregroundStyle(palette.textPrimary)
                 .lineSpacing(8)
                 .blurReveal(appeared, blurRadius: 10, scale: 1.01)
         }
@@ -401,10 +406,10 @@ struct WrappedChaplainNote: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                .fill(ABY.Color.surface)
+                .fill(palette.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                        .stroke(ABY.Color.pillPurple.opacity(0.15), lineWidth: 1)
+                        .stroke(ABY.Color.pillPurple.opacity(palette.isNight ? 0.28 : 0.15), lineWidth: 1)
                 )
         )
     }
@@ -413,6 +418,7 @@ struct WrappedChaplainNote: View {
 // MARK: - Narrative chapter
 
 struct WrappedNarrativeChapter: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let narrative: String
     var appeared: Bool
 
@@ -420,13 +426,13 @@ struct WrappedNarrativeChapter: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("The story so far")
                 .font(ABY.Font.section)
-                .foregroundStyle(ABY.Color.textTertiary)
+                .foregroundStyle(palette.textTertiary)
                 .textCase(.uppercase)
                 .tracking(1.4)
 
             Text(narrative)
                 .font(ABY.Font.editorialBody)
-                .foregroundStyle(ABY.Color.textSecondary)
+                .foregroundStyle(palette.textSecondary)
                 .lineSpacing(7)
                 .blurReveal(appeared, blurRadius: 8)
         }

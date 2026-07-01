@@ -56,9 +56,9 @@ struct ABYSettingsGroup<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
     }
 }
 
@@ -99,10 +99,10 @@ struct ABYSettingsProfileCard: View {
             Button(action: onEdit) {
                 Text("Edit profile")
                     .font(ABY.Font.calloutMedium)
-                    .foregroundStyle(palette.textPrimary)
+                    .foregroundStyle(palette.isNight ? palette.buttonForeground : palette.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(palette.background.opacity(0.9))
+                    .background(palette.isNight ? palette.buttonFill : palette.background.opacity(0.9))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -114,9 +114,9 @@ struct ABYSettingsProfileCard: View {
         .padding(.vertical, 24)
         .padding(.horizontal, ABY.Spacing.card)
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 14, y: 5)
     }
 }
 
@@ -145,10 +145,10 @@ struct ABYSettingsPremiumBanner: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isActive ? "Sacred Start Premium" : "Upgrade to Premium")
-                        .font(ABY.Font.headline)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     Text(isActive ? "Your subscription is active" : "Unlock AI Chaplain, guided devotion & more")
-                        .font(ABY.Font.caption)
+                        .font(ABY.Font.listSubtitle)
                         .foregroundStyle(palette.textSecondary)
                         .lineSpacing(3)
                 }
@@ -171,9 +171,9 @@ struct ABYSettingsPremiumBanner: View {
                 }
             }
             .padding(16)
-            .background(Color.white)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
+            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -207,7 +207,7 @@ struct ABYSettingsDangerRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(title)
-                        .font(ABY.Font.bodySemibold)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     Spacer()
                     if isLoading {
@@ -283,10 +283,10 @@ struct ABYSettingsReadOnlyRow: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(ABY.Font.body)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                 Text(value)
-                    .font(ABY.Font.footnote)
+                    .font(ABY.Font.listSubtitle)
                     .foregroundStyle(palette.textSecondary)
                     .lineLimit(1)
             }
@@ -316,8 +316,9 @@ struct ABYSettingsPrimaryButton: View {
                 }
                 Spacer()
             }
-            .foregroundStyle(.white)
-            .padding(.vertical, 16)
+            .foregroundStyle(palette.buttonForeground)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, 14)
             .background(isEnabled ? palette.buttonFill : palette.buttonFill.opacity(0.35))
             .clipShape(Capsule())
         }
@@ -417,7 +418,7 @@ struct ABYConfirmationSheet: View {
         }
         .presentationDetents([.height(320)])
         .presentationDragIndicator(.hidden)
-        .presentationBackground(Color.white)
+        .presentationBackground(palette.cardFill)
     }
 }
 
@@ -439,23 +440,23 @@ struct ABYSettingsRow: View {
                     .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(ABY.Font.body)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     if let detail {
                         Text(detail)
-                            .font(ABY.Font.footnote)
+                            .font(ABY.Font.listSubtitle)
                             .foregroundStyle(palette.textSecondary)
                     }
                 }
                 Spacer()
                 if let value {
                     Text(value)
-                        .font(ABY.Font.footnote)
+                        .font(ABY.Font.tertiaryMedium)
                         .foregroundStyle(palette.textTertiary)
                 }
                 if showChevron {
                     Image(systemName: "chevron.right")
-                        .font(ABY.Font.captionMedium)
+                        .font(ABY.Font.tertiaryMedium)
                         .foregroundStyle(palette.textTertiary)
                 }
             }
@@ -482,18 +483,18 @@ struct ABYSettingsToggleRow: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(ABY.Font.body)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                 if let detail {
                     Text(detail)
-                        .font(ABY.Font.footnote)
+                        .font(ABY.Font.listSubtitle)
                         .foregroundStyle(palette.textSecondary)
                 }
             }
             Spacer()
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(palette.textPrimary)
+                .tint(palette.isNight ? ABY.Color.pillTeal : palette.textPrimary)
         }
         .padding(.horizontal, ABY.Spacing.card)
         .padding(.vertical, 12)

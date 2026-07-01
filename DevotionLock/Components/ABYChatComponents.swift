@@ -62,9 +62,9 @@ struct ABYChaplainHubHero: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 10, y: 3)
     }
 }
 
@@ -247,6 +247,7 @@ struct GeminiChatInputBar: View {
         .animation(AppTheme.springSnappy, value: isDictating)
         .animation(.easeOut(duration: 0.22), value: isBusy)
         .background { inputChrome }
+        .colorScheme(palette.isNight ? .dark : .light)
         .onChange(of: transcription.transcript) { _, spoken in
             guard isDictating else { return }
             text = Self.mergedDictation(base: dictationBase, spoken: spoken)
@@ -283,6 +284,7 @@ struct GeminiChatInputBar: View {
                     .lineLimit(1...5)
                     .font(ABY.Font.body)
                     .foregroundStyle(palette.textPrimary)
+                    .tint(palette.textPrimary)
                     .multilineTextAlignment(text.isEmpty ? .center : .leading)
                     .focused(focused)
                     .submitLabel(.return)
@@ -368,16 +370,20 @@ struct GeminiChatInputBar: View {
     private var inputChrome: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         if floatingStyle {
-            shape
-                .fill(Color.white)
-                .overlay {
-                    shape.stroke(
-                        isDictating ? ABY.Color.pillTeal.opacity(0.45) : palette.divider.opacity(0.35),
-                        lineWidth: isDictating ? 1.5 : 1
-                    )
-                }
-                .shadow(color: .black.opacity(isDictating ? 0.09 : 0.07), radius: isDictating ? 18 : 16, y: 6)
-                .shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+            if palette.isNight {
+                ABYGlassBarBackground(cornerRadius: 22)
+            } else {
+                shape
+                    .fill(palette.composerFill)
+                    .overlay {
+                        shape.stroke(
+                            isDictating ? ABY.Color.pillTeal.opacity(0.45) : palette.divider.opacity(0.35),
+                            lineWidth: isDictating ? 1.5 : 1
+                        )
+                    }
+                    .shadow(color: .black.opacity(isDictating ? 0.09 : palette.cardShadowOpacity), radius: isDictating ? 18 : 16, y: 6)
+                    .shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+            }
         } else {
             ABYGlassBarBackground(cornerRadius: 22)
         }
@@ -458,15 +464,28 @@ struct ChaplainComposeLauncher: View {
                     .foregroundStyle(palette.textSecondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(ABY.Font.title2)
-                    .foregroundStyle(palette.buttonFill)
+                Image(systemName: "arrow.up")
+                    .font(ABY.Font.captionSemibold)
+                    .foregroundStyle(palette.buttonForeground)
+                    .frame(width: 28, height: 28)
+                    .background(palette.buttonFill)
+                    .clipShape(Circle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
-            .background(Color.white.opacity(0.96))
+            .background {
+                if palette.isNight {
+                    ABYGlassBarBackground()
+                } else {
+                    Capsule().fill(palette.composerFill)
+                }
+            }
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(isPressed ? 0.04 : 0.07), radius: isPressed ? 10 : 16, y: isPressed ? 3 : 6)
+            .overlay {
+                Capsule()
+                    .stroke(palette.divider.opacity(palette.isNight ? 0.55 : 0.35), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(isPressed ? 0.04 : palette.cardShadowOpacity), radius: isPressed ? 10 : 16, y: isPressed ? 3 : 6)
             .scaleEffect(isPressed ? 0.97 : 1)
             .contentShape(Capsule())
         }
@@ -487,6 +506,7 @@ struct ChaplainComposeLauncher: View {
 /// Brief sanctuary bloom — compose pill dissolves into Chaplain chat.
 struct ChaplainPortalTransition: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.sanctuaryPalette) private var palette
 
     let voiceName: String
     let onComplete: () -> Void
@@ -500,35 +520,41 @@ struct ChaplainPortalTransition: View {
     @State private var ringPulse = false
     @State private var departing = false
 
+    private var peakFieldIntensity: CGFloat { palette.isNight ? 0.06 : 0.85 }
+    private var peakBloomOpacity: CGFloat { palette.isNight ? 0.38 : 0.95 }
+    private var peakBloomScale: CGFloat { palette.isNight ? 1.05 : 1.35 }
+
     var body: some View {
         GeometryReader { geometry in
             let anchorY = geometry.size.height - geometry.safeAreaInsets.bottom - 118
 
             ZStack {
-                ABY.Color.tabWashTop
+                portalWash
                     .opacity(washVisible ? 1 : 0)
                     .ignoresSafeArea()
 
-                SoftLightFieldView(intensity: fieldIntensity)
-                    .ignoresSafeArea()
-                    .opacity(departing ? 0 : 1)
+                if !palette.isNight {
+                    SoftLightFieldView(intensity: fieldIntensity)
+                        .ignoresSafeArea()
+                        .opacity(departing ? 0 : 1)
+                }
 
                 ZStack {
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    ABY.Color.orbTeal.opacity(0.42),
-                                    ABY.Color.pillPurple.opacity(0.22),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.16 : 0.42),
+                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.08 : 0.22),
                                     .clear,
                                 ],
                                 center: .center,
                                 startRadius: 8,
-                                endRadius: 160
+                                endRadius: palette.isNight ? 120 : 160
                             )
                         )
-                        .frame(width: 280, height: 280)
-                        .blur(radius: 28)
+                        .frame(width: palette.isNight ? 220 : 280, height: palette.isNight ? 220 : 280)
+                        .blur(radius: palette.isNight ? 36 : 28)
                         .scaleEffect(bloomScale)
                         .opacity(bloomOpacity)
 
@@ -536,34 +562,34 @@ struct ChaplainPortalTransition: View {
                         .stroke(
                             AngularGradient(
                                 colors: [
-                                    ABY.Color.orbTeal.opacity(0.7),
-                                    ABY.Color.orbSage.opacity(0.35),
-                                    ABY.Color.pillPurple.opacity(0.55),
-                                    ABY.Color.orbTeal.opacity(0.7),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.35 : 0.7),
+                                    ABY.Color.orbSage.opacity(palette.isNight ? 0.18 : 0.35),
+                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.28 : 0.55),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.35 : 0.7),
                                 ],
                                 center: .center
                             ),
                             lineWidth: 1.5
                         )
-                        .frame(width: ringPulse ? 118 : 92, height: ringPulse ? 118 : 92)
-                        .opacity(avatarRevealed ? 0.55 : 0)
+                        .frame(width: ringPulse ? (palette.isNight ? 100 : 118) : (palette.isNight ? 78 : 92), height: ringPulse ? (palette.isNight ? 100 : 118) : (palette.isNight ? 78 : 92))
+                        .opacity(avatarRevealed ? (palette.isNight ? 0.28 : 0.55) : 0)
                         .blur(radius: 0.5)
                 }
                 .position(x: geometry.size.width / 2, y: anchorY)
 
                 VStack(spacing: 14) {
-                    ABYChaplainAvatar(size: 64)
-                        .blurReveal(avatarRevealed, blurRadius: 14, scale: 1.1)
+                    portalAvatar
+                        .blurReveal(avatarRevealed, blurRadius: palette.isNight ? 8 : 14, scale: 1.1)
 
                     VStack(spacing: 4) {
                         Text("Chaplain \(voiceName)")
                             .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(ABY.Color.textPrimary)
+                            .foregroundStyle(palette.textPrimary)
                         Text("A quiet place to begin")
                             .font(ABY.Font.caption)
-                            .foregroundStyle(ABY.Color.textSecondary)
+                            .foregroundStyle(palette.textSecondary)
                     }
-                    .blurReveal(avatarRevealed, blurRadius: 8, scale: 1.02)
+                    .blurReveal(avatarRevealed, blurRadius: palette.isNight ? 4 : 8, scale: 1.02)
                 }
                 .offset(y: avatarLift)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -571,7 +597,26 @@ struct ChaplainPortalTransition: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(!departing)
+        .preferredColorScheme(palette.isNight ? .dark : .light)
         .onAppear(perform: runPortal)
+    }
+
+    @ViewBuilder
+    private var portalWash: some View {
+        if palette.isNight {
+            ABYEveningReflectionBackground()
+        } else {
+            ABY.Color.tabWashTop
+        }
+    }
+
+    @ViewBuilder
+    private var portalAvatar: some View {
+        if palette.isNight {
+            SacredOrbShell(size: 64, visualStyle: .calm, showsMark: true, showsGlow: false)
+        } else {
+            ABYChaplainAvatar(size: 64)
+        }
     }
 
     private func runPortal() {
@@ -580,33 +625,40 @@ struct ChaplainPortalTransition: View {
             return
         }
 
-        withAnimation(.easeOut(duration: 0.42)) {
+        withAnimation(.easeOut(duration: palette.isNight ? 0.36 : 0.42)) {
             washVisible = true
-            bloomScale = 1.35
-            bloomOpacity = 0.95
-            fieldIntensity = 0.85
+            bloomScale = peakBloomScale
+            bloomOpacity = peakBloomOpacity
+            fieldIntensity = peakFieldIntensity
         }
 
         withAnimation(AppTheme.springGentle.delay(0.06)) {
             avatarRevealed = true
-            avatarLift = -24
+            avatarLift = palette.isNight ? -12 : -24
         }
 
-        withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true).delay(0.2)) {
-            ringPulse = true
+        if !palette.isNight {
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true).delay(0.2)) {
+                ringPulse = true
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true).delay(0.2)) {
+                ringPulse = true
+            }
         }
 
         Task {
-            try? await Task.sleep(for: .milliseconds(520))
+            let hold: UInt64 = palette.isNight ? 420 : 520
+            try? await Task.sleep(for: .milliseconds(hold))
             await MainActor.run {
                 DevotionHaptics.light()
-                withAnimation(.easeIn(duration: 0.22)) {
+                withAnimation(.easeIn(duration: palette.isNight ? 0.18 : 0.22)) {
                     departing = true
                     bloomOpacity = 0
                     fieldIntensity = 0
                 }
             }
-            try? await Task.sleep(for: .milliseconds(180))
+            try? await Task.sleep(for: .milliseconds(palette.isNight ? 140 : 180))
             await MainActor.run {
                 onComplete()
             }
@@ -793,8 +845,8 @@ struct ChaplainComposeOverlay: View {
         .padding(.bottom, 20)
         .background {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.12), radius: 28, y: -4)
+                .fill(palette.cardFill)
+                .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 28, y: -4)
         }
     }
 
@@ -855,8 +907,9 @@ struct ABYChatSuggestionSection: View {
                                 .foregroundStyle(palette.textPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.92))
+                                .background(palette.composerFill)
                                 .clipShape(Capsule())
+                                .overlay(Capsule().stroke(palette.divider.opacity(0.45), lineWidth: 1))
                                 .overlay(Capsule().stroke(palette.divider.opacity(0.8), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
@@ -884,7 +937,7 @@ struct ABYChaplainMessageCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .lastTextBaseline, spacing: 0) {
-                    Text(displayText)
+                    Text(verbatim: displayText)
                         .font(useSerifStyle ? ABY.Font.editorialCallout : ABY.Font.body)
                         .foregroundStyle(palette.textPrimary)
                         .lineSpacing(5)
@@ -981,6 +1034,7 @@ struct ABYChatComposerBar: View {
                 .lineLimit(1...4)
                 .font(ABY.Font.body)
                 .foregroundStyle(palette.textPrimary)
+                .tint(palette.textPrimary)
                 .focused($focused)
                 .submitLabel(.send)
                 .onSubmit { if canSend { onSend() } }
@@ -1032,88 +1086,100 @@ struct ABYChatDisclaimer: View {
 struct ABYChatScreenHeader: View {
     @Environment(\.sanctuaryPalette) private var palette
     let voiceName: String
-    var threadTitle: String? = nil
     var onClose: () -> Void
     var onHistory: (() -> Void)? = nil
     var onSave: (() -> Void)? = nil
     var onClear: (() -> Void)? = nil
     var saveDisabled: Bool = false
-    var geminiStyle: Bool = false
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onClose) {
-                Image(systemName: geminiStyle ? "chevron.down" : "chevron.down")
+            chatHeaderIconButton("chevron.down", action: onClose)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 6) {
+                ABYChaplainAvatar(size: 24)
+                Text("Chaplain \(voiceName)")
+                    .font(ABY.Font.calloutSemibold)
+                    .foregroundStyle(palette.textPrimary)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 4) {
+                if let onHistory {
+                    chatHeaderIconButton("clock.arrow.circlepath", action: onHistory)
+                }
+                if let onSave {
+                    chatHeaderIconButton("square.and.arrow.down", action: onSave)
+                        .opacity(saveDisabled ? 0.35 : 1)
+                        .disabled(saveDisabled)
+                }
+                if let onClear {
+                    chatHeaderIconButton("arrow.counterclockwise", action: onClear)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Gemini thread chrome (Mobbin Google Gemini title bar)
+
+/// Centered conversation title, new chat, and overflow menu — [Gemini chat](https://mobbin.com/screens/8cb0be56-3634-46eb-bc04-7fd121164726).
+struct GeminiChatScreenHeader: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let title: String
+    let onClose: () -> Void
+    let onNewChat: () -> Void
+    let onShowHistory: () -> Void
+    var onDeleteConversation: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 2) {
+            chatHeaderIconButton("chevron.down", action: onClose)
+
+            Spacer(minLength: 8)
+
+            Text(title)
+                .font(ABY.Font.calloutSemibold)
+                .foregroundStyle(palette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 8)
+
+            chatHeaderIconButton("square.and.pencil", action: onNewChat)
+
+            Menu {
+                Button("Past conversations", action: onShowHistory)
+                if let onDeleteConversation {
+                    Divider()
+                    Button("Delete conversation", role: .destructive, action: onDeleteConversation)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
                     .font(ABY.Font.bodySemibold)
                     .foregroundStyle(palette.textSecondary)
                     .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-
-            Spacer(minLength: 0)
-
-            if geminiStyle {
-                if let threadTitle, !threadTitle.isEmpty {
-                    VStack(spacing: 2) {
-                        Text(threadTitle)
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textPrimary)
-                            .lineLimit(1)
-                        Text("Chaplain")
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textTertiary)
-                    }
-                } else {
-                    Text("Chaplain")
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                }
-            } else {
-                HStack(spacing: 6) {
-                    ABYChaplainAvatar(size: 24)
-                    Text("Chaplain \(voiceName)")
-                        .font(ABY.Font.calloutSemibold)
-                        .foregroundStyle(palette.textPrimary)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            if geminiStyle {
-                if let onHistory {
-                    compactIconButton("clock.arrow.circlepath", action: onHistory)
-                } else {
-                    Color.clear.frame(width: 36, height: 36)
-                }
-            } else {
-                HStack(spacing: 4) {
-                    if let onHistory {
-                        compactIconButton("clock.arrow.circlepath", action: onHistory)
-                    }
-                    if let onSave {
-                        compactIconButton("square.and.arrow.down", action: onSave)
-                            .opacity(saveDisabled ? 0.35 : 1)
-                            .disabled(saveDisabled)
-                    }
-                    if let onClear {
-                        compactIconButton("arrow.counterclockwise", action: onClear)
-                    }
-                }
-            }
+            .accessibilityLabel("More options")
         }
     }
+}
 
-    private func compactIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(ABY.Font.footnoteMedium)
-                .foregroundStyle(palette.textSecondary)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
+@ViewBuilder
+private func chatHeaderIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        Image(systemName: icon)
+            .font(ABY.Font.bodySemibold)
+            .foregroundStyle(Color.primary.opacity(0.72))
+            .frame(width: 36, height: 36)
+            .contentShape(Rectangle())
     }
+    .buttonStyle(.borderless)
 }
 
 // MARK: - Chaplain hub (Mobbin ChatGPT / Copilot refs)
@@ -1144,7 +1210,7 @@ struct ChaplainResumeBanner: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(Color.white.opacity(0.92))
+            .background(palette.composerFill)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(palette.divider.opacity(0.6), lineWidth: 1))
             .contentShape(Capsule())
@@ -1171,12 +1237,12 @@ struct ChaplainExploreLinksCard: View {
 
             VStack(spacing: 0) {
                 exploreRow(icon: "hands.sparkles", title: "Guided prayers", action: onGuidedPrayer)
-                Divider().padding(.leading, 44)
+                Divider().overlay(palette.divider).padding(.leading, 44)
                 exploreRow(icon: "book.closed", title: "Passages & promises", action: onPassages)
-                Divider().padding(.leading, 44)
+                Divider().overlay(palette.divider).padding(.leading, 44)
                 exploreRow(icon: "leaf", title: "Reflection", action: onWisdom)
             }
-            .background(Color.white)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1260,7 +1326,7 @@ struct ChaplainResumedThreadHeader: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.72))
+            .background(palette.cardFill.opacity(palette.isNight ? 1 : 0.72))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1318,11 +1384,34 @@ extension Conversation {
         }
         return String(trimmedPreview.prefix(88))
     }
+
+    /// Slim date line for resumed thread divider in chat.
+    var chaplainThreadDateLabel: String {
+        guard let date = recordedAt else { return timeAgo }
+        let day: String
+        if Calendar.current.isDateInToday(date) {
+            day = "Today"
+        } else if Calendar.current.isDateInYesterday(date) {
+            day = "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            day = formatter.string(from: date)
+        }
+        return "\(day) · \(timelineTime)"
+    }
+
+    static func truncatedChaplainTitle(_ text: String, limit: Int = 48) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
 }
 
-/// Copilot recents + Gemini section headers — one card, consistent rhythm.
-/// Mobbin: https://mobbin.com/screens/40046f7b-1621-4099-a9e9-76910e645eb3
-/// Mobbin: https://mobbin.com/screens/24e61d69-e92e-428f-a800-265e22419ae5
+/// Granola per-day cards + Gemini row icons + ChatGPT section rhythm.
+/// Mobbin: https://mobbin.com/screens/b4e1bb32-ec54-405a-a221-ad89d59b08a9
+/// Mobbin: https://mobbin.com/screens/9e114d8f-6ebd-4c4a-859d-0617a100cbf7
+/// Mobbin: https://mobbin.com/screens/5e55dde4-61e8-4f5d-95c0-7a9da129ec91
 struct ChaplainChatHistoryGroupedList: View {
     @Environment(\.sanctuaryPalette) private var palette
     let groups: [(String, [Conversation])]
@@ -1330,74 +1419,86 @@ struct ChaplainChatHistoryGroupedList: View {
     var onDelete: ((Conversation) -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(groups.enumerated()), id: \.offset) { groupIndex, group in
-                sectionHeader(group.0, isFirst: groupIndex == 0)
+        VStack(spacing: 22) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionHeader(group.0)
 
-                ForEach(Array(group.1.enumerated()), id: \.element.id) { itemIndex, conversation in
-                    historyRow(conversation)
+                    VStack(spacing: 0) {
+                        ForEach(Array(group.1.enumerated()), id: \.element.id) { itemIndex, conversation in
+                            historyRow(conversation)
 
-                    let isLastInGroup = itemIndex == group.1.count - 1
-                    let isLastGroup = groupIndex == groups.count - 1
-                    if !(isLastInGroup && isLastGroup) {
-                        Divider()
-                            .padding(.leading, 16)
+                            if itemIndex < group.1.count - 1 {
+                                Divider()
+                                    .overlay(palette.divider.opacity(0.55))
+                                    .padding(.leading, 56)
+                            }
+                        }
                     }
+                    .background(palette.cardFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(palette.divider.opacity(0.4), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
                 }
             }
         }
-        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.03), radius: 10, y: 3)
     }
 
-    private func sectionHeader(_ title: String, isFirst: Bool) -> some View {
-        HStack {
-            Text(title)
-                .font(ABY.Font.footnoteSemibold)
-                .foregroundStyle(palette.textSecondary)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, isFirst ? 14 : 18)
-        .padding(.bottom, 4)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(ABY.Font.captionMedium)
+            .foregroundStyle(palette.textTertiary)
+            .tracking(0.6)
+            .padding(.horizontal, 4)
     }
 
     private func historyRow(_ conversation: Conversation) -> some View {
         Button {
             onSelect(conversation)
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                historyRowIcon
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(conversation.chaplainHistoryTitle)
-                        .font(ABY.Font.calloutMedium)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
-                    if let subtitle = conversation.chaplainHistorySubtitle {
-                        Text(subtitle)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textSecondary)
+                    HStack(spacing: 6) {
+                        if let subtitle = conversation.chaplainHistorySubtitle {
+                            Text(subtitle)
+                                .font(ABY.Font.listSubtitle)
+                                .foregroundStyle(palette.textSecondary)
+                                .lineLimit(1)
+                        }
+
+                        if conversation.chaplainHistorySubtitle != nil {
+                            Text("·")
+                                .font(ABY.Font.tertiary)
+                                .foregroundStyle(palette.textTertiary)
+                        }
+
+                        Text(conversation.timelineTime)
+                            .font(ABY.Font.tertiary)
+                            .foregroundStyle(palette.textTertiary)
                             .lineLimit(1)
                     }
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 4)
 
-                Text(conversation.timelineTime)
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
-                    .layoutPriority(1)
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.tertiaryMedium)
+                    .foregroundStyle(palette.textTertiary.opacity(0.85))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
             .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -1411,6 +1512,15 @@ struct ChaplainChatHistoryGroupedList: View {
             }
         }
     }
+
+    private var historyRowIcon: some View {
+        Image(systemName: "text.bubble")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(palette.textSecondary)
+            .frame(width: 34, height: 34)
+            .background(palette.surfaceMuted.opacity(palette.isNight ? 0.55 : 0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
 }
 
 // MARK: - Chat history (Mobbin Raycast / Bevel / ChatGPT refs)
@@ -1423,16 +1533,16 @@ struct ABYChatHistoryRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(conversation.title)
-                    .font(ABY.Font.calloutSemibold)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                     .lineLimit(1)
                 Text(conversation.preview)
-                    .font(ABY.Font.caption)
+                    .font(ABY.Font.listSubtitle)
                     .foregroundStyle(palette.textSecondary)
                     .lineLimit(2)
                     .lineSpacing(2)
                 Text(relativeLabel)
-                    .font(ABY.Font.caption)
+                    .font(ABY.Font.tertiary)
                     .foregroundStyle(palette.textTertiary)
             }
 
@@ -1443,9 +1553,9 @@ struct ABYChatHistoryRow: View {
                 .foregroundStyle(palette.textTertiary)
         }
         .padding(14)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.03), radius: 8, y: 2)
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
     }
 
     private var relativeLabel: String {
@@ -1468,13 +1578,13 @@ struct ABYChatHistoryStartButton: View {
                     .foregroundStyle(ABY.Color.pillTeal)
                     .frame(width: 28)
                 Text("New chat")
-                    .font(ABY.Font.calloutMedium)
+                    .font(ABY.Font.buttonSecondary)
                     .foregroundStyle(palette.textPrimary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(palette.cardFill)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)

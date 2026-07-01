@@ -3,9 +3,9 @@
 //  DevotionLock
 //
 //  Mobbin refs:
-//  - Copilot recents: https://mobbin.com/screens/40046f7b-1621-4099-a9e9-76910e645eb3
-//  - Gemini chats: https://mobbin.com/screens/24e61d69-e92e-428f-a800-265e22419ae5
-//  - Granola history: https://mobbin.com/screens/b4e1bb32-ec54-405a-a221-ad89d59b08a9
+//  - Granola chat history: https://mobbin.com/screens/b4e1bb32-ec54-405a-a221-ad89d59b08a9
+//  - Gemini chats: https://mobbin.com/screens/9e114d8f-6ebd-4c4a-859d-0617a100cbf7
+//  - ChatGPT history: https://mobbin.com/screens/5e55dde4-61e8-4f5d-95c0-7a9da129ec91
 //
 
 import SwiftUI
@@ -47,7 +47,9 @@ struct ChaplainChatHistoryView: View {
             let li = order.firstIndex(of: lhs.key) ?? 99
             let ri = order.firstIndex(of: rhs.key) ?? 99
             if li != ri { return li < ri }
-            return lhs.key > rhs.key
+            let lhsDate = lhs.value.compactMap(\.recordedAt).max() ?? .distantPast
+            let rhsDate = rhs.value.compactMap(\.recordedAt).max() ?? .distantPast
+            return lhsDate > rhsDate
         }
     }
 
@@ -59,69 +61,33 @@ struct ChaplainChatHistoryView: View {
                 VStack(spacing: 0) {
                     historySearchBar
 
-                    if chats.isEmpty {
-                        ScrollView(showsIndicators: false) {
-                            emptyState
-                                .padding(.horizontal, ABY.Spacing.screen)
-                                .padding(.top, 4)
-                                .padding(.bottom, 32)
-                        }
-                    } else {
-                        List {
-                            ForEach(Array(grouped.enumerated()), id: \.offset) { _, group in
-                                Section {
-                                    ForEach(group.1) { conversation in
-                                        ChaplainChatHistoryRow(conversation: conversation) {
-                                            openConversation(conversation)
-                                        }
-                                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                                        .listRowSeparator(.visible, edges: .bottom)
-                                        .listRowBackground(Color.white)
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                            Button(role: .destructive) {
-                                                requestDelete(conversation)
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                        .contextMenu {
-                                            Button(role: .destructive) {
-                                                requestDelete(conversation)
-                                            } label: {
-                                                Label("Delete chat", systemImage: "trash")
-                                            }
-                                        }
-                                    }
-                                } header: {
-                                    Text(group.0)
-                                        .font(ABY.Font.footnoteSemibold)
-                                        .foregroundStyle(palette.textSecondary)
-                                        .textCase(nil)
-                                }
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            if chats.isEmpty {
+                                emptyState
+                                    .padding(.top, 8)
+                                    .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+                            } else {
+                                ChaplainChatHistoryGroupedList(
+                                    groups: grouped,
+                                    onSelect: openConversation,
+                                    onDelete: requestDelete
+                                )
+                                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                             }
                         }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
                         .padding(.horizontal, ABY.Spacing.screen)
                         .padding(.top, 4)
-                        .background {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Color.white)
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(palette.divider.opacity(0.45), lineWidth: 1)
-                                }
-                                .shadow(color: .black.opacity(0.03), radius: 10, y: 3)
-                                .padding(.horizontal, ABY.Spacing.screen)
-                        }
+                        .padding(.bottom, 32)
                     }
+                    .abyTransparentScroll()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Chats")
-                        .font(ABY.Font.calloutSemibold)
+                        .font(ABY.Font.navTitle)
                         .foregroundStyle(palette.textPrimary)
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -138,7 +104,7 @@ struct ChaplainChatHistoryView: View {
                     Button(action: startNewChat) {
                         Image(systemName: "square.and.pencil")
                             .font(ABY.Font.calloutMedium)
-                            .foregroundStyle(palette.textSecondary)
+                            .foregroundStyle(ABY.Color.pillTeal)
                             .frame(width: 36, height: 36)
                             .contentShape(Rectangle())
                     }
@@ -171,8 +137,8 @@ struct ChaplainChatHistoryView: View {
                     .padding(.vertical, 10)
                     .background {
                         Capsule()
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+                            .fill(palette.cardFill)
+                            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 14, y: 6)
                     }
                     .padding(.bottom, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -194,6 +160,7 @@ struct ChaplainChatHistoryView: View {
             TextField("Search chats", text: $searchText)
                 .font(ABY.Font.callout)
                 .foregroundStyle(palette.textPrimary)
+                .tint(palette.textPrimary)
                 .focused($searchFocused)
                 .submitLabel(.search)
 
@@ -210,24 +177,34 @@ struct ChaplainChatHistoryView: View {
                 .buttonStyle(.borderless)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.96))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(palette.composerFill)
+        .clipShape(Capsule())
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(palette.divider.opacity(0.5), lineWidth: 1)
+            Capsule()
+                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
         }
+        .shadow(color: .black.opacity(palette.isNight ? 0 : palette.cardShadowOpacity * 0.35), radius: 8, y: 2)
+        .colorScheme(palette.isNight ? .dark : .light)
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 6)
-        .padding(.bottom, 10)
+        .padding(.bottom, 14)
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: "text.bubble")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(ABY.Color.pillTeal)
+                .frame(width: 44, height: 44)
+                .background(ABY.Color.pillTeal.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
             Text(searchText.isEmpty ? "No saved chats yet" : "No matching chats")
                 .font(ABY.Font.headline)
                 .foregroundStyle(palette.textPrimary)
+
             Text(
                 searchText.isEmpty
                     ? "Conversations with your Chaplain will appear here after you save or continue a thread."
@@ -246,17 +223,18 @@ struct ChaplainChatHistoryView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .padding(.top, 4)
+                .padding(.top, 2)
             }
         }
         .padding(ABY.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(palette.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(palette.divider.opacity(0.45), lineWidth: 1)
         }
+        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
     }
 
     private func startNewChat() {
@@ -289,43 +267,6 @@ struct ChaplainChatHistoryView: View {
                 deletedBanner = nil
             }
         }
-    }
-}
-
-private struct ChaplainChatHistoryRow: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    let conversation: Conversation
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(conversation.chaplainHistoryTitle)
-                        .font(ABY.Font.calloutMedium)
-                        .foregroundStyle(palette.textPrimary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-
-                    if let subtitle = conversation.chaplainHistorySubtitle {
-                        Text(subtitle)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textTertiary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                Text(conversation.timelineTime)
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
-                    .layoutPriority(1)
-            }
-            .padding(.vertical, 2)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
     }
 }
 

@@ -196,7 +196,7 @@ struct EveningReflectionSheet: View {
     @State private var highlight = ""
     @State private var appeared = false
     @State private var selectedPrompt: String?
-    @State private var showVoiceCapture = false
+    @State private var isSpeaking = false
     @FocusState private var editorFocused: Bool
 
     private let prompts = [
@@ -220,23 +220,19 @@ struct EveningReflectionSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.10, green: 0.09, blue: 0.18),
-                        Color(red: 0.14, green: 0.12, blue: 0.24),
-                        Color(red: 0.08, green: 0.10, blue: 0.16),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                ABYEveningReflectionBackground()
+                    .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 20) {
                         headerSection
-                        promptSection
-                        responseSection
+
+                        if !isSpeaking {
+                            promptSection
+                        }
+
                         inputModeRow
+                        responseSection
                     }
                     .padding(ABY.Spacing.screen)
                     .padding(.bottom, 100)
@@ -257,24 +253,9 @@ struct EveningReflectionSheet: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
         }
+        .environment(\.sanctuaryPalette, .night)
         .preferredColorScheme(.dark)
-        .fullScreenCover(isPresented: $showVoiceCapture) {
-            RecordingSessionView(
-                isPresented: $showVoiceCapture,
-                initialPrompt: "What brought you peace or gratitude today?",
-                onComplete: { transcript in
-                    let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !spoken.isEmpty { highlight = spoken }
-                },
-                onSwitchToChat: { transcript in
-                    showVoiceCapture = false
-                    let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !spoken.isEmpty { highlight = spoken }
-                    onVoiceHandoff?(spoken)
-                },
-                saveOnlyLabel: "Use in reflection only"
-            )
-        }
+        .animation(AppTheme.springGentle, value: isSpeaking)
         .onAppear {
             withAnimation(AppTheme.springGentle) { appeared = true }
         }
@@ -346,67 +327,94 @@ struct EveningReflectionSheet: View {
                 .foregroundStyle(Color.white.opacity(0.45))
                 .tracking(0.8)
 
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.07))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.white.opacity(editorFocused ? 0.22 : 0.12), lineWidth: 1)
-                    }
+            if isSpeaking {
+                ABYInlineDictationCapture(
+                    text: $highlight,
+                    isActive: $isSpeaking,
+                    offersPolishChoice: true,
+                    style: .evening
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            } else {
+                reflectionEditor
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+        }
+    }
 
-                if highlight.isEmpty {
-                    Text("A quiet moment, a kindness, a small mercy…")
-                        .font(ABY.Font.editorialBody)
-                        .foregroundStyle(Color.white.opacity(0.35))
-                        .padding(18)
+    private var reflectionEditor: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.07))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Color.white.opacity(editorFocused ? 0.22 : 0.12), lineWidth: 1)
                 }
 
-                TextEditor(text: $highlight)
-                    .focused($editorFocused)
+            if highlight.isEmpty {
+                Text("A quiet moment, a kindness, a small mercy…")
                     .font(ABY.Font.editorialBody)
-                    .foregroundStyle(.white.opacity(0.95))
-                    .scrollContentBackground(.hidden)
-                    .padding(14)
-                    .frame(minHeight: 150)
+                    .foregroundStyle(Color.white.opacity(0.35))
+                    .padding(18)
             }
+
+            TextEditor(text: $highlight)
+                .focused($editorFocused)
+                .font(ABY.Font.editorialBody)
+                .foregroundStyle(Color.white)
+                .tint(Color.white.opacity(0.85))
+                .scrollContentBackground(.hidden)
+                .colorScheme(.dark)
+                .padding(14)
+                .frame(minHeight: 140)
         }
     }
 
     private var inputModeRow: some View {
         HStack(spacing: 10) {
-            Button {
+            inputModeChip(
+                icon: "keyboard",
+                label: "Type",
+                isSelected: !isSpeaking
+            ) {
+                isSpeaking = false
                 editorFocused = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "keyboard")
-                    Text("Type")
-                }
-                .font(ABY.Font.captionMedium)
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
 
-            Button {
+            inputModeChip(
+                icon: "waveform",
+                label: "Speak",
+                isSelected: isSpeaking
+            ) {
                 editorFocused = false
-                showVoiceCapture = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "waveform")
-                    Text("Speak")
-                }
-                .font(ABY.Font.captionMedium)
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
+                isSpeaking = true
             }
-            .buttonStyle(.plain)
         }
+    }
+
+    private func inputModeChip(
+        icon: String,
+        label: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                Text(label)
+            }
+            .font(ABY.Font.captionMedium)
+            .foregroundStyle(.white.opacity(isSelected ? 0.95 : 0.72))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(isSelected ? 0.16 : 0.08))
+            .clipShape(Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(Color.white.opacity(isSelected ? 0.28 : 0.08), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var saveBar: some View {

@@ -32,12 +32,13 @@ struct PaywallBrandMark: View {
 
 struct PaywallHeroBlock: View {
     var body: some View {
-        VStack(spacing: 14) {
-            Text("Unlock your full\nmorning sanctuary")
+        VStack(spacing: 8) {
+            Text("Unlock your full morning sanctuary")
                 .font(ABY.Font.paywallHeadline)
                 .foregroundStyle(ABY.Color.paywallTextPrimary)
                 .multilineTextAlignment(.center)
-                .lineSpacing(2)
+                .lineLimit(2)
+                .minimumScaleFactor(0.92)
 
             HStack(spacing: 4) {
                 ForEach(0..<5, id: \.self) { _ in
@@ -49,11 +50,6 @@ struct PaywallHeroBlock: View {
                     .font(ABY.Font.caption)
                     .foregroundStyle(ABY.Color.paywallTextSecondary)
             }
-
-            Text("Worth every peaceful morning")
-                .font(ABY.Font.footnote)
-                .foregroundStyle(ABY.Color.paywallTextSecondary)
-                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
     }
@@ -102,22 +98,35 @@ struct PaywallBenefit: Identifiable {
 
 struct PaywallBenefitsCard: View {
     let benefits: [PaywallBenefit]
+    var compact: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: compact ? 10 : 14) {
             Text("Everything in Plus")
                 .font(ABY.Font.caption)
                 .foregroundStyle(ABY.Color.paywallTextTertiary)
                 .textCase(.uppercase)
                 .tracking(0.6)
 
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(benefits) { benefit in
-                    PaywallBenefitRow(benefit: benefit)
+            if compact {
+                LazyVGrid(
+                    columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                    alignment: .leading,
+                    spacing: 10
+                ) {
+                    ForEach(benefits) { benefit in
+                        PaywallBenefitRow(benefit: benefit, compact: true)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(benefits) { benefit in
+                        PaywallBenefitRow(benefit: benefit)
+                    }
                 }
             }
         }
-        .padding(18)
+        .padding(compact ? 14 : 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -132,23 +141,29 @@ struct PaywallBenefitsCard: View {
 
 struct PaywallBenefitRow: View {
     let benefit: PaywallBenefit
+    var compact: Bool = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: compact ? 8 : 12) {
             Image(systemName: benefit.icon)
-                .font(ABY.Font.iconMedium)
+                .font(compact ? ABY.Font.iconSmall : ABY.Font.iconMedium)
                 .foregroundStyle(ABY.Color.paywallTextPrimary)
-                .frame(width: 22, alignment: .center)
+                .frame(width: 20, alignment: .center)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: compact ? 0 : 2) {
                 Text(benefit.title)
-                    .font(ABY.Font.paywallFeature)
+                    .font(compact ? ABY.Font.captionMedium : ABY.Font.paywallFeature)
                     .foregroundStyle(ABY.Color.paywallTextPrimary)
-                Text(benefit.detail)
-                    .font(ABY.Font.footnote)
-                    .foregroundStyle(ABY.Color.paywallTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(2)
+                    .lineLimit(compact ? 2 : nil)
+
+                if !compact {
+                    Text(benefit.detail)
+                        .font(ABY.Font.footnote)
+                        .foregroundStyle(ABY.Color.paywallTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(2)
+                }
             }
         }
     }
@@ -247,7 +262,7 @@ struct PaywallPlanCard: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(option.periodLabel.uppercased())
                         .font(ABY.Font.paywallPlanLabel)
@@ -272,11 +287,13 @@ struct PaywallPlanCard: View {
                 Text(option.billingNote)
                     .font(ABY.Font.caption)
                     .foregroundStyle(noteColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
                     .lineSpacing(1)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(isSelected ? Color.white : ABY.Color.paywallPlanFill)
@@ -338,13 +355,13 @@ struct PaywallPurchaseFooter: View {
     let showPrivacy: () -> Void
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             Button(action: purchase) {
                 Text(ctaTitle)
                     .font(ABY.Font.paywallCTA)
                     .foregroundStyle(ABY.Color.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 17)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.vertical, 14)
                     .background(Color.white.opacity(isPurchasing || isDisabled ? 0.55 : 1))
                     .clipShape(Capsule())
             }
@@ -356,23 +373,28 @@ struct PaywallPurchaseFooter: View {
                     .font(ABY.Font.caption)
                     .foregroundStyle(ABY.Color.paywallTextSecondary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
             }
 
             Button(action: restore) {
                 Text(isRestoring ? "Restoring…" : "Restore Purchase")
-                    .font(ABY.Font.footnoteMedium)
+                    .font(ABY.Font.buttonSecondary)
                     .foregroundStyle(ABY.Color.paywallTextSecondary)
             }
             .buttonStyle(.plain)
             .disabled(isRestoring)
-
-            Text("Cancel anytime via the App Store")
-                .font(ABY.Font.caption)
-                .foregroundStyle(ABY.Color.paywallTextTertiary)
+            .frame(minHeight: 44)
 
             HStack(spacing: 6) {
+                Text("Cancel anytime")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(ABY.Color.paywallTextTertiary)
+                Text("·")
+                    .foregroundStyle(ABY.Color.paywallTextTertiary)
                 Button("Terms", action: showTerms)
-                Text("·").foregroundStyle(ABY.Color.paywallTextTertiary)
+                Text("·")
+                    .foregroundStyle(ABY.Color.paywallTextTertiary)
                 Button("Privacy", action: showPrivacy)
             }
             .font(ABY.Font.captionMedium)
@@ -380,13 +402,13 @@ struct PaywallPurchaseFooter: View {
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 12)
-        .padding(.bottom, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 16)
         .background {
             LinearGradient(
                 colors: [
                     ABY.Color.nightGradientBottom.opacity(0),
-                    ABY.Color.nightGradientBottom.opacity(0.92),
+                    ABY.Color.nightGradientBottom.opacity(0.88),
                 ],
                 startPoint: .top,
                 endPoint: .bottom

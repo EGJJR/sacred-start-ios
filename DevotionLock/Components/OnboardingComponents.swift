@@ -945,7 +945,6 @@ struct OnboardingNotificationPreview: View {
 
 struct SacredStartRecapView: View {
     let goal: String
-    let mood: String
     let voiceName: String
     @Binding var weeklyCommitment: Int?
     @Binding var beat: Int
@@ -983,7 +982,7 @@ struct SacredStartRecapView: View {
             Text("Your Sacred Start recap")
                 .font(ABY.Font.editorialTitle)
                 .foregroundStyle(ABY.Color.textPrimary)
-            Text("You came for \(goal.lowercased()), feeling \(mood.lowercased()). Chaplain \(voiceName) will meet you there each morning.")
+            Text("You came for \(goal.lowercased()). Chaplain \(voiceName) will meet you there each morning.")
                 .font(ABY.Font.body)
                 .foregroundStyle(ABY.Color.textSecondary)
                 .lineSpacing(4)
@@ -1026,7 +1025,7 @@ struct SacredStartRecapView: View {
 
             OnboardingHelpCard(
                 lead: "Your plan",
-                highlight: "\(weeklyCommitment ?? 5) mornings with Chaplain \(voiceName), starting \(mood.lowercased())."
+                highlight: "\(weeklyCommitment ?? 5) mornings with Chaplain \(voiceName)."
             )
         }
     }
@@ -1050,7 +1049,7 @@ struct SacredStartRecapView: View {
     }
 
     private var insightPreview: String {
-        "Chaplain \(voiceName) will guide your \(mood.lowercased()) mornings, focused on \(goal.lowercased()). Your first devotion awaits."
+        "Chaplain \(voiceName) will guide your mornings, focused on \(goal.lowercased()). Your first devotion awaits."
     }
 
     @ViewBuilder

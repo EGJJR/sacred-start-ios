@@ -60,6 +60,126 @@ enum SacredOrbQuickAction: String, Identifiable, CaseIterable {
     }
 }
 
+// MARK: - Overlay (springs from orb — no sheet swipe)
+
+struct SacredOrbQuickActionsOverlay: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    let actions: [SacredOrbQuickAction]
+    var onSelect: (SacredOrbQuickAction) -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            // Invisible tap catcher — dismiss without dimming the whole screen.
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture {
+                    DevotionHaptics.soft()
+                    onDismiss()
+                }
+
+            SacredOrbQuickActionsCard(
+                actions: actions,
+                onSelect: onSelect
+            )
+            .padding(.trailing, ABY.Spacing.screen)
+            .padding(.bottom, 92)
+        }
+        .accessibilityAddTraits(.isModal)
+    }
+}
+
+// MARK: - Shared card
+
+private struct SacredOrbQuickActionsCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    let actions: [SacredOrbQuickAction]
+    var onSelect: (SacredOrbQuickAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+                .padding(.bottom, 14)
+
+            cardDivider
+
+            VStack(spacing: 0) {
+                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                    SacredOrbQuickActionRow(action: action) {
+                        DevotionHaptics.light()
+                        onSelect(action)
+                    }
+
+                    if index < actions.count - 1 {
+                        cardDivider
+                            .padding(.leading, 68)
+                    }
+                }
+            }
+        }
+        .frame(width: 318, alignment: .leading)
+        .background { cardBackground }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(ABY.Color.orbTeal)
+
+                Text("Sacred shortcuts")
+                    .font(ABY.Font.headline)
+                    .foregroundStyle(palette.textPrimary)
+            }
+
+            Text("Choose how to capture this moment")
+                .font(ABY.Font.caption)
+                .foregroundStyle(palette.textSecondary)
+        }
+    }
+
+    private var cardDivider: some View {
+        Rectangle()
+            .fill(palette.divider.opacity(palette.isNight ? 0.9 : 0.65))
+            .frame(height: 0.5)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .background {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(palette.isNight ? palette.surfaceElevated : Color.white.opacity(0.94))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                palette.navBarStrokeTop,
+                                palette.navBarStrokeBottom,
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.5
+                    )
+            }
+            .shadow(color: .black.opacity(palette.isNight ? 0.42 : 0.14), radius: 32, y: 14)
+            .shadow(color: .black.opacity(palette.isNight ? 0.2 : 0.05), radius: 8, y: 3)
+    }
+}
+
+// MARK: - Sheet (design tour / previews)
+
 struct SacredOrbQuickActionsSheet: View {
     @Environment(\.sanctuaryPalette) private var palette
     @Environment(\.dismiss) private var dismiss
@@ -68,82 +188,108 @@ struct SacredOrbQuickActionsSheet: View {
     var onSelect: (SacredOrbQuickAction) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Capsule()
-                .fill(palette.divider.opacity(0.55))
-                .frame(width: 36, height: 4)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 10)
-                .padding(.bottom, 18)
+        SacredOrbQuickActionsCard(actions: actions, onSelect: onSelect)
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity)
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(28)
+            .accessibilityAction(named: "Dismiss") { dismiss() }
+    }
+}
 
-            Text("Sacred shortcuts")
-                .font(ABY.Font.editorialTitle)
-                .foregroundStyle(palette.textPrimary)
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 6)
+private struct SacredOrbQuickActionRow: View {
+    @Environment(\.sanctuaryPalette) private var palette
 
-            Text("Hold the orb for quick capture — tap it for today's next step.")
-                .font(ABY.Font.footnote)
-                .foregroundStyle(palette.textSecondary)
-                .lineSpacing(3)
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.bottom, 20)
+    let action: SacredOrbQuickAction
+    var onTap: () -> Void
 
-            VStack(spacing: 10) {
-                ForEach(actions) { action in
-                    Button {
-                        DevotionHaptics.light()
-                        onSelect(action)
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: action.icon)
-                                .font(ABY.Font.headline)
-                                .foregroundStyle(action.tint)
-                                .frame(width: 40, height: 40)
-                                .background(action.tint.opacity(0.14))
-                                .clipShape(Circle())
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    action.tint.opacity(palette.isNight ? 0.28 : 0.20),
+                                    action.tint.opacity(palette.isNight ? 0.10 : 0.06),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
 
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(action.title)
-                                    .font(ABY.Font.calloutSemibold)
-                                    .foregroundStyle(palette.textPrimary)
-                                Text(action.subtitle)
-                                    .font(ABY.Font.caption)
-                                    .foregroundStyle(palette.textSecondary)
-                            }
+                    Image(systemName: action.icon)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(action.tint)
+                }
+                .frame(width: 40, height: 40)
 
-                            Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(action.title)
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.textPrimary)
 
-                            Image(systemName: "chevron.right")
-                                .font(ABY.Font.captionSemibold)
-                                .foregroundStyle(palette.textTertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(palette.surface.opacity(0.94))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(ScaleButtonStyle())
+                    Text(action.subtitle)
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SacredOrbQuickActionRowStyle())
+    }
+}
+
+private struct SacredOrbQuickActionRowStyle: ButtonStyle {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                if configuration.isPressed {
+                    palette.surfaceMuted.opacity(palette.isNight ? 0.55 : 0.75)
                 }
             }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.bottom, 24)
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(28)
-        .accessibilityAction(named: "Dismiss") { dismiss() }
     }
 }
 
 #if DEBUG
-#Preview {
+#Preview("Overlay light") {
+    ZStack(alignment: .bottom) {
+        ABYFlatTabWashBackground()
+        SacredOrbQuickActionsOverlay(
+            actions: SacredOrbQuickAction.allCases,
+            onSelect: { _ in },
+            onDismiss: {}
+        )
+    }
+    .abyScreen()
+}
+
+#Preview("Overlay evening") {
+    ZStack(alignment: .bottom) {
+        ABYEveningReflectionBackground()
+        SacredOrbQuickActionsOverlay(
+            actions: SacredOrbQuickAction.allCases,
+            onSelect: { _ in },
+            onDismiss: {}
+        )
+    }
+    .environment(\.sanctuaryPalette, .night)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Sheet") {
     SacredOrbQuickActionsSheet(
         actions: SacredOrbQuickAction.allCases,
         onSelect: { _ in }

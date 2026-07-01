@@ -39,6 +39,35 @@ struct MainTabView: View {
             )
             .id(sacredOrbRefreshKey)
         }
+        .overlay {
+            if coordinator.sacredOrbQuickMenuPresented {
+                SacredOrbQuickActionsOverlay(
+                    actions: coordinator.sacredOrbMenuActions,
+                    onSelect: { action in
+                        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                            withAnimation(AppTheme.springGentle) {
+                                coordinator.performSacredOrbQuickAction(action)
+                            }
+                        }
+                    },
+                    onDismiss: {
+                        withAnimation(AppTheme.springSnappy) {
+                            coordinator.dismissSacredOrbQuickMenu()
+                        }
+                    }
+                )
+                .transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 0.92, anchor: .bottomTrailing)
+                            .combined(with: .offset(x: 8, y: 18)),
+                        removal: .scale(scale: 0.97, anchor: .bottomTrailing)
+                            .combined(with: .opacity)
+                    )
+                )
+                .zIndex(100)
+            }
+        }
+        .animation(AppTheme.springGentle, value: coordinator.sacredOrbQuickMenuPresented)
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
         .modifier(MainTabVoiceSessionModifier(coordinator: coordinator, onSwitchToChat: { transcript in
@@ -446,15 +475,6 @@ private struct MainTabPresentationsModifier: ViewModifier {
                 .presentationBackground {
                     ABYCleanGradientBackground()
                 }
-            case .sacredOrbMenu:
-                SacredOrbQuickActionsSheet(
-                    actions: coordinator.sacredOrbMenuActions,
-                    onSelect: { action in
-                        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                            coordinator.performSacredOrbQuickAction(action)
-                        }
-                    }
-                )
             }
         }
         .mainTabModalEnvironment(coordinator: coordinator)
@@ -518,11 +538,13 @@ private struct MainTabPresentationsModifier: ViewModifier {
                 MorningWrappedContainerView(baseStats: streakManager.wrappedStats()) {
                     coordinator.fullScreen = nil
                 }
+            /*
             case .widgetOnboarding:
                 WidgetOnboardingView {
                     coordinator.fullScreen = nil
                     coordinator.selectedTab = .profile
                 }
+            */
             case .journeyTimeline:
                 NavigationStack {
                     JourneyTimelineView(store: JourneyTimelineStore.shared)

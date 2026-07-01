@@ -15,9 +15,15 @@ struct ConversationDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var appeared = false
     @State private var loadedConversation: Conversation?
+    @State private var showEditSheet = false
+    @State private var updatedBanner: String?
 
     private var displayConversation: Conversation {
         loadedConversation ?? conversation
+    }
+
+    private var isEditable: Bool {
+        displayConversation.isEditableJournalEntry
     }
 
     private var prefersChatStyle: Bool {
@@ -41,12 +47,24 @@ struct ConversationDetailView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: prefersChatStyle ? 14 : 20) {
-                        if prefersChatStyle {
+                        if let updatedBanner {
+                        Text(updatedBanner)
+                            .font(ABY.Font.footnote)
+                            .foregroundStyle(ABY.Color.pillTeal)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .blurReveal(appeared, blurRadius: 4, scale: 1.002)
+                    }
+
+                    if prefersChatStyle {
                             compactChatHeader
                                 .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                             chatThread
                         } else if isSimpleJournalReflection {
-                            JournalEntryReadCard(conversation: displayConversation)
+                            JournalEntryReadCard(
+                                conversation: displayConversation,
+                                onEdit: isEditable ? { openEditSheet() } : nil
+                            )
                                 .blurReveal(appeared, blurRadius: 6, scale: 1.004)
                         } else {
                             journalHeader
@@ -79,6 +97,19 @@ struct ConversationDetailView: View {
         .onAppear {
             withAnimation(AppTheme.springGentle.delay(0.04)) { appeared = true }
         }
+        .fullScreenCover(isPresented: $showEditSheet) {
+            EditJournalEntryView(conversation: displayConversation) { updated in
+                loadedConversation = updated
+                withAnimation(AppTheme.springGentle) {
+                    updatedBanner = "Entry updated"
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    withAnimation(AppTheme.springGentle) {
+                        updatedBanner = nil
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Chrome
@@ -101,13 +132,23 @@ struct ConversationDetailView: View {
                     .foregroundStyle(palette.textTertiary)
             }
 
-            Button(action: {}) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(ABY.Font.calloutMedium)
-                    .foregroundStyle(palette.textSecondary)
-                    .frame(width: 32, height: 32)
+            if isEditable {
+                Button(action: openEditSheet) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "pencil.line")
+                            .font(ABY.Font.captionMedium)
+                        Text("Edit")
+                            .font(ABY.Font.captionSemibold)
+                    }
+                    .foregroundStyle(ABY.Color.pillPurple)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(ABY.Color.pillPurple.opacity(palette.isNight ? 0.16 : 0.08))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit entry")
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, ABY.Spacing.screen)
         .padding(.top, 12)
@@ -283,6 +324,11 @@ struct ConversationDetailView: View {
             return "\(day) · \(time)"
         }
         return "\(displayConversation.timelineTime) · \(displayConversation.timeAgo)"
+    }
+
+    private func openEditSheet() {
+        showEditSheet = true
+        DevotionHaptics.light()
     }
 
     private func continueChaplainConversation() {

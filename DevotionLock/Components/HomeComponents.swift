@@ -88,8 +88,8 @@ struct ABYPrimaryButton: View {
                 }
             }
             .foregroundStyle(palette.buttonForeground)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, 14)
             .background(palette.buttonFill)
             .clipShape(Capsule())
         }
@@ -107,7 +107,7 @@ struct ABYIconButton: View {
             Image(systemName: icon)
                 .font(ABY.Font.iconMedium)
                 .foregroundStyle(palette.textPrimary)
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: 44)
                 .background(palette.surface)
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.04), radius: 4, y: 1)

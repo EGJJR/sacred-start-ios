@@ -162,7 +162,7 @@ enum LiturgyWeaveBuilder {
                 }
                 return template
             case 2 where !focus.isEmpty:
-                return "Show me one way to love \(focus) with kindness today."
+                return morningKindnessLine(focusLabel: focus)
             default:
                 return template
             }
@@ -188,6 +188,26 @@ enum LiturgyWeaveBuilder {
             return template
         default:
             return template
+        }
+    }
+
+    /// Third beat of the morning prayer — woven from today's focus tag.
+    private static func morningKindnessLine(focusLabel: String) -> String {
+        switch focusLabel.lowercased() {
+        case "family":
+            return "Show me one way to love my family with kindness today."
+        case "work":
+            return "Help me meet today's work with integrity and grace."
+        case "rest":
+            return "Teach me to receive rest without guilt today."
+        case "faith":
+            return "Deepen my faith with one small act of trust today."
+        case "health":
+            return "Help me care for my body with one gentle choice today."
+        case "relationships":
+            return "Show me one way to love someone well today."
+        default:
+            return "Show me one way to walk in kindness today."
         }
     }
 }

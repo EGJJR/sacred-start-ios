@@ -759,21 +759,28 @@ struct PrayerWallComposeSheet: View {
 
                 TextEditor(text: $text)
                     .font(ABY.Font.editorialBody)
+                    .foregroundStyle(PrayerWallNote.inkColor)
+                    .tint(PrayerWallNote.inkColor)
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .frame(minHeight: 140)
                     .background(kind.paperColor)
                     .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
                     .overlay {
+                        RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                            .stroke(PrayerWallNote.inkColor.opacity(0.10), lineWidth: 1)
+                    }
+                    .overlay {
                         if text.isEmpty {
                             Text(placeholder)
                                 .font(ABY.Font.editorialBody)
-                                .foregroundStyle(palette.textTertiary)
+                                .foregroundStyle(PrayerWallNote.paperPlaceholderColor)
                                 .padding(16)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 .allowsHitTesting(false)
                         }
                     }
+                    .colorScheme(.light)
                     .focused($focused)
 
                 ABYPrimaryButton(title: "Pin to wall", icon: "pin.fill") {
@@ -828,12 +835,17 @@ struct PrayerWallDetailSheet: View {
 
                     Text(note.text)
                         .font(ABY.Font.editorialHeadline)
-                        .foregroundStyle(palette.textPrimary)
+                        .foregroundStyle(PrayerWallNote.inkColor)
                         .lineSpacing(6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(20)
                         .background(note.paperColor)
                         .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                                .stroke(PrayerWallNote.inkColor.opacity(0.10), lineWidth: 1)
+                        }
+                        .colorScheme(.light)
                         .rotationEffect(.degrees(note.rotation * 0.5))
                         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
 

@@ -92,6 +92,7 @@ struct PrayerWallNote: Identifiable, Codable, Equatable {
 
     /// Always dark — sticky notes stay pastel in both sanctuary modes.
     static let inkColor = Color(red: 0.13, green: 0.13, blue: 0.15)
+    static let paperPlaceholderColor = inkColor.opacity(0.40)
 
     var paperColor: Color {
         kind == .answered ? PrayerNoteKind.answered.paperColor : Self.paperVariants[tintIndex % Self.paperVariants.count]

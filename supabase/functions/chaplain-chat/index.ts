@@ -5,6 +5,7 @@ import {
   type ChaplainContext,
   type ScripturePassagePayload,
 } from "./prompt.ts";
+import { sanitizeChaplainReply } from "./plain-text.ts";
 import { MAX_TOOL_ROUNDS, SCRIPTURE_TOOLS } from "./tools.ts";
 import {
   executeScriptureTool,
@@ -174,9 +175,10 @@ Deno.serve(async (req: Request) => {
 
           if (!toolCalls?.length) {
             if (assistantMessage.content) {
-              emit({ type: "token", text: assistantMessage.content });
+              const cleaned = sanitizeChaplainReply(assistantMessage.content);
+              emit({ type: "token", text: cleaned });
               if (!ephemeral && convId) {
-                await persistChaplainMessage(supabase, user.id, convId, assistantMessage.content);
+                await persistChaplainMessage(supabase, user.id, convId, cleaned);
               }
             }
             emit({ type: "done" });
@@ -317,11 +319,12 @@ async function persistChaplainMessage(
   convId: string,
   content: string,
 ) {
+  const cleaned = sanitizeChaplainReply(content);
   const { error: insertError } = await supabase.from("messages").insert({
     conversation_id: convId,
     user_id: userId,
     role: "chaplain",
-    content,
+    content: cleaned,
   });
   if (insertError) {
     console.error("persistChaplainMessage failed:", insertError.message);

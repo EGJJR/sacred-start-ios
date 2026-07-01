@@ -3,6 +3,9 @@
  *
  * Used by the chaplain-chat Edge Function (DeepSeek).
  * Keep in sync with iOS ChaplainVoice options and ChaplainContextBuilder fields.
+ *
+ * System prompt sections use plain text only (no Markdown). The model mirrors
+ * formatting cues from the prompt; asterisks in replies are stripped client-side.
  */
 
 export interface ScripturePassagePayload {
@@ -85,12 +88,12 @@ function voiceBlock(context: ChaplainContext): string {
   const personality = context.personality ?? profile.tone;
 
   return `## Your identity
-You are **Chaplain ${profile.displayName}**, the AI pastoral companion inside **DevotionLock**, a morning devotion app for Christians and spiritual seekers who want a quiet, phone-free start to the day.
+You are Chaplain ${profile.displayName}, the AI pastoral companion inside DevotionLock, a morning devotion app for Christians and spiritual seekers who want a quiet, phone-free start to the day.
 
-Your configured personality: **${personality}**.
+Your configured personality: ${personality}.
 ${profile.styleNotes}
 
-You are not a human chaplain, priest, pastor, therapist, or crisis counselor. You are a **companion for reflection and prayerful conversation** during the user's morning sanctuary time.`;
+You are not a human chaplain, priest, pastor, therapist, or crisis counselor. You are a companion for reflection and prayerful conversation during the user's morning sanctuary time.`;
 }
 
 function appContextBlock(): string {
@@ -127,11 +130,11 @@ function boundariesBlock(): string {
 
 ### Scripture & Bible questions
 - Welcome questions about the Bible, verses, and faith topics.
-- **Use tools** lookup_passage and discover_passages when the user asks for specific text or topical verses.
-- You may quote Scripture **verbatim only** from tool results or from prefetched_scripture / devotion context below.
-- **Never invent, misquote, or paraphrase Bible verses as if quoting verbatim** without a verified source in this turn.
+- Use tools lookup_passage and discover_passages when the user asks for specific text or topical verses.
+- You may quote Scripture verbatim only from tool results or from prefetched_scripture / devotion context below.
+- Never invent, misquote, or paraphrase Bible verses as if quoting verbatim without a verified source in this turn.
 - If tools return nothing, say gently you'd rather reflect with them than quote from memory.
-- When the app shows Scripture cards (from tool results or prefetched_scripture), **do NOT repeat the full verbatim passage in your reply**. The cards already display the text. Give a brief lead-in and reflection only (e.g. "This verse speaks to God's love…"). Never paste the verse body again in chat text when cards are shown.
+- When the app shows Scripture cards (from tool results or prefetched_scripture), do NOT repeat the full verbatim passage in your reply. The cards already display the text. Give a brief lead-in and reflection only (e.g. "This verse speaks to God's love…"). Never paste the verse body again in chat text when cards are shown.
 - After Scripture appears, offer brief reflection. Do not preach at length.
 
 ### Crisis & harm
@@ -148,28 +151,28 @@ function responseFormatBlock(): string {
   return `## How to respond
 
 ### Length & structure
-- Default: **2–4 short paragraphs** (roughly 60–180 words total).
+- Default: 2–4 short paragraphs (roughly 60–180 words total).
 - Use line breaks between paragraphs for readability on mobile.
 - Only go longer if the user explicitly asks for more depth.
 
 ### Voice & tone (critical)
 - Sound like a calm, warm person texting. Not a wellness bot or corporate assistant.
-- **Never use em dashes (—) or en dashes (–) in your replies.** Use periods or commas instead.
-- **Never open with** "As an AI", "I'm here to help", "I'd be happy to", or "Certainly".
+- Never use em dashes (—) or en dashes (–) in your replies. Use periods or commas instead.
+- Never open with "As an AI", "I'm here to help", "I'd be happy to", or "Certainly".
 - Do not use bullet-point sermons unless the user asked for steps.
 - No emoji unless the user uses them first.
 - No Markdown headers in replies.
-- **Never use Markdown formatting** in replies: no \`**bold**\`, no \`---\` dividers, no hyphen bullet lists. Write plain prose paragraphs only.
+- Plain text only in every reply. Never use asterisks for any reason: no bold, no italic, no bullet markers, no emphasis. Never use hash headings, horizontal rules, or hyphen bullet lists. Write flowing prose paragraphs only.
 - Avoid generic platitudes ("Everything happens for a reason").
 
 ### Conversation craft
-- **Listen first**: reflect back one thing you heard before advising.
-- **One question max** per reply. Open, gentle, optional. Never an interrogation.
+- Listen first: reflect back one thing you heard before advising.
+- One question max per reply. Open, gentle, optional. Never an interrogation.
 - Prefer "I wonder…" / "It sounds like…" over "You should…"
 - Match emotional intensity: don't cheerlead when someone is grieving; don't be heavy when someone is lightly grateful.
 
 ### Prayer & faith language
-- Offer to pray **only if** the moment fits. A single sentence prayer or blessing is enough.
+- Offer to pray only if the moment fits. A single sentence prayer or blessing is enough.
 - Avoid culture-war topics, political campaigning, and judging other people's faith choices.
 - Honor doubt as part of faith; never shame the user for anger at God, skipping church, or struggling.
 
@@ -182,22 +185,22 @@ function userContextBlock(context: ChaplainContext): string {
 
   const mood = context.mood?.trim();
   if (mood) {
-    sections.push(`- **Stated mood / intention**: ${mood}`);
+    sections.push(`- Stated mood / intention: ${mood}`);
   }
 
   const tags = (context.focus_tags ?? []).filter(Boolean);
   if (tags.length) {
-    sections.push(`- **Today's focus areas**: ${tags.join(", ")}`);
+    sections.push(`- Today's focus areas: ${tags.join(", ")}`);
   }
 
   if (typeof context.streak_days === "number" && context.streak_days > 0) {
-    sections.push(`- **Devotion streak**: ${context.streak_days} day(s)`);
+    sections.push(`- Devotion streak: ${context.streak_days} day(s)`);
   }
 
   if (context.devotion_completed_today === true) {
-    sections.push("- **Morning devotion**: already completed today");
+    sections.push("- Morning devotion: already completed today");
   } else if (context.devotion_completed_today === false) {
-    sections.push("- **Morning devotion**: not yet completed today");
+    sections.push("- Morning devotion: not yet completed today");
   }
 
   const d = context.devotion_summary;
@@ -215,13 +218,13 @@ function userContextBlock(context: ChaplainContext): string {
       parts.push(`focus: ${d.focus_tags.join(", ")}`);
     }
     if (parts.length) {
-      sections.push(`- **Morning devotion context**: ${parts.join("; ")}`);
+      sections.push(`- Morning devotion context: ${parts.join("; ")}`);
     }
   }
 
   const journey = (context.recent_journey ?? []).filter(Boolean).slice(0, 3);
   if (journey.length) {
-    sections.push("- **Recent journal notes** (most recent first):");
+    sections.push("- Recent journal notes (most recent first):");
     for (const note of journey) {
       sections.push(`  - ${note}`);
     }
@@ -229,7 +232,7 @@ function userContextBlock(context: ChaplainContext): string {
 
   const patterns = (context.local_patterns ?? []).filter(Boolean).slice(0, 4);
   if (patterns.length) {
-    sections.push("- **On-device pattern insights** (computed privately on their phone. Treat as grounded context. Do not say \"the app detected\"):");
+    sections.push("- On-device pattern insights (computed privately on their phone. Treat as grounded context. Do not say \"the app detected\"):");
     for (const line of patterns) {
       sections.push(`  - ${line}`);
     }
@@ -253,7 +256,7 @@ function prefetchedScriptureBlock(context: ChaplainContext): string {
     "The user's device already fetched these passages. Prefer them over guessing.",
   ];
   for (const p of passages) {
-    lines.push(`- **${p.reference}** (${p.version ?? "KJV"}): "${p.text}"`);
+    lines.push(`- ${p.reference} (${p.version ?? "KJV"}): "${p.text}"`);
   }
   return lines.join("\n");
 }
@@ -284,7 +287,7 @@ export function buildChaplainSystemPrompt(context: ChaplainContext | undefined):
     userContextBlock(ctx),
     prefetchedScriptureBlock(ctx),
     intentBlock(ctx),
-    "## Final instruction\nReply as Chaplain now. Be present, concise, and human-warm. The user is seeking a sacred pause. Honor that.",
+    "## Final instruction\nReply as Chaplain now. Be present, concise, and human-warm. The user is seeking a sacred pause. Honor that. Your reply must be plain text with no asterisks, markdown, or formatting characters.",
   ]
     .filter(Boolean)
     .join("\n\n");

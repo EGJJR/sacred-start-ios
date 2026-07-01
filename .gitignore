@@ -47,3 +47,8 @@ supabase/.branches/
 
 # Cursor / editor
 .cursor/
+
+# Local agent tooling & design comparison assets (not part of the app)
+.agents/
+.comparison-screenshots/
+skills-lock.json

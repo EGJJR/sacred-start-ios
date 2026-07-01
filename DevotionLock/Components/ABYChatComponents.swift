@@ -504,6 +504,7 @@ struct ChaplainComposeLauncher: View {
 }
 
 /// Brief sanctuary bloom — compose pill dissolves into Chaplain chat.
+/// Night backdrop refs: [Dot loading](https://mobbin.com/screens/adf02679-bcb3-45b9-aee0-c1ddf9af20f7), [Lensa AI](https://mobbin.com/screens/364db9a5-ef45-4ffa-b3a9-9cfdf81987d2).
 struct ChaplainPortalTransition: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.sanctuaryPalette) private var palette
@@ -511,50 +512,51 @@ struct ChaplainPortalTransition: View {
     let voiceName: String
     let onComplete: () -> Void
 
-    @State private var washVisible = false
     @State private var bloomScale: CGFloat = 0.2
     @State private var bloomOpacity = 0.0
     @State private var avatarRevealed = false
-    @State private var avatarLift: CGFloat = 120
+    @State private var avatarLift: CGFloat = 28
     @State private var fieldIntensity: CGFloat = 0
     @State private var ringPulse = false
     @State private var departing = false
 
     private var peakFieldIntensity: CGFloat { palette.isNight ? 0.06 : 0.85 }
-    private var peakBloomOpacity: CGFloat { palette.isNight ? 0.38 : 0.95 }
-    private var peakBloomScale: CGFloat { palette.isNight ? 1.05 : 1.35 }
+    private var peakBloomOpacity: CGFloat { palette.isNight ? 0.55 : 0.95 }
+    private var peakBloomScale: CGFloat { palette.isNight ? 1.12 : 1.35 }
 
     var body: some View {
-        GeometryReader { geometry in
-            let anchorY = geometry.size.height - geometry.safeAreaInsets.bottom - 118
+        ZStack {
+            portalBackdrop
+                .ignoresSafeArea()
 
-            ZStack {
-                portalWash
-                    .opacity(washVisible ? 1 : 0)
+            if !palette.isNight {
+                SoftLightFieldView(intensity: fieldIntensity)
                     .ignoresSafeArea()
+                    .opacity(departing ? 0 : 1)
+            } else if !departing {
+                eveningPortalGlow
+                    .ignoresSafeArea()
+            }
 
-                if !palette.isNight {
-                    SoftLightFieldView(intensity: fieldIntensity)
-                        .ignoresSafeArea()
-                        .opacity(departing ? 0 : 1)
-                }
+            VStack(spacing: 22) {
+                Spacer()
 
                 ZStack {
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.16 : 0.42),
-                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.08 : 0.22),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.30 : 0.42),
+                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.14 : 0.22),
                                     .clear,
                                 ],
                                 center: .center,
                                 startRadius: 8,
-                                endRadius: palette.isNight ? 120 : 160
+                                endRadius: palette.isNight ? 130 : 160
                             )
                         )
-                        .frame(width: palette.isNight ? 220 : 280, height: palette.isNight ? 220 : 280)
-                        .blur(radius: palette.isNight ? 36 : 28)
+                        .frame(width: palette.isNight ? 240 : 280, height: palette.isNight ? 240 : 280)
+                        .blur(radius: palette.isNight ? 32 : 28)
                         .scaleEffect(bloomScale)
                         .opacity(bloomOpacity)
 
@@ -562,58 +564,76 @@ struct ChaplainPortalTransition: View {
                         .stroke(
                             AngularGradient(
                                 colors: [
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.35 : 0.7),
-                                    ABY.Color.orbSage.opacity(palette.isNight ? 0.18 : 0.35),
-                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.28 : 0.55),
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.35 : 0.7),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.50 : 0.7),
+                                    ABY.Color.orbSage.opacity(palette.isNight ? 0.28 : 0.35),
+                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.38 : 0.55),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.50 : 0.7),
                                 ],
                                 center: .center
                             ),
                             lineWidth: 1.5
                         )
-                        .frame(width: ringPulse ? (palette.isNight ? 100 : 118) : (palette.isNight ? 78 : 92), height: ringPulse ? (palette.isNight ? 100 : 118) : (palette.isNight ? 78 : 92))
-                        .opacity(avatarRevealed ? (palette.isNight ? 0.28 : 0.55) : 0)
+                        .frame(
+                            width: ringPulse ? (palette.isNight ? 108 : 118) : (palette.isNight ? 84 : 92),
+                            height: ringPulse ? (palette.isNight ? 108 : 118) : (palette.isNight ? 84 : 92)
+                        )
+                        .opacity(avatarRevealed ? (palette.isNight ? 0.42 : 0.55) : 0)
                         .blur(radius: 0.5)
-                }
-                .position(x: geometry.size.width / 2, y: anchorY)
 
-                VStack(spacing: 14) {
                     portalAvatar
-                        .blurReveal(avatarRevealed, blurRadius: palette.isNight ? 8 : 14, scale: 1.1)
-
-                    VStack(spacing: 4) {
-                        Text("Chaplain \(voiceName)")
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textPrimary)
-                        Text("A quiet place to begin")
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textSecondary)
-                    }
-                    .blurReveal(avatarRevealed, blurRadius: palette.isNight ? 4 : 8, scale: 1.02)
+                        .portalTextReveal(avatarRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 6 : 14, scale: 1.08)
                 }
+
+                VStack(spacing: 4) {
+                    Text("Chaplain \(voiceName)")
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.textPrimary)
+                    Text("A quiet place to begin")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                }
+                .portalTextReveal(avatarRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 3 : 8, scale: 1.02)
                 .offset(y: avatarLift)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                Spacer()
             }
+            .opacity(departing ? 0 : 1)
         }
-        .ignoresSafeArea()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            portalBackdrop
+                .ignoresSafeArea()
+        }
         .allowsHitTesting(!departing)
         .preferredColorScheme(palette.isNight ? .dark : .light)
         .onAppear(perform: runPortal)
     }
 
-    @ViewBuilder
-    private var portalWash: some View {
-        if palette.isNight {
-            ABYEveningReflectionBackground()
-        } else {
-            ABY.Color.tabWashTop
+    private var portalBackdrop: some View {
+        ZStack {
+            palette.background
+            SanctuarySplashBackground()
         }
+    }
+
+    private var eveningPortalGlow: some View {
+        RadialGradient(
+            colors: [
+                ABY.Color.orbTeal.opacity(0.14),
+                ABY.Color.pillPurple.opacity(0.07),
+                .clear,
+            ],
+            center: .center,
+            startRadius: 30,
+            endRadius: 240
+        )
+        .blur(radius: 20)
     }
 
     @ViewBuilder
     private var portalAvatar: some View {
         if palette.isNight {
-            SacredOrbShell(size: 64, visualStyle: .calm, showsMark: true, showsGlow: false)
+            SacredOrbShell(size: 64, visualStyle: .calm, showsMark: true, showsGlow: true)
         } else {
             ABYChaplainAvatar(size: 64)
         }
@@ -626,7 +646,6 @@ struct ChaplainPortalTransition: View {
         }
 
         withAnimation(.easeOut(duration: palette.isNight ? 0.36 : 0.42)) {
-            washVisible = true
             bloomScale = peakBloomScale
             bloomOpacity = peakBloomOpacity
             fieldIntensity = peakFieldIntensity
@@ -634,7 +653,7 @@ struct ChaplainPortalTransition: View {
 
         withAnimation(AppTheme.springGentle.delay(0.06)) {
             avatarRevealed = true
-            avatarLift = palette.isNight ? -12 : -24
+            avatarLift = 0
         }
 
         if !palette.isNight {
@@ -1094,7 +1113,7 @@ struct ABYChatScreenHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            chatHeaderIconButton("chevron.down", action: onClose)
+            ChatHeaderIconButton(icon: "chevron.down", action: onClose)
 
             Spacer(minLength: 0)
 
@@ -1109,17 +1128,126 @@ struct ABYChatScreenHeader: View {
 
             HStack(spacing: 4) {
                 if let onHistory {
-                    chatHeaderIconButton("clock.arrow.circlepath", action: onHistory)
+                    ChatHeaderIconButton(icon: "clock.arrow.circlepath", action: onHistory)
                 }
                 if let onSave {
-                    chatHeaderIconButton("square.and.arrow.down", action: onSave)
+                    ChatHeaderIconButton(icon: "square.and.arrow.down", action: onSave)
                         .opacity(saveDisabled ? 0.35 : 1)
                         .disabled(saveDisabled)
                 }
                 if let onClear {
-                    chatHeaderIconButton("arrow.counterclockwise", action: onClear)
+                    ChatHeaderIconButton(icon: "arrow.counterclockwise", action: onClear)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Chaplain chat nav chrome
+// Refs: [Booking AI chat](https://mobbin.com/screens/ad13adc7-09a9-4964-8496-e0700b6e4bb4),
+// [Chime Support](https://mobbin.com/screens/d6e9dea8-4ea4-4a47-8218-abefbc6cb2ea),
+// [Zip Zia](https://mobbin.com/screens/7af89154-ee48-4fc2-85a2-e2e57c987569).
+
+/// Full-width nav chrome — back, Chaplain identity, new chat & overflow.
+struct ChaplainChatScreenHeader: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let voice: ChaplainVoice
+    var threadTitle: String? = nil
+    let onBack: () -> Void
+    let onNewChat: () -> Void
+    let onShowHistory: () -> Void
+    var onDeleteConversation: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                ChatHeaderIconButton(icon: "chevron.left", action: onBack)
+
+                HStack(spacing: 8) {
+                    chaplainHeaderAvatar
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Chaplain")
+                            .font(ABY.Font.calloutSemibold)
+                            .foregroundStyle(palette.textPrimary)
+                        Text(headerSubtitle)
+                            .font(ABY.Font.caption)
+                            .foregroundStyle(palette.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 2) {
+                    ChatHeaderIconButton(icon: "square.and.pencil", action: onNewChat)
+
+                    Menu {
+                        Button("Past conversations", action: onShowHistory)
+                        if let onDeleteConversation {
+                            Divider()
+                            Button("Delete conversation", role: .destructive, action: onDeleteConversation)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(ABY.Font.bodySemibold)
+                            .foregroundStyle(palette.textSecondary)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("More options")
+                }
+            }
+            .padding(.horizontal, ABY.Spacing.screen)
+            .padding(.top, 4)
+            .padding(.bottom, 10)
+        }
+        .background { headerChrome }
+    }
+
+    private var headerSubtitle: String {
+        if let threadTitle, !threadTitle.isEmpty, threadTitle != "Chaplain" {
+            return threadTitle
+        }
+        return voice.name
+    }
+
+    @ViewBuilder
+    private var chaplainHeaderAvatar: some View {
+        if palette.isNight {
+            SacredOrbShell(size: 28, visualStyle: .calm, showsMark: true, showsGlow: false)
+        } else {
+            ABYChaplainAvatar(size: 28)
+        }
+    }
+
+    @ViewBuilder
+    private var headerChrome: some View {
+        if palette.isNight {
+            LinearGradient(
+                colors: [
+                    ABY.Color.eveningReflectionTop.opacity(0.98),
+                    ABY.Color.eveningReflectionTop.opacity(0.90),
+                    ABY.Color.eveningReflectionTop.opacity(0.55),
+                    .clear,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        } else {
+            LinearGradient(
+                colors: [
+                    ABY.Color.tabWashTop.opacity(0.98),
+                    ABY.Color.tabWashTop.opacity(0.92),
+                    ABY.Color.tabWashTop.opacity(0.55),
+                    .clear,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
         }
     }
 }
@@ -1137,7 +1265,7 @@ struct GeminiChatScreenHeader: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            chatHeaderIconButton("chevron.down", action: onClose)
+            ChatHeaderIconButton(icon: "chevron.down", action: onClose)
 
             Spacer(minLength: 8)
 
@@ -1149,7 +1277,7 @@ struct GeminiChatScreenHeader: View {
 
             Spacer(minLength: 8)
 
-            chatHeaderIconButton("square.and.pencil", action: onNewChat)
+            ChatHeaderIconButton(icon: "square.and.pencil", action: onNewChat)
 
             Menu {
                 Button("Past conversations", action: onShowHistory)
@@ -1170,16 +1298,45 @@ struct GeminiChatScreenHeader: View {
     }
 }
 
-@ViewBuilder
-private func chatHeaderIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-        Image(systemName: icon)
-            .font(ABY.Font.bodySemibold)
-            .foregroundStyle(Color.primary.opacity(0.72))
-            .frame(width: 36, height: 36)
-            .contentShape(Rectangle())
+private struct ChatHeaderIconButton: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(ABY.Font.bodySemibold)
+                .foregroundStyle(palette.textSecondary)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
     }
-    .buttonStyle(.borderless)
+}
+
+private struct PortalTextReveal: ViewModifier {
+    let isRevealed: Bool
+    let isNight: Bool
+    var blurRadius: CGFloat = 8
+    var scale: CGFloat = 1.02
+
+    func body(content: Content) -> some View {
+        if isNight {
+            content
+                .opacity(isRevealed ? 1 : 0)
+                .offset(y: isRevealed ? 0 : 8)
+        } else {
+            content
+                .blurReveal(isRevealed, blurRadius: blurRadius, scale: scale)
+        }
+    }
+}
+
+private extension View {
+    func portalTextReveal(_ revealed: Bool, isNight: Bool, blurRadius: CGFloat = 8, scale: CGFloat = 1.02) -> some View {
+        modifier(PortalTextReveal(isRevealed: revealed, isNight: isNight, blurRadius: blurRadius, scale: scale))
+    }
 }
 
 // MARK: - Chaplain hub (Mobbin ChatGPT / Copilot refs)

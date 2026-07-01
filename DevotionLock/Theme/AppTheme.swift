@@ -22,6 +22,12 @@ enum AppTheme {
 
     static let springSnappy = Animation.spring(response: 0.38, dampingFraction: 0.82)
     static let springGentle = Animation.spring(response: 0.55, dampingFraction: 0.86)
+    /// Speed-dial menus (Pangea / Airwallex / Jobber pattern on Mobbin).
+    static let springMenu = Animation.spring(response: 0.44, dampingFraction: 0.78)
+    /// Staggered pill reveal from nav orb (WHOOP / Pangea fan-out).
+    static let springMenuReveal = Animation.spring(response: 0.46, dampingFraction: 0.74)
+    /// Collapse pills back into orb on dismiss.
+    static let springMenuCollapse = Animation.spring(response: 0.34, dampingFraction: 0.88)
     static let easeOut = Animation.easeOut(duration: 0.35)
 
     /// Content fade-out before onboarding step changes.

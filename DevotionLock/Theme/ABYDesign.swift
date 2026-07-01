@@ -230,6 +230,8 @@ enum ABY {
         static let screen: CGFloat = 20
         static let card: CGFloat = 16
         static let stack: CGFloat = 12
+        /// Extra scroll breathing room above the floating nav pill.
+        static let tabScrollBottom: CGFloat = 24
     }
 }
 
@@ -986,6 +988,70 @@ struct ABYGlassBarBackground: View {
     }
 }
 
+// MARK: - Nav bar Liquid Glass (iOS 26+) with material fallback
+
+/// Pre–iOS 26 material bar. On iOS 26+, apply `.glassEffect` directly on the nav pill
+/// (see `BottomNavigationBar` — no stacked fills/materials per Apple + Donny Wals).
+private struct SanctuaryNavBarGlassModifier: ViewModifier {
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                ABYGlassBarBackground(cornerRadius: cornerRadius)
+            }
+    }
+}
+
+// MARK: - Liquid Glass helpers (iOS 26+)
+// Patterns: mertozseven/LiquidGlassSwiftUI, Donny Wals, conorluddy/LiquidGlassReference
+
+extension View {
+    /// Tinted interactive glass in a capsule — apply directly on the view; no material backgrounds under it.
+    @ViewBuilder
+    func abyLiquidGlassCapsule(tint: Color? = nil, interactive: Bool = true) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(abyGlassStyle(tint: tint, interactive: interactive), in: Capsule())
+        } else {
+            self
+        }
+    }
+
+    /// Tinted interactive glass in a rounded rect.
+    @ViewBuilder
+    func abyLiquidGlassCard(cornerRadius: CGFloat, tint: Color? = nil, interactive: Bool = true) -> some View {
+        if #available(iOS 26.0, *) {
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            self.glassEffect(abyGlassStyle(tint: tint, interactive: interactive), in: shape)
+        } else {
+            self
+        }
+    }
+
+    /// Conor Luddy `glassedEffect` — Liquid Glass on iOS 26+, material fallback below.
+    @ViewBuilder
+    func glassedEffect(
+        cornerRadius: CGFloat = 999,
+        tint: Color? = nil,
+        interactive: Bool = true
+    ) -> some View {
+        if #available(iOS 26.0, *) {
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            self.glassEffect(abyGlassStyle(tint: tint, interactive: interactive), in: shape)
+        } else {
+            self.background {
+                ABYGlassBarBackground(cornerRadius: cornerRadius)
+            }
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func abyGlassStyle(tint: Color?, interactive: Bool) -> Glass {
+        let base: Glass = tint.map { Glass.regular.tint($0) } ?? .regular
+        return interactive ? base.interactive() : base
+    }
+}
+
 struct ABYThinProgressBar: View {
     let progress: CGFloat
 
@@ -1050,6 +1116,11 @@ extension View {
 
     func abyGlassCard(cornerRadius: CGFloat = ABY.Radius.glass, padding: CGFloat = ABY.Spacing.card) -> some View {
         modifier(ABYGlassCardModifier(cornerRadius: cornerRadius, padding: padding))
+    }
+
+    /// Bottom nav pill: native Liquid Glass on iOS 26+, `ABYGlassBarBackground` below.
+    func sanctuaryNavBarGlass(cornerRadius: CGFloat = 999) -> some View {
+        modifier(SanctuaryNavBarGlassModifier(cornerRadius: cornerRadius))
     }
 
     func lightGlass(cornerRadius: CGFloat = ABY.Radius.cardLarge) -> some View {

@@ -63,7 +63,7 @@ struct ScriptureTabBar: View {
                             }
                         }
                         Text(tab.rawValue)
-                            .font(AppFont.font(size: 10, weight: selection == tab ? AppFont.Weight.semibold : AppFont.Weight.medium))
+                            .font(selection == tab ? ABY.Font.tabLabelSelected : ABY.Font.tabLabel)
                     }
                     .foregroundStyle(selection == tab ? palette.textPrimary : palette.textTertiary)
                     .frame(maxWidth: .infinity)

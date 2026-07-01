@@ -257,8 +257,8 @@ struct DevotionPaywallView: View {
     private func restore() async {
         isRestoring = true
         defer { isRestoring = false }
-        await inAppKit.restorePurchases()
-        if inAppKit.hasAnyPurchase {
+        await PaywallAccess.restorePurchasesFromStore()
+        if inAppKit.hasAnyPurchase || PaywallAccess.hasPremium {
             await PaywallAccess.confirmPurchaseCompleted()
             closePaywall()
         }

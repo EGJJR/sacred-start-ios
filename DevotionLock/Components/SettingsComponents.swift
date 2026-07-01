@@ -145,10 +145,10 @@ struct ABYSettingsPremiumBanner: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isActive ? "Sacred Start Premium" : "Upgrade to Premium")
-                        .font(ABY.Font.headline)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     Text(isActive ? "Your subscription is active" : "Unlock AI Chaplain, guided devotion & more")
-                        .font(ABY.Font.caption)
+                        .font(ABY.Font.listSubtitle)
                         .foregroundStyle(palette.textSecondary)
                         .lineSpacing(3)
                 }
@@ -207,7 +207,7 @@ struct ABYSettingsDangerRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(title)
-                        .font(ABY.Font.bodySemibold)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     Spacer()
                     if isLoading {
@@ -283,10 +283,10 @@ struct ABYSettingsReadOnlyRow: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(ABY.Font.body)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                 Text(value)
-                    .font(ABY.Font.footnote)
+                    .font(ABY.Font.listSubtitle)
                     .foregroundStyle(palette.textSecondary)
                     .lineLimit(1)
             }
@@ -317,7 +317,8 @@ struct ABYSettingsPrimaryButton: View {
                 Spacer()
             }
             .foregroundStyle(palette.buttonForeground)
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, 14)
             .background(isEnabled ? palette.buttonFill : palette.buttonFill.opacity(0.35))
             .clipShape(Capsule())
         }
@@ -439,23 +440,23 @@ struct ABYSettingsRow: View {
                     .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(ABY.Font.body)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                     if let detail {
                         Text(detail)
-                            .font(ABY.Font.footnote)
+                            .font(ABY.Font.listSubtitle)
                             .foregroundStyle(palette.textSecondary)
                     }
                 }
                 Spacer()
                 if let value {
                     Text(value)
-                        .font(ABY.Font.footnote)
+                        .font(ABY.Font.tertiaryMedium)
                         .foregroundStyle(palette.textTertiary)
                 }
                 if showChevron {
                     Image(systemName: "chevron.right")
-                        .font(ABY.Font.captionMedium)
+                        .font(ABY.Font.tertiaryMedium)
                         .foregroundStyle(palette.textTertiary)
                 }
             }
@@ -482,11 +483,11 @@ struct ABYSettingsToggleRow: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(ABY.Font.body)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                 if let detail {
                     Text(detail)
-                        .font(ABY.Font.footnote)
+                        .font(ABY.Font.listSubtitle)
                         .foregroundStyle(palette.textSecondary)
                 }
             }

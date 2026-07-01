@@ -360,8 +360,8 @@ struct PaywallPurchaseFooter: View {
                 Text(ctaTitle)
                     .font(ABY.Font.paywallCTA)
                     .foregroundStyle(ABY.Color.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.vertical, 14)
                     .background(Color.white.opacity(isPurchasing || isDisabled ? 0.55 : 1))
                     .clipShape(Capsule())
             }
@@ -379,11 +379,12 @@ struct PaywallPurchaseFooter: View {
 
             Button(action: restore) {
                 Text(isRestoring ? "Restoring…" : "Restore Purchase")
-                    .font(ABY.Font.footnoteMedium)
+                    .font(ABY.Font.buttonSecondary)
                     .foregroundStyle(ABY.Color.paywallTextSecondary)
             }
             .buttonStyle(.plain)
             .disabled(isRestoring)
+            .frame(minHeight: 44)
 
             HStack(spacing: 6) {
                 Text("Cancel anytime")

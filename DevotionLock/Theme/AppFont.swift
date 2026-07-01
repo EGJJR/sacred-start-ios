@@ -121,6 +121,28 @@ enum AppFont {
         #endif
     }
 
+    /// Inter Tight for inline (16pt) and large (28pt) navigation titles app-wide.
+    static func configureNavigationBarTypography() {
+        let inlineFont = uiFont(size: 16, weight: .semibold)
+        let largeFont = uiFont(size: 28, weight: .semibold)
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.titleTextAttributes = [
+            .font: inlineFont,
+            .foregroundColor: UIColor.label,
+        ]
+        appearance.largeTitleTextAttributes = [
+            .font: largeFont,
+            .foregroundColor: UIColor.label,
+        ]
+
+        let navBar = UINavigationBar.appearance()
+        navBar.standardAppearance = appearance
+        navBar.compactAppearance = appearance
+        navBar.scrollEdgeAppearance = appearance
+    }
+
     private static func resolveIfNeeded() {
         guard !didResolve else { return }
         didResolve = true

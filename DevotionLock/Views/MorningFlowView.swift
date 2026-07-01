@@ -706,7 +706,7 @@ private struct MorningTierChip: View {
                 Text(tier.title)
                     .font(ABY.Font.captionMedium)
                 Text(tier.minutesLabel)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(ABY.Font.tertiaryMedium)
                     .foregroundStyle(isSelected ? palette.buttonForeground.opacity(0.75) : palette.textTertiary)
             }
             .foregroundStyle(isSelected ? palette.buttonForeground : palette.textPrimary)
@@ -763,11 +763,11 @@ private struct MorningPathCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(title)
-                            .font(ABY.Font.bodySemibold)
+                            .font(ABY.Font.listTitle)
                             .foregroundStyle(palette.textPrimary)
                         if isRecommended {
                             Text("Usual")
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .font(ABY.Font.micro)
                                 .foregroundStyle(palette.isNight ? .white : ABY.Color.pillTeal)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)

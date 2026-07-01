@@ -71,7 +71,7 @@ struct BottomNavigationBar: View {
 
                 if isSelected {
                     Text(tab.label)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(ABY.Font.tabLabelSelected)
                         .foregroundStyle(palette.textPrimary)
                         .lineLimit(1)
                         .transition(.opacity.combined(with: .move(edge: .leading)))

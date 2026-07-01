@@ -111,11 +111,35 @@ enum ABY {
         static let paywallOrbViolet = nightMeshViolet
     }
 
+    /// Mobile typography scale — aligned to legibility guidelines (10pt floor, clear hierarchy).
+    ///
+    /// | Role | Token | Size | Weight |
+    /// |------|-------|------|--------|
+    /// | Large page title | `largeTitle` / `title` / `title2` | 34 / 28 / 24 | semibold |
+    /// | Nav bar title | `navTitle` / `headline` | 16 / 17 | semibold |
+    /// | Primary body | `body` | 15 | regular–medium |
+    /// | List title / menu row | `listTitle` | 14 | medium |
+    /// | Descriptive text | `listSubtitle` / `footnote` | 13 | regular |
+    /// | Secondary descriptive | `caption` | 12 | regular |
+    /// | Tertiary / timestamps | `tertiary` / `section` | 11 | regular–medium |
+    /// | Tab bar floor | `tabLabel` | 11 | medium |
+    /// | Primary CTA | `button` | 17 | semibold |
+    /// | Secondary CTA | `buttonSecondary` | 14 | semibold |
     enum Font {
-        static var largeTitle: SwiftUI.Font { AppFont.font(size: 34, weight: .bold) }
-        static var title: SwiftUI.Font { AppFont.font(size: 28, weight: .bold) }
-        static var title2: SwiftUI.Font { AppFont.font(size: 22, weight: .bold) }
+        // MARK: - Display & page titles (24–34pt, semibold)
+
+        static var largeTitle: SwiftUI.Font { AppFont.font(size: 34, weight: .semibold) }
+        static var title: SwiftUI.Font { AppFont.font(size: 28, weight: .semibold) }
+        static var title2: SwiftUI.Font { AppFont.font(size: 24, weight: .semibold) }
+        static var onboardingTitle: SwiftUI.Font { AppFont.font(size: 26, weight: .semibold) }
+
+        // MARK: - Navigation & emphasis (14–17pt, semibold)
+
+        static var navTitle: SwiftUI.Font { AppFont.font(size: 16, weight: .semibold) }
         static var headline: SwiftUI.Font { AppFont.font(size: 17, weight: .semibold) }
+
+        // MARK: - Primary text (14–18pt, regular–medium)
+
         static var body: SwiftUI.Font { AppFont.font(size: 15, weight: .regular) }
         static var bodyMedium: SwiftUI.Font { AppFont.font(size: 15, weight: .medium) }
         static var bodySemibold: SwiftUI.Font { AppFont.font(size: 15, weight: .semibold) }
@@ -123,53 +147,75 @@ enum ABY {
         static var calloutMedium: SwiftUI.Font { AppFont.font(size: 14, weight: .medium) }
         static var calloutSemibold: SwiftUI.Font { AppFont.font(size: 14, weight: .semibold) }
         static var subheadline: SwiftUI.Font { AppFont.font(size: 15, weight: .regular) }
+
+        // MARK: - List rows (title 14pt, subtitle 12–13pt)
+
+        static var listTitle: SwiftUI.Font { calloutMedium }
+        static var listSubtitle: SwiftUI.Font { footnote }
+
+        // MARK: - Descriptive & tertiary (11–13pt, muted in palette)
+
         static var footnote: SwiftUI.Font { AppFont.font(size: 13, weight: .regular) }
         static var footnoteMedium: SwiftUI.Font { AppFont.font(size: 13, weight: .medium) }
         static var footnoteSemibold: SwiftUI.Font { AppFont.font(size: 13, weight: .semibold) }
         static var caption: SwiftUI.Font { AppFont.font(size: 12, weight: .regular) }
         static var captionMedium: SwiftUI.Font { AppFont.font(size: 12, weight: .medium) }
         static var captionSemibold: SwiftUI.Font { AppFont.font(size: 12, weight: .semibold) }
-        static var section: SwiftUI.Font { AppFont.font(size: 12, weight: .medium) }
+        static var tertiary: SwiftUI.Font { AppFont.font(size: 11, weight: .regular) }
+        static var tertiaryMedium: SwiftUI.Font { AppFont.font(size: 11, weight: .medium) }
+        static var section: SwiftUI.Font { AppFont.font(size: 11, weight: .medium) }
+
+        // MARK: - Buttons (primary 15–17pt, secondary 13–14pt)
+
         static var button: SwiftUI.Font { AppFont.font(size: 17, weight: .semibold) }
-        static var onboardingTitle: SwiftUI.Font { AppFont.font(size: 26, weight: .bold) }
-        /// Instrument Serif — ABY education / welcome headlines.
+        static var buttonSecondary: SwiftUI.Font { AppFont.font(size: 14, weight: .semibold) }
+        static var buttonCompact: SwiftUI.Font { AppFont.font(size: 13, weight: .semibold) }
+
+        // MARK: - Editorial serif (brand headlines — Instrument Serif)
+
         static var editorialTitle: SwiftUI.Font { AppFont.serif(size: 28) }
         static var editorialLargeTitle: SwiftUI.Font { AppFont.serif(size: 34) }
         static var editorialHeadline: SwiftUI.Font { AppFont.serif(size: 22) }
         static var editorialBody: SwiftUI.Font { AppFont.serif(size: 17) }
         static var editorialCallout: SwiftUI.Font { AppFont.serif(size: 16) }
         static var editorialAccent: SwiftUI.Font { AppFont.serif(size: 17, style: .italic) }
-
-        /// Tiny badges and tab-adjacent labels.
-        static var micro: SwiftUI.Font { AppFont.font(size: 10, weight: .semibold) }
-        static var microBold: SwiftUI.Font { AppFont.font(size: 9, weight: .bold) }
-        static var displayLarge: SwiftUI.Font { AppFont.font(size: 52, weight: .bold) }
-        static var displayHero: SwiftUI.Font { AppFont.font(size: 56, weight: .bold) }
         static var editorialSubhead: SwiftUI.Font { AppFont.serif(size: 19) }
         static var editorialFootnote: SwiftUI.Font { AppFont.serif(size: 13) }
 
-        /// Pic-a-Book PLUS–style paywall typography.
+        // MARK: - Badges & minimum floor (10pt — tab bar is the legibility floor)
+
+        static var micro: SwiftUI.Font { AppFont.font(size: 10, weight: .semibold) }
+        static var microBold: SwiftUI.Font { AppFont.font(size: 10, weight: .semibold) }
+
+        // MARK: - Display numerals
+
+        static var displayLarge: SwiftUI.Font { AppFont.font(size: 52, weight: .bold) }
+        static var displayHero: SwiftUI.Font { AppFont.font(size: 56, weight: .bold) }
+
+        // MARK: - Paywall
+
         static var paywallBrand: SwiftUI.Font { AppFont.serif(size: 24) }
-        static var paywallBadge: SwiftUI.Font { AppFont.font(size: 11, weight: .bold) }
-        static var paywallHeadline: SwiftUI.Font { AppFont.font(size: 26, weight: .bold) }
+        static var paywallBadge: SwiftUI.Font { AppFont.font(size: 11, weight: .semibold) }
+        static var paywallHeadline: SwiftUI.Font { AppFont.font(size: 26, weight: .semibold) }
         static var paywallFeature: SwiftUI.Font { AppFont.font(size: 16, weight: .medium) }
         static var paywallPlanLabel: SwiftUI.Font { AppFont.font(size: 13, weight: .regular) }
-        static var paywallPrice: SwiftUI.Font { AppFont.font(size: 22, weight: .bold) }
-        static var paywallCTA: SwiftUI.Font { AppFont.font(size: 17, weight: .bold) }
-        static var paywallPromoBadge: SwiftUI.Font { AppFont.font(size: 10, weight: .bold) }
+        static var paywallPrice: SwiftUI.Font { AppFont.font(size: 22, weight: .semibold) }
+        static var paywallCTA: SwiftUI.Font { AppFont.font(size: 17, weight: .semibold) }
+        static var paywallPromoBadge: SwiftUI.Font { AppFont.font(size: 10, weight: .semibold) }
 
-        // SF Symbols — keep system font so icons render correctly
+        // MARK: - SF Symbols (system font — icons only)
+
         static let iconSmall = SwiftUI.Font.system(size: 13, weight: .medium)
         static let iconMedium = SwiftUI.Font.system(size: 15, weight: .medium)
         static let iconLarge = SwiftUI.Font.system(size: 16, weight: .medium)
         static let tabIcon = SwiftUI.Font.system(size: 18, weight: .regular)
         static let tabIconSelected = SwiftUI.Font.system(size: 18, weight: .semibold)
-        static let tabLabel = SwiftUI.Font.system(size: 9, weight: .medium)
-        static let tabLabelSelected = SwiftUI.Font.system(size: 9, weight: .semibold)
+        static let tabLabel = SwiftUI.Font.system(size: 11, weight: .medium)
+        static let tabLabelSelected = SwiftUI.Font.system(size: 11, weight: .semibold)
         static let heroIcon = SwiftUI.Font.system(size: 40, weight: .light)
         static let checkmark = SwiftUI.Font.system(size: 20, weight: .regular)
         static let checkmarkLarge = SwiftUI.Font.system(size: 24, weight: .semibold)
-        static let emojiSmall = SwiftUI.Font.system(size: 11)
+        static let emojiSmall = SwiftUI.Font.system(size: 11, weight: .regular)
         static let emojiMedium = SwiftUI.Font.system(size: 16)
     }
 
@@ -1048,8 +1094,8 @@ struct ABYOnboardingPrimaryButton: View {
                 }
             }
             .foregroundStyle(foregroundColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, 14)
             .background(backgroundColor)
             .clipShape(Capsule())
             .shadow(color: .black.opacity(isEnabled ? 0.10 : 0), radius: 12, y: 4)

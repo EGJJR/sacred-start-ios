@@ -4,6 +4,7 @@
 //
 
 import InAppKit
+import StoreKit
 import SwiftUI
 
 enum DevotionFeature: String, AppFeature {
@@ -86,10 +87,19 @@ enum PaywallAccess {
 
     static let statusDidChange = Notification.Name("devotionPremiumStatusDidChange")
 
+    /// Updated by silent `Transaction.currentEntitlements` reads (no Apple ID prompt).
+    @MainActor
+    private static var silentEntitlementActive = false
+
+    private static var premiumProductIDs: Set<String> {
+        Set(DevotionProducts.all.map(\.id))
+    }
+
     @MainActor
     static var hasPremium: Bool {
         if PaywallBypass.isEnabled { return true }
         if InAppKit.shared.hasAnyPurchase { return true }
+        if silentEntitlementActive { return true }
         if hasRecentPurchaseConfirmation { return true }
         return false
     }
@@ -116,21 +126,19 @@ enum PaywallAccess {
         NotificationCenter.default.post(name: statusDidChange, object: nil)
     }
 
-    /// Reconcile StoreKit entitlements on launch / foreground.
+    /// Reconcile StoreKit entitlements on launch / foreground without `AppStore.sync()`.
     @MainActor
     static func syncFromStoreKit() async {
-        #if DEBUG
-        // Skip automatic sandbox restore on launch (avoids the Apple ID prompt every open).
-        // Enable Paywall Bypass in Profile, or use Restore on the paywall, to test subscriptions.
-        return
-        #endif
+        silentEntitlementActive = await hasActiveStoreEntitlement()
+        reconcilePremiumFlags()
+    }
 
+    /// User-initiated restore — may prompt for Apple ID; only call from Restore actions.
+    @MainActor
+    static func restorePurchasesFromStore() async {
         await InAppKit.shared.restorePurchases()
-        if InAppKit.shared.hasAnyPurchase {
-            markPurchaseSucceeded()
-        } else if !hasRecentPurchaseConfirmation {
-            clearPurchaseConfirmation()
-        }
+        silentEntitlementActive = await hasActiveStoreEntitlement()
+        reconcilePremiumFlags()
     }
 
     /// Run after a purchase completes so entitlements can catch up in sandbox.
@@ -139,20 +147,44 @@ enum PaywallAccess {
         markPurchaseSucceeded()
         await UserPreferencesSync.shared.updatePremium(true)
 
-        await InAppKit.shared.restorePurchases()
         if InAppKit.shared.hasAnyPurchase {
+            silentEntitlementActive = true
             markPurchaseSucceeded()
             return
         }
 
         for _ in 0..<5 {
             try? await Task.sleep(for: .milliseconds(400))
-            await InAppKit.shared.restorePurchases()
-            if InAppKit.shared.hasAnyPurchase {
+            silentEntitlementActive = await hasActiveStoreEntitlement()
+            if InAppKit.shared.hasAnyPurchase || silentEntitlementActive {
                 markPurchaseSucceeded()
                 return
             }
         }
+    }
+
+    @MainActor
+    private static func reconcilePremiumFlags() {
+        if InAppKit.shared.hasAnyPurchase || silentEntitlementActive {
+            markPurchaseSucceeded()
+        } else if !hasRecentPurchaseConfirmation {
+            clearPurchaseConfirmation()
+        }
+    }
+
+    @MainActor
+    private static func hasActiveStoreEntitlement() async -> Bool {
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+            guard premiumProductIDs.contains(transaction.productID) else { continue }
+            switch transaction.productType {
+            case .autoRenewable, .nonRenewable, .nonConsumable:
+                return true
+            default:
+                continue
+            }
+        }
+        return false
     }
 
     @MainActor

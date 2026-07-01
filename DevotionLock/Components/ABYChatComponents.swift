@@ -937,7 +937,7 @@ struct ABYChaplainMessageCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .lastTextBaseline, spacing: 0) {
-                    Text(displayText)
+                    Text(verbatim: displayText)
                         .font(useSerifStyle ? ABY.Font.editorialCallout : ABY.Font.body)
                         .foregroundStyle(palette.textPrimary)
                         .lineSpacing(5)
@@ -1408,9 +1408,10 @@ extension Conversation {
     }
 }
 
-/// Copilot recents + Gemini section headers — one card, consistent rhythm.
-/// Mobbin: https://mobbin.com/screens/40046f7b-1621-4099-a9e9-76910e645eb3
-/// Mobbin: https://mobbin.com/screens/24e61d69-e92e-428f-a800-265e22419ae5
+/// Granola per-day cards + Gemini row icons + ChatGPT section rhythm.
+/// Mobbin: https://mobbin.com/screens/b4e1bb32-ec54-405a-a221-ad89d59b08a9
+/// Mobbin: https://mobbin.com/screens/9e114d8f-6ebd-4c4a-859d-0617a100cbf7
+/// Mobbin: https://mobbin.com/screens/5e55dde4-61e8-4f5d-95c0-7a9da129ec91
 struct ChaplainChatHistoryGroupedList: View {
     @Environment(\.sanctuaryPalette) private var palette
     let groups: [(String, [Conversation])]
@@ -1418,74 +1419,86 @@ struct ChaplainChatHistoryGroupedList: View {
     var onDelete: ((Conversation) -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(groups.enumerated()), id: \.offset) { groupIndex, group in
-                sectionHeader(group.0, isFirst: groupIndex == 0)
+        VStack(spacing: 22) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionHeader(group.0)
 
-                ForEach(Array(group.1.enumerated()), id: \.element.id) { itemIndex, conversation in
-                    historyRow(conversation)
+                    VStack(spacing: 0) {
+                        ForEach(Array(group.1.enumerated()), id: \.element.id) { itemIndex, conversation in
+                            historyRow(conversation)
 
-                    let isLastInGroup = itemIndex == group.1.count - 1
-                    let isLastGroup = groupIndex == groups.count - 1
-                    if !(isLastInGroup && isLastGroup) {
-                        Divider()
-                            .padding(.leading, 16)
+                            if itemIndex < group.1.count - 1 {
+                                Divider()
+                                    .overlay(palette.divider.opacity(0.55))
+                                    .padding(.leading, 56)
+                            }
+                        }
                     }
+                    .background(palette.cardFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(palette.divider.opacity(0.4), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 12, y: 4)
                 }
             }
         }
-        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(palette.divider.opacity(0.45), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.03), radius: 10, y: 3)
     }
 
-    private func sectionHeader(_ title: String, isFirst: Bool) -> some View {
-        HStack {
-            Text(title)
-                .font(ABY.Font.footnoteSemibold)
-                .foregroundStyle(palette.textSecondary)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, isFirst ? 14 : 18)
-        .padding(.bottom, 4)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(ABY.Font.captionMedium)
+            .foregroundStyle(palette.textTertiary)
+            .tracking(0.6)
+            .padding(.horizontal, 4)
     }
 
     private func historyRow(_ conversation: Conversation) -> some View {
         Button {
             onSelect(conversation)
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                historyRowIcon
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(conversation.chaplainHistoryTitle)
-                        .font(ABY.Font.calloutMedium)
+                        .font(ABY.Font.listTitle)
                         .foregroundStyle(palette.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
-                    if let subtitle = conversation.chaplainHistorySubtitle {
-                        Text(subtitle)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textSecondary)
+                    HStack(spacing: 6) {
+                        if let subtitle = conversation.chaplainHistorySubtitle {
+                            Text(subtitle)
+                                .font(ABY.Font.listSubtitle)
+                                .foregroundStyle(palette.textSecondary)
+                                .lineLimit(1)
+                        }
+
+                        if conversation.chaplainHistorySubtitle != nil {
+                            Text("·")
+                                .font(ABY.Font.tertiary)
+                                .foregroundStyle(palette.textTertiary)
+                        }
+
+                        Text(conversation.timelineTime)
+                            .font(ABY.Font.tertiary)
+                            .foregroundStyle(palette.textTertiary)
                             .lineLimit(1)
                     }
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 4)
 
-                Text(conversation.timelineTime)
-                    .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
-                    .layoutPriority(1)
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.tertiaryMedium)
+                    .foregroundStyle(palette.textTertiary.opacity(0.85))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
             .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -1499,6 +1512,15 @@ struct ChaplainChatHistoryGroupedList: View {
             }
         }
     }
+
+    private var historyRowIcon: some View {
+        Image(systemName: "text.bubble")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(palette.textSecondary)
+            .frame(width: 34, height: 34)
+            .background(palette.surfaceMuted.opacity(palette.isNight ? 0.55 : 0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
 }
 
 // MARK: - Chat history (Mobbin Raycast / Bevel / ChatGPT refs)
@@ -1511,16 +1533,16 @@ struct ABYChatHistoryRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(conversation.title)
-                    .font(ABY.Font.calloutSemibold)
+                    .font(ABY.Font.listTitle)
                     .foregroundStyle(palette.textPrimary)
                     .lineLimit(1)
                 Text(conversation.preview)
-                    .font(ABY.Font.caption)
+                    .font(ABY.Font.listSubtitle)
                     .foregroundStyle(palette.textSecondary)
                     .lineLimit(2)
                     .lineSpacing(2)
                 Text(relativeLabel)
-                    .font(ABY.Font.caption)
+                    .font(ABY.Font.tertiary)
                     .foregroundStyle(palette.textTertiary)
             }
 
@@ -1556,7 +1578,7 @@ struct ABYChatHistoryStartButton: View {
                     .foregroundStyle(ABY.Color.pillTeal)
                     .frame(width: 28)
                 Text("New chat")
-                    .font(ABY.Font.calloutMedium)
+                    .font(ABY.Font.buttonSecondary)
                     .foregroundStyle(palette.textPrimary)
                 Spacer(minLength: 0)
             }

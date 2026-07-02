@@ -81,12 +81,7 @@ struct BottomNavigationBar: View {
             .padding(.vertical, 10)
             .background {
                 if isSelected {
-                    Capsule()
-                        .fill(palette.surface.opacity(0.96))
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(palette.divider.opacity(0.45), lineWidth: 0.5)
-                        }
+                    selectedTabHighlight
                         .matchedGeometryEffect(id: "tabHighlight", in: tabSelection)
                 }
             }
@@ -94,6 +89,22 @@ struct BottomNavigationBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(tab.label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// Active-tab pill: neutral glass capsule with a restrained iridescent sheen — the
+    /// one "jewel" moment allowed in the bar (see DESIGN-PHILOSOPHY). `matchedGeometryEffect`
+    /// slides this whole stack between tabs so the sheen morphs with the selection.
+    private var selectedTabHighlight: some View {
+        ZStack {
+            Capsule()
+                .fill(palette.surface.opacity(0.96))
+
+            IridescentBubble(intensity: palette.isNight ? 0.42 : 0.26)
+                .clipShape(Capsule())
+
+            Capsule()
+                .strokeBorder(palette.divider.opacity(0.45), lineWidth: 0.5)
+        }
     }
 }
 

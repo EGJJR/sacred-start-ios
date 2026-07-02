@@ -959,27 +959,31 @@ struct ABYJournalGradientBackground: View {
     }
 }
 
+/// Floating nav pill background.
+///
+/// Deployment target is iOS 26.2, so this uses Apple's native **Liquid Glass**
+/// (`.glassEffect`) — dynamic refraction + specular highlights that adapt to the
+/// content scrolling behind the bar — instead of the older static `.ultraThinMaterial`.
+/// A hairline palette stroke and soft drop shadow keep the "floating above content"
+/// separation the design system relies on.
 struct ABYGlassBarBackground: View {
     var cornerRadius: CGFloat = 999
     @Environment(\.sanctuaryPalette) private var palette
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(palette.navBarFill)
-            }
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        shape
+            .fill(.clear)
+            .glassEffect(.regular, in: shape)
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [palette.navBarStrokeTop, palette.navBarStrokeBottom],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [palette.navBarStrokeTop, palette.navBarStrokeBottom],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.5
+                )
             }
             .shadow(color: .black.opacity(palette.isNight ? 0.35 : 0.06), radius: 20, y: 8)
             .shadow(color: .black.opacity(palette.isNight ? 0.18 : 0.025), radius: 5, y: 2)

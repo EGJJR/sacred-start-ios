@@ -45,7 +45,9 @@ Glass appears where it **separates navigation from content**:
 - Floating composers and action bars
 - Onboarding floating cards over sanctuary mesh
 
-Glass is **neutral** (white opacity + hairline stroke), not saturated brand glass. The Sacred Orb is the one allowed “jewel” gradient in the tab bar.
+Glass is **neutral** (native Liquid Glass + hairline stroke), not saturated brand glass. Since the app targets iOS 26.2, `ABYGlassBarBackground` uses Apple's native **Liquid Glass** (`.glassEffect`) rather than a static `.ultraThinMaterial`, so floating bars refract and pick up specular highlights from the content behind them.
+
+The **jewel** gradients are reserved for two places only: the Sacred Orb, and a restrained iridescent sheen on the **active tab** (`IridescentBubble`). Both draw from the calm orb palette (teal / sky / periwinkle / sage) at low opacity — a holographic hint on glass, never a saturated color fill. Everything else in the bar stays neutral.
 
 ### 4. One dominant action per screen
 

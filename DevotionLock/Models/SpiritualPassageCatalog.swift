@@ -102,7 +102,7 @@ struct SpiritualPassage: Identifiable, Equatable {
 
     var attribution: String {
         if source == .scripture { return reference }
-        if let author { return "— \(author)" }
+        if let author { return author }
         return reference
     }
 
@@ -144,7 +144,7 @@ enum SpiritualPassageCatalog {
         SpiritualPassage(id: "s28", text: "Whoever dwells in the shelter of the Most High will rest in the shadow of the Almighty.", reference: "Psalm 91:1", source: .scripture, author: nil, topics: [.rest, .presence, .peace]),
         SpiritualPassage(id: "s29", text: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", reference: "Jeremiah 29:11", source: .scripture, author: nil, topics: [.hope, .promises, .guidance]),
         SpiritualPassage(id: "s30", text: "Never will I leave you; never will I forsake you.", reference: "Hebrews 13:5", source: .scripture, author: nil, topics: [.provision, .presence, .promises]),
-        SpiritualPassage(id: "s31", text: "The Lord is my light and my salvation—whom shall I fear?", reference: "Psalm 27:1", source: .scripture, author: nil, topics: [.courage, .strength, .faith]),
+        SpiritualPassage(id: "s31", text: "The Lord is my light and my salvation; whom shall I fear?", reference: "Psalm 27:1", source: .scripture, author: nil, topics: [.courage, .strength, .faith]),
 
         // Martin Luther
         SpiritualPassage(id: "l1", text: "Pray, and let God worry.", reference: "On Prayer", source: .author, author: "Martin Luther", topics: [.anxiety, .faith, .rest]),
@@ -159,7 +159,7 @@ enum SpiritualPassageCatalog {
 
         // Billy Graham
         SpiritualPassage(id: "b1", text: "Courage is contagious. When a brave man takes a stand, the spines of others are often stiffened.", reference: "Quotes", source: .author, author: "Billy Graham", topics: [.courage, .strength]),
-        SpiritualPassage(id: "b2", text: "God has given us two hands—one to receive with and the other to give with.", reference: "Quotes", source: .author, author: "Billy Graham", topics: [.gratitude, .love]),
+        SpiritualPassage(id: "b2", text: "God has given us two hands, one to receive with and the other to give with.", reference: "Quotes", source: .author, author: "Billy Graham", topics: [.gratitude, .love]),
         SpiritualPassage(id: "b3", text: "When we come to the end of ourselves, we come to the beginning of God.", reference: "Quotes", source: .author, author: "Billy Graham", topics: [.faith, .strength, .hope]),
 
         // Additional voices
@@ -316,9 +316,9 @@ enum GuidedPrayerCatalog {
             title: "Evening examen",
             subtitle: "Review the day with gentleness",
             steps: [
-                "Lord, where did I feel your presence with me today?",
-                "Father, forgive where I missed the mark — and thank you for where you still met me.",
-                "Thank you for one moment today that deserves my gratitude.",
+                "Lord, show me where you walked with me today.",
+                "Father, forgive where I missed the mark, and thank you for where you still met me.",
+                "Thank you for one moment today I don't want to forget.",
                 "Receive me as I am tonight, and guard my rest.",
             ],
             icon: "moon.stars.fill",
@@ -332,7 +332,7 @@ enum GuidedPrayerCatalog {
                 "Father, I bring someone who is struggling before you now.",
                 "Surround them with your comfort and courage.",
                 "Give wisdom to everyone who is caring for them.",
-                "Send them your peace — whether they know I prayed or not.",
+                "Send them your peace, whether they know I prayed or not.",
             ],
             icon: "person.2.fill",
             tintHex: 0x5B8DEF

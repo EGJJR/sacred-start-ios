@@ -533,6 +533,31 @@ struct AuthTermsFooter: View {
     }
 }
 
+/// Quiet counterpart to `AuthPrimaryCapsuleButton` — white capsule, hairline border.
+struct AuthSecondaryCapsuleButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ABY.Font.button)
+                .foregroundStyle(ABY.Color.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(Color.white)
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(Color.black.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(title)
+    }
+}
+
 struct AuthBackButton: View {
     let action: () -> Void
 

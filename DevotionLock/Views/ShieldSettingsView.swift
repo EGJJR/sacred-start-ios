@@ -332,7 +332,7 @@ struct ShieldSettingsView: View {
                         Text("Reset today's devotion")
                             .font(ABY.Font.calloutSemibold)
                             .foregroundStyle(palette.textPrimary)
-                        Text("Simulates an incomplete morning — shields re-apply on device.")
+                        Text("Simulates an incomplete morning. Shields re-apply on device.")
                             .font(ABY.Font.caption)
                             .foregroundStyle(palette.textSecondary)
                             .multilineTextAlignment(.leading)

@@ -73,14 +73,13 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ABYScreenContainer {
+            ABYFadingHeaderScrollView(
+                title: "Settings",
+                subtitle: "Preferences & account",
+                inlineBottomPadding: 20,
+                trailing: { EmptyView() }
+            ) {
                 VStack(alignment: .leading, spacing: 0) {
-                    settingsTitle
-                        .padding(.horizontal, ABY.Spacing.screen)
-                        .padding(.top, 12)
-                        .padding(.bottom, 20)
-                        .opacity(appeared ? 1 : 0)
-
                     ABYSettingsProfileCard(
                         name: auth.displayName,
                         email: auth.email,
@@ -280,10 +279,6 @@ struct ProfileView: View {
             withAnimation(AppTheme.springGentle) { appeared = true }
             Task { await auth.refreshProfileFromServer() }
         }
-    }
-
-    private var settingsTitle: some View {
-        ABYScreenHeader(title: "Settings", subtitle: "Preferences & account")
     }
 
     private var dangerZone: some View {

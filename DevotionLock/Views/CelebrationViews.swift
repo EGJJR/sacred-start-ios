@@ -12,7 +12,7 @@ struct StreakBornView: View {
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 24) {
@@ -100,7 +100,7 @@ struct StreakCelebrationView: View {
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 22) {
@@ -199,7 +199,7 @@ struct StreakMilestoneCelebrationView: View {
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 24) {
@@ -260,7 +260,7 @@ struct StreakMilestoneCelebrationView: View {
         }
         .sheet(isPresented: $sharePresented) {
             ShareSheet(items: [
-                "I just reached \(milestoneDays) days in the Word — \(identity.statusName) with Devotion Lock",
+                "I just reached \(milestoneDays) days in the Word: \(identity.statusName) with Devotion Lock",
             ])
         }
     }

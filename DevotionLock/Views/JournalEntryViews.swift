@@ -297,7 +297,7 @@ struct JournalEntryHubSheet: View {
                         icon: "pencil.and.outline",
                         tint: ABY.Color.pillPurple,
                         title: "Guided Entry",
-                        subtitle: "One prompt — type or speak your reflection",
+                        subtitle: "One prompt. Type or speak your reflection",
                         badge: "Write"
                     ) {
                         dismiss()
@@ -311,7 +311,7 @@ struct JournalEntryHubSheet: View {
                             icon: "waveform",
                             tint: ABY.Color.pillOrange,
                             title: "Voice note",
-                            subtitle: "Speak naturally — we'll transcribe it for you",
+                            subtitle: "Speak naturally. We'll transcribe it for you",
                             badge: "Voice"
                         ) {
                             dismiss()
@@ -375,7 +375,7 @@ struct AssistedJournalView: View {
     private let prompts = [
         "What's on your heart right now?",
         "Where did you sense God today?",
-        "What felt heavy — or surprisingly light?",
+        "What felt heavy, or surprisingly light?",
         "What are you grateful for in this moment?",
         "What do you need to release before tomorrow?",
     ]

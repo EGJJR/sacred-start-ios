@@ -12,7 +12,6 @@ struct ContentView: View {
     private var auth = AuthManager.shared
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @AppStorage("showOnboardingAfterSignOut") private var showOnboardingAfterSignOut = false
     @AppStorage("hasDismissedPaywall") private var hasDismissedPaywall = false
     @State private var showPaywall = false
 
@@ -33,14 +32,6 @@ struct ContentView: View {
         Group {
             if !auth.hasResolvedInitialSession {
                 Color.clear
-            } else if !auth.isAuthenticated && showOnboardingAfterSignOut {
-                OnboardingFlowView {
-                    NoteletStorage.markCurrentVersionAsSeen()
-                    withAnimation(AppTheme.springGentle) {
-                        showOnboardingAfterSignOut = false
-                        hasCompletedOnboarding = true
-                    }
-                }
             } else if !auth.isAuthenticated {
                 AuthFlowView()
             } else if !hasCompletedOnboarding {

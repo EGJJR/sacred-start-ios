@@ -34,6 +34,8 @@ struct BottomNavigationBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
         .animation(AppTheme.springMenu, value: isQuickMenuPresented)
         .animation(AppTheme.springGentle, value: orbState)
     }
@@ -48,7 +50,9 @@ struct BottomNavigationBar: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .frame(height: barHeight)
+                .background(Color.clear, in: Capsule())
                 .abyLiquidGlassCapsule(tint: liquidGlassBarTint)
+                .contentShape(Capsule())
             } else {
                 HStack(spacing: 6) {
                     content()
@@ -57,6 +61,7 @@ struct BottomNavigationBar: View {
                 .padding(.vertical, 8)
                 .frame(height: barHeight)
                 .sanctuaryNavBarGlass()
+                .contentShape(Capsule())
             }
         }
     }
@@ -116,6 +121,7 @@ struct BottomNavigationBar: View {
                         height: max(0, frame.height - insetY * 2)
                     )
                     .offset(x: frame.minX + insetX, y: frame.minY + insetY)
+                    .allowsHitTesting(false)
             }
 
             HStack(spacing: 0) {
@@ -245,7 +251,7 @@ private struct SacredOrbNavHoldButton: View {
         .frame(maxWidth: .infinity)
         .frame(height: barHeight)
         .scaleEffect(holdBloom)
-        .contentShape(Circle())
+        .contentShape(Rectangle())
         .gesture(isQuickMenuPresented ? nil : holdGesture)
         .onTapGesture {
             if isQuickMenuPresented {
@@ -256,10 +262,10 @@ private struct SacredOrbNavHoldButton: View {
         .accessibilityLabel(isQuickMenuPresented ? "Close sacred shortcuts" : orbState.accessibilityLabel)
         .accessibilityHint(
             isQuickMenuPresented
-                ? "Closes the shortcuts menu"
-                : "Press and hold for quick capture. \(orbState.microLabel ?? "")"
+                ? "Closes the shortcuts sheet"
+                : "Press and hold for sacred shortcuts. \(orbState.microLabel ?? "")"
         )
-        .accessibilityAction(named: "Quick capture") {
+        .accessibilityAction(named: "Sacred shortcuts") {
             onHoldComplete()
         }
         .onDisappear {

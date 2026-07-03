@@ -3,9 +3,10 @@
 //  DevotionLock
 //
 //  Mobbin refs:
-//  Pangea capsule fan-out — https://mobbin.com/screens/ad29ee8d-4b30-430b-9842-53d9e345bacd
-//  Airwallex speed-dial labels — https://mobbin.com/screens/0713aaea-bea9-4810-8bdb-849772fd0246
-//  Jobber FAB stack — https://mobbin.com/screens/85be30de-6c55-4b32-a446-5caff51d4595
+//  ChatGPT attach sheet — https://mobbin.com/screens/cf94f6ed-ad32-48c1-ad40-e8ee75e9615a
+//  Beside AI actions — https://mobbin.com/screens/3acbf481-e352-4a40-954c-b03348de8d4b
+//  Fabric grouped menu — https://mobbin.com/screens/f2902335-d4e8-4f10-a540-8764198d023f
+//  Obsidian action groups — https://mobbin.com/screens/09dec6de-5d1b-4020-922b-ad238e77263c
 //
 
 import SwiftUI
@@ -33,7 +34,7 @@ enum SacredOrbQuickAction: String, Identifiable, CaseIterable {
 
     var subtitle: String {
         switch self {
-        case .morningDevotion: "Guided scripture & gratitude"
+        case .morningDevotion: "Guided scripture and gratitude"
         case .journalCapture: "Choose how to capture"
         case .assistedWrite: "Gentle writing prompts"
         case .voiceNote: "Speak, then transcribe"
@@ -65,144 +66,160 @@ enum SacredOrbQuickAction: String, Identifiable, CaseIterable {
     }
 }
 
-// MARK: - Overlay (pill fan from orb — Mobbin: Pangea / Airwallex / Jobber)
+// MARK: - Bottom sheet (ChatGPT / Beside / Fabric)
 
-struct SacredOrbQuickActionsOverlay: View {
+struct SacredOrbQuickActionsSheet: View {
     @Environment(\.sanctuaryPalette) private var palette
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @Binding var isPresented: Bool
-    var dismissSignal: Int = 0
     let actions: [SacredOrbQuickAction]
     var onSelect: (SacredOrbQuickAction) -> Void
 
-    @State private var scrimPhase: CGFloat = 0
-    @State private var menuPhase: CGFloat = 0
-    @State private var isDismissing = false
+    @State private var revealed = false
 
-    private let staggerStep: Double = 0.052
-    private let navClearance: CGFloat = 92
+    private var sheetHeight: CGFloat {
+        // Header + grouped list + bottom safe padding.
+        let header: CGFloat = 92
+        let row: CGFloat = 74
+        let chrome: CGFloat = 36
+        return header + CGFloat(actions.count) * row + chrome
+    }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            scrim
-                .opacity(Double(scrimPhase))
-                .onTapGesture {
-                    DevotionHaptics.soft()
-                    dismissAnimated()
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.top, 8)
+                .padding(.bottom, 18)
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 10)
 
-            VStack(spacing: 10) {
-                headerChip
-                    .menuItemMotion(
-                        phase: menuPhase,
-                        index: 0,
-                        total: actions.count + 1,
-                        stagger: staggerStep,
-                        reverseOrder: isDismissing
-                    )
-
-                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
-                    SacredOrbQuickActionPill(action: action) {
-                        DevotionHaptics.light()
-                        dismissAnimated {
-                            onSelect(action)
-                        }
-                    }
-                    .menuItemMotion(
-                        phase: menuPhase,
-                        index: index + 1,
-                        total: actions.count + 1,
-                        stagger: staggerStep,
-                        reverseOrder: isDismissing
-                    )
-                }
-            }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.bottom, navClearance)
-            .frame(maxWidth: 400)
+            actionGroup
+                .padding(.horizontal, ABY.Spacing.screen)
+                .padding(.bottom, 20)
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 16)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(palette.background.ignoresSafeArea())
+        .presentationDetents([.height(min(sheetHeight, 520))])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(palette.background)
         .accessibilityAddTraits(.isModal)
-        .onAppear { animateIn() }
-        .onChange(of: dismissSignal) { _, _ in
-            guard isPresented, menuPhase > 0.5 else { return }
-            dismissAnimated()
-        }
-        .onDisappear {
-            scrimPhase = 0
-            menuPhase = 0
-            isDismissing = false
+        .accessibilityAction(named: "Dismiss") { dismiss() }
+        .onAppear(perform: reveal)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    ABY.Color.meshSky.opacity(palette.isNight ? 0.28 : 0.35),
+                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.22 : 0.28),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [ABY.Color.meshSky, ABY.Color.meshPeriwinkle, ABY.Color.orbTeal],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+
+                Text("Begin here")
+                    .font(ABY.Font.title2)
+                    .foregroundStyle(palette.textPrimary)
+            }
+
+            Text("A quiet path for this moment.")
+                .font(ABY.Font.callout)
+                .foregroundStyle(palette.textSecondary)
+                .padding(.leading, 46)
         }
     }
 
-    private func animateIn() {
-        isDismissing = false
-        scrimPhase = 0
-        menuPhase = 0
-
-        withAnimation(.easeOut(duration: 0.22)) {
-            scrimPhase = 1
-        }
-
-        withAnimation(AppTheme.springMenuReveal.delay(0.04)) {
-            menuPhase = 1
-        }
-    }
-
-    private func dismissAnimated(after: (() -> Void)? = nil) {
-        isDismissing = true
-
-        withAnimation(AppTheme.springMenuCollapse) {
-            menuPhase = 0
-        }
-
-        withAnimation(.easeIn(duration: 0.2).delay(0.08)) {
-            scrimPhase = 0
-        }
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
-            isPresented = false
-            after?()
-        }
-    }
-
-    private var scrim: some View {
-        Color.black.opacity(palette.isNight ? 0.38 : 0.24)
-            .ignoresSafeArea()
-            .contentShape(Rectangle())
-    }
-
-    private var headerChip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [ABY.Color.meshSky, ABY.Color.meshPeriwinkle, ABY.Color.orbTeal],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+    private var actionGroup: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                SacredOrbSheetActionRow(action: action) {
+                    select(action)
+                }
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 8)
+                .animation(
+                    reduceMotion
+                        ? nil
+                        : AppTheme.springGentle.delay(0.04 + Double(index) * 0.035),
+                    value: revealed
                 )
 
-            Text("Sacred shortcuts")
-                .font(ABY.Font.captionSemibold)
-                .foregroundStyle(palette.textPrimary)
-
-            Spacer(minLength: 0)
-
-            Text("Hold orb anytime")
-                .font(ABY.Font.captionMedium)
-                .foregroundStyle(palette.textSecondary)
+                if index < actions.count - 1 {
+                    Rectangle()
+                        .fill(palette.divider.opacity(palette.isNight ? 0.55 : 0.9))
+                        .frame(height: 0.5)
+                        .padding(.leading, 68)
+                }
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background { PillChromeBackground(cornerRadius: 14) }
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(palette.cardFill)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    palette.navBarStrokeTop.opacity(palette.isNight ? 0.45 : 0.85),
+                                    palette.navBarStrokeBottom.opacity(palette.isNight ? 0.2 : 0.3),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                }
+                .shadow(color: .black.opacity(palette.isNight ? 0.28 : 0.06), radius: 16, y: 6)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func reveal() {
+        guard !reduceMotion else {
+            revealed = true
+            return
+        }
+        withAnimation(AppTheme.springGentle.delay(0.04)) {
+            revealed = true
+        }
+    }
+
+    private func select(_ action: SacredOrbQuickAction) {
+        DevotionHaptics.light()
+        dismiss()
+        // Let the sheet finish dismissing before presenting the next surface.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            onSelect(action)
+        }
     }
 }
 
-// MARK: - Floating action pill (Pangea / Airwallex row)
+// MARK: - Row
 
-private struct SacredOrbQuickActionPill: View {
+private struct SacredOrbSheetActionRow: View {
     @Environment(\.sanctuaryPalette) private var palette
 
     let action: SacredOrbQuickAction
@@ -216,7 +233,7 @@ private struct SacredOrbQuickActionPill: View {
                         .fill(action.tint.opacity(palette.isNight ? 0.22 : 0.14))
 
                     Image(systemName: action.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(action.tint)
                 }
                 .frame(width: 44, height: 44)
@@ -238,195 +255,51 @@ private struct SacredOrbQuickActionPill: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(palette.textTertiary.opacity(0.85))
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 16)
-            .padding(.vertical, 12)
-            .background { PillChromeBackground(cornerRadius: 20) }
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(SacredOrbQuickActionPillStyle())
+        .buttonStyle(SacredOrbSheetRowStyle())
+        .accessibilityLabel(action.title)
+        .accessibilityHint(action.subtitle)
     }
 }
 
-private struct PillChromeBackground: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    var cornerRadius: CGFloat
-
-    private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-    }
-
-    var body: some View {
-        shape
-            .fill(palette.cardFill)
-            .overlay {
-                shape
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                palette.navBarStrokeTop.opacity(palette.isNight ? 0.55 : 0.9),
-                                palette.navBarStrokeBottom.opacity(palette.isNight ? 0.25 : 0.35),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
-            }
-            .shadow(color: .black.opacity(palette.isNight ? 0.42 : 0.10), radius: 18, y: 8)
-            .shadow(color: ABY.Color.orbTeal.opacity(palette.isNight ? 0.06 : 0.04), radius: 12, y: 4)
-    }
-}
-
-// MARK: - Orb-origin stagger motion
-
-private struct MenuItemMotionModifier: ViewModifier {
-    let phase: CGFloat
-    let index: Int
-    let total: Int
-    let stagger: Double
-    let reverseOrder: Bool
-
-    private var motionIndex: Int {
-        reverseOrder ? max(0, total - 1 - index) : index
-    }
-
-    private var localPhase: CGFloat {
-        let step = CGFloat(stagger) * 3.2
-        let start = CGFloat(motionIndex) * step
-        let end = start + 0.42
-        guard end > start else { return phase }
-        return min(1, max(0, (phase - start) / (end - start)))
-    }
-
-    func body(content: Content) -> some View {
-        let eased = cubicEase(localPhase)
-        let yLift: CGFloat = 34 - eased * 34
-        let scale = 0.84 + eased * 0.16
-        let blur = (1 - eased) * 7
-
-        content
-            .opacity(Double(eased))
-            .offset(y: yLift)
-            .scaleEffect(scale, anchor: .bottom)
-            .blur(radius: blur)
-    }
-
-    private func cubicEase(_ t: CGFloat) -> CGFloat {
-        let clamped = min(1, max(0, t))
-        return 1 - pow(1 - clamped, 3)
-    }
-}
-
-private extension View {
-    func menuItemMotion(
-        phase: CGFloat,
-        index: Int,
-        total: Int,
-        stagger: Double,
-        reverseOrder: Bool
-    ) -> some View {
-        modifier(
-            MenuItemMotionModifier(
-                phase: phase,
-                index: index,
-                total: total,
-                stagger: stagger,
-                reverseOrder: reverseOrder
-            )
-        )
-    }
-}
-
-// MARK: - Shared card (design tour / previews)
-
-struct SacredOrbQuickActionsCard: View {
-    @Environment(\.sanctuaryPalette) private var palette
-
-    let actions: [SacredOrbQuickAction]
-    var isVisible: Bool = true
-    var onSelect: (SacredOrbQuickAction) -> Void
-
-    var body: some View {
-        VStack(spacing: 10) {
-            ForEach(actions) { action in
-                SacredOrbQuickActionPill(action: action) {
-                    onSelect(action)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Sheet (design tour / previews)
-
-struct SacredOrbQuickActionsSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let actions: [SacredOrbQuickAction]
-    var onSelect: (SacredOrbQuickAction) -> Void
-
-    var body: some View {
-        SacredOrbQuickActionsCard(actions: actions, isVisible: true, onSelect: onSelect)
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.top, 12)
-            .padding(.bottom, 24)
-            .frame(maxWidth: .infinity)
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(28)
-            .accessibilityAction(named: "Dismiss") { dismiss() }
-    }
-}
-
-private struct SacredOrbQuickActionPillStyle: ButtonStyle {
+private struct SacredOrbSheetRowStyle: ButtonStyle {
     @Environment(\.sanctuaryPalette) private var palette
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .overlay {
+            .background {
                 if configuration.isPressed {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(palette.surfaceMuted.opacity(palette.isNight ? 0.35 : 0.45))
+                    palette.surfaceMuted.opacity(palette.isNight ? 0.35 : 0.55)
                 }
             }
-            .scaleEffect(configuration.isPressed ? 0.978 : 1)
             .animation(AppTheme.springSnappy, value: configuration.isPressed)
     }
 }
 
 #if DEBUG
-#Preview("Overlay light") {
-    @Previewable @State var presented = true
-    ZStack(alignment: .bottom) {
-        ABYFlatTabWashBackground()
-        SacredOrbQuickActionsOverlay(
-            isPresented: $presented,
-            actions: SacredOrbQuickAction.allCases,
-            onSelect: { _ in }
-        )
-    }
-    .abyScreen()
+#Preview("Sheet light") {
+    Color.clear
+        .sheet(isPresented: .constant(true)) {
+            SacredOrbQuickActionsSheet(
+                actions: SacredOrbQuickAction.allCases,
+                onSelect: { _ in }
+            )
+        }
+        .abyScreen()
 }
 
-#Preview("Overlay evening") {
-    @Previewable @State var presented = true
-    ZStack(alignment: .bottom) {
-        ABYEveningReflectionBackground()
-        SacredOrbQuickActionsOverlay(
-            isPresented: $presented,
-            actions: SacredOrbQuickAction.allCases,
-            onSelect: { _ in }
-        )
-    }
-    .environment(\.sanctuaryPalette, .night)
-    .preferredColorScheme(.dark)
-}
-
-#Preview("Sheet") {
-    SacredOrbQuickActionsSheet(
-        actions: SacredOrbQuickAction.allCases,
-        onSelect: { _ in }
-    )
+#Preview("Sheet evening") {
+    Color.clear
+        .sheet(isPresented: .constant(true)) {
+            SacredOrbQuickActionsSheet(
+                actions: SacredOrbQuickAction.allCases,
+                onSelect: { _ in }
+            )
+            .environment(\.sanctuaryPalette, .night)
+            .preferredColorScheme(.dark)
+        }
 }
 #endif

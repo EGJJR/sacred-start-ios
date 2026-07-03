@@ -64,7 +64,7 @@ enum LocalInsightEngine {
         if let headline = analyze().headlineInsight {
             return headline.body
         }
-        return "Keep showing up — your sanctuary is waiting each morning."
+        return "Keep showing up. Your sanctuary is waiting each morning."
     }
 
     // MARK: - Mood trends
@@ -230,7 +230,7 @@ enum LocalInsightEngine {
                 id: "welcome-back",
                 kind: .streakNudge,
                 title: "Welcome back",
-                body: "No pressure — just presence. Your journal remembers past mornings; today can be a gentle restart.",
+                body: "No pressure, just presence. Your journal remembers past mornings; today can be a gentle restart.",
                 priority: 88
             ))
         }
@@ -241,7 +241,7 @@ enum LocalInsightEngine {
                 id: "mood-trend",
                 kind: .moodTrend,
                 title: "Mood pattern",
-                body: "\(moodTrend.dominantMood) has shown up \(moodTrend.count) \(plural) in the last \(moodTrend.windowDays) days — more than any other mood you've logged.",
+                body: "\(moodTrend.dominantMood) has shown up \(moodTrend.count) \(plural) in the last \(moodTrend.windowDays) days, more than any other mood you've logged.",
                 priority: 82
             ))
         }
@@ -252,7 +252,7 @@ enum LocalInsightEngine {
                 id: "theme-\(theme.id)",
                 kind: .recurringTheme,
                 title: "Recurring theme",
-                body: "\(theme.label) keeps appearing in your reflections — you've named it \(frequency) recently.",
+                body: "\(theme.label) keeps appearing in your reflections. You've named it \(frequency) recently.",
                 priority: 78
             ))
         }
@@ -270,7 +270,7 @@ enum LocalInsightEngine {
                 id: "week-building",
                 kind: .weeklyPattern,
                 title: "Building rhythm",
-                body: "You've started \(morningsThisWeek) morning\(morningsThisWeek == 1 ? "" : "s") this week — one more would deepen the pattern.",
+                body: "You've started \(morningsThisWeek) morning\(morningsThisWeek == 1 ? "" : "s") this week. One more would deepen the pattern.",
                 priority: 68
             ))
         }
@@ -291,8 +291,8 @@ enum LocalInsightEngine {
                 kind: .encouragement,
                 title: "Your story is forming",
                 body: streak.daysJournaled == 0
-                    ? "After a few devotions, Devotion Lock will notice moods and themes — all on your device, privately."
-                    : "Keep journaling — local patterns will grow clearer with each morning you show up.",
+                    ? "After a few devotions, Devotion Lock will notice moods and themes, all on your device, privately."
+                    : "Keep journaling. Local patterns will grow clearer with each morning you show up.",
                 priority: 50
             ))
         }
@@ -304,11 +304,11 @@ enum LocalInsightEngine {
         switch days {
         case 7: "One full week of showing up. That's a real sanctuary rhythm taking root."
         case 14: "Two weeks steady. Your mornings are becoming a place you return to."
-        case 21: "Three weeks — habit and heart are meeting here."
+        case 21: "Three weeks. Habit and heart are meeting here."
         case 30: "A month of devotion. Notice how your journal already holds a shape."
         case 60: "Sixty days. Your faithfulness is writing a quiet story on this device."
         case 100: "One hundred mornings. What a witness to patience and presence."
-        default: "\(days) days of showing up — keep honoring this practice."
+        default: "\(days) days of showing up. Keep honoring this practice."
         }
     }
 

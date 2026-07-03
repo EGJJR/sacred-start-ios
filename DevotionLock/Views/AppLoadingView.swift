@@ -113,7 +113,7 @@ struct AppLoadingView: View {
                 .padding(.horizontal, 28)
                 .modifier(SplashTextReveal(isRevealed: quoteRevealed, isEvening: isEvening))
 
-            Text("— \(quote.reference)")
+            Text(quote.reference)
                 .font(ABY.Font.callout)
                 .foregroundStyle(isEvening ? Color.white.opacity(0.72) : palette.textSecondary)
                 .modifier(SplashTextReveal(isRevealed: referenceRevealed, isEvening: isEvening, blurRadius: 6))
@@ -220,6 +220,9 @@ struct AppRootView: View {
             SyncCoordinator.shared.scheduleFlush(force: true)
             AppShieldManager.shared.syncShieldState()
             PersonalInsightStore.shared.refresh()
+            // Rebuild scheduled notifications so pending calendar copies reflect today's streak
+            // (avoids stale "0-day streak" content baked in at an earlier session).
+            NotificationManager.shared.rescheduleAll()
         }
         .onChange(of: scenePhase) { _, phase in
             handleScenePhase(phase)

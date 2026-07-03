@@ -188,7 +188,7 @@ struct SanctuaryBibleView: View {
             Text("Find a verse or a moment")
                 .font(ABY.Font.title2)
                 .foregroundStyle(palette.textPrimary)
-            Text("Search by reference, feeling, or theme — then save what speaks to you.")
+            Text("Search by reference, feeling, or theme, then save what speaks to you.")
                 .font(ABY.Font.callout)
                 .foregroundStyle(palette.textSecondary)
                 .lineSpacing(3)

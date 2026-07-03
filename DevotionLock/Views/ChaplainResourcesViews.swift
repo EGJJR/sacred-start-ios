@@ -306,9 +306,9 @@ struct SpiritualResourceDetailView: View {
 
     private var shareText: String {
         if let author = resource.author {
-            return "\(resource.text)\n\n— \(author), \(resource.reference)"
+            return "\(resource.text)\n\n\(author), \(resource.reference)"
         }
-        return "\(resource.text)\n\n— \(resource.reference)"
+        return "\(resource.text)\n\n\(resource.reference)"
     }
 }
 

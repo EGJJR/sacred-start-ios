@@ -507,17 +507,22 @@ struct ChaplainComposeLauncher: View {
 /// Night backdrop refs: [Dot loading](https://mobbin.com/screens/adf02679-bcb3-45b9-aee0-c1ddf9af20f7), [Lensa AI](https://mobbin.com/screens/364db9a5-ef45-4ffa-b3a9-9cfdf81987d2).
 struct ChaplainPortalTransition: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.sanctuaryPalette) private var palette
+    // Presented as a MainTabView overlay outside the `.abyScreen()` subtree, so the
+    // sanctuaryPalette environment never reaches us — resolve from storage directly.
+    @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+
+    private var palette: SanctuaryPalette {
+        SanctuaryPalette.forMode(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
+    }
 
     let voiceName: String
     let onComplete: () -> Void
 
     @State private var bloomScale: CGFloat = 0.2
     @State private var bloomOpacity = 0.0
-    @State private var avatarRevealed = false
-    @State private var avatarLift: CGFloat = 28
+    @State private var textRevealed = false
+    @State private var textLift: CGFloat = 18
     @State private var fieldIntensity: CGFloat = 0
-    @State private var ringPulse = false
     @State private var departing = false
 
     private var peakFieldIntensity: CGFloat { palette.isNight ? 0.06 : 0.85 }
@@ -538,72 +543,51 @@ struct ChaplainPortalTransition: View {
                     .ignoresSafeArea()
             }
 
-            VStack(spacing: 22) {
-                Spacer()
+            // Pure light bloom behind the identity — no mark, no ring.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: palette.isNight
+                            ? [
+                                ABY.Color.starlight.opacity(0.18),
+                                ABY.Color.nightMeshPlum.opacity(0.28),
+                                .clear,
+                            ]
+                            : [
+                                ABY.Color.meshLilac.opacity(0.55),
+                                ABY.Color.pillPurple.opacity(0.20),
+                                .clear,
+                            ],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: palette.isNight ? 150 : 190
+                    )
+                )
+                .frame(width: 320, height: 320)
+                .blur(radius: 36)
+                .scaleEffect(bloomScale)
+                .opacity(bloomOpacity)
 
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.30 : 0.42),
-                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.14 : 0.22),
-                                    .clear,
-                                ],
-                                center: .center,
-                                startRadius: 8,
-                                endRadius: palette.isNight ? 130 : 160
-                            )
-                        )
-                        .frame(width: palette.isNight ? 240 : 280, height: palette.isNight ? 240 : 280)
-                        .blur(radius: palette.isNight ? 32 : 28)
-                        .scaleEffect(bloomScale)
-                        .opacity(bloomOpacity)
-
-                    Circle()
-                        .stroke(
-                            AngularGradient(
-                                colors: [
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.50 : 0.7),
-                                    ABY.Color.orbSage.opacity(palette.isNight ? 0.28 : 0.35),
-                                    ABY.Color.pillPurple.opacity(palette.isNight ? 0.38 : 0.55),
-                                    ABY.Color.orbTeal.opacity(palette.isNight ? 0.50 : 0.7),
-                                ],
-                                center: .center
-                            ),
-                            lineWidth: 1.5
-                        )
-                        .frame(
-                            width: ringPulse ? (palette.isNight ? 108 : 118) : (palette.isNight ? 84 : 92),
-                            height: ringPulse ? (palette.isNight ? 108 : 118) : (palette.isNight ? 84 : 92)
-                        )
-                        .opacity(avatarRevealed ? (palette.isNight ? 0.42 : 0.55) : 0)
-                        .blur(radius: 0.5)
-
-                    portalAvatar
-                        .portalTextReveal(avatarRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 6 : 14, scale: 1.08)
-                }
-
-                VStack(spacing: 4) {
-                    Text("Chaplain \(voiceName)")
-                        .font(ABY.Font.calloutSemibold)
-                        .foregroundStyle(palette.textPrimary)
-                    Text("A quiet place to begin")
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textSecondary)
-                }
-                .portalTextReveal(avatarRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 3 : 8, scale: 1.02)
-                .offset(y: avatarLift)
-
-                Spacer()
+            VStack(spacing: palette.isNight ? 10 : 8) {
+                Text("Chaplain \(voiceName)")
+                    .font(ABY.Font.editorialTitle)
+                    .foregroundStyle(palette.textPrimary)
+                Text("A quiet place to begin")
+                    .font(palette.isNight ? ABY.Font.editorialAccent : ABY.Font.callout)
+                    .foregroundStyle(palette.isNight ? palette.textSecondary.opacity(0.9) : palette.textSecondary)
             }
-            .opacity(departing ? 0 : 1)
+            .portalTextReveal(textRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 6 : 10, scale: 1.04)
+            .offset(y: textLift)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             portalBackdrop
                 .ignoresSafeArea()
         }
+        // Whole veil softens and dissolves; the chat's own blur-reveal picks up from here.
+        .blur(radius: departing ? 28 : 0)
+        .opacity(departing ? 0 : 1)
+        .scaleEffect(departing ? 1.035 : 1)
         .allowsHitTesting(!departing)
         .preferredColorScheme(palette.isNight ? .dark : .light)
         .onAppear(perform: runPortal)
@@ -617,25 +601,29 @@ struct ChaplainPortalTransition: View {
     }
 
     private var eveningPortalGlow: some View {
-        RadialGradient(
-            colors: [
-                ABY.Color.orbTeal.opacity(0.14),
-                ABY.Color.pillPurple.opacity(0.07),
-                .clear,
-            ],
-            center: .center,
-            startRadius: 30,
-            endRadius: 240
-        )
-        .blur(radius: 20)
-    }
+        ZStack {
+            RadialGradient(
+                colors: [
+                    ABY.Color.starlight.opacity(0.10),
+                    ABY.Color.nightMeshPlum.opacity(0.16),
+                    .clear,
+                ],
+                center: .center,
+                startRadius: 30,
+                endRadius: 260
+            )
+            .blur(radius: 20)
 
-    @ViewBuilder
-    private var portalAvatar: some View {
-        if palette.isNight {
-            SacredOrbShell(size: 64, visualStyle: .calm, showsMark: true, showsGlow: true)
-        } else {
-            ABYChaplainAvatar(size: 64)
+            // Faint upper halo — evening reflection vignette.
+            RadialGradient(
+                colors: [
+                    ABY.Color.meshPeriwinkle.opacity(0.08),
+                    .clear,
+                ],
+                center: .init(x: 0.5, y: 0.18),
+                startRadius: 10,
+                endRadius: 300
+            )
         }
     }
 
@@ -652,32 +640,27 @@ struct ChaplainPortalTransition: View {
         }
 
         withAnimation(AppTheme.springGentle.delay(0.06)) {
-            avatarRevealed = true
-            avatarLift = 0
-        }
-
-        if !palette.isNight {
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true).delay(0.2)) {
-                ringPulse = true
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true).delay(0.2)) {
-                ringPulse = true
-            }
+            textRevealed = true
+            textLift = 0
         }
 
         Task {
-            let hold: UInt64 = palette.isNight ? 420 : 520
+            // Hold just long enough for the serif identity to land, then dissolve.
+            let hold: UInt64 = palette.isNight ? 640 : 520
             try? await Task.sleep(for: .milliseconds(hold))
             await MainActor.run {
                 DevotionHaptics.light()
-                withAnimation(.easeIn(duration: palette.isNight ? 0.18 : 0.22)) {
+                // Slower, deeper dissolve so the text feels absorbed into the chat
+                // rather than cut. The chat's own blur-reveal starts under the veil
+                // roughly 60% of the way through, creating a continuous cross-fade.
+                withAnimation(.easeInOut(duration: 0.62)) {
                     departing = true
                     bloomOpacity = 0
                     fieldIntensity = 0
+                    textLift = -8
                 }
             }
-            try? await Task.sleep(for: .milliseconds(palette.isNight ? 140 : 180))
+            try? await Task.sleep(for: .milliseconds(380))
             await MainActor.run {
                 onComplete()
             }
@@ -1148,7 +1131,9 @@ struct ABYChatScreenHeader: View {
 // [Chime Support](https://mobbin.com/screens/d6e9dea8-4ea4-4a47-8218-abefbc6cb2ea),
 // [Zip Zia](https://mobbin.com/screens/7af89154-ee48-4fc2-85a2-e2e57c987569).
 
-/// Full-width nav chrome — back, Chaplain identity, new chat & overflow.
+/// Full-width nav chrome — back, centered single-line identity, new chat & overflow.
+/// Minimal bar, no avatar chrome: [Claude thread](https://mobbin.com/screens/ee3f2db4-079b-4034-8905-9938a40e8f0e),
+/// [Manus top bar](https://mobbin.com/screens/3ebfd595-aa74-45d6-9a3b-0bc289e98650).
 struct ChaplainChatScreenHeader: View {
     @Environment(\.sanctuaryPalette) private var palette
     let voice: ChaplainVoice
@@ -1159,67 +1144,49 @@ struct ChaplainChatScreenHeader: View {
     var onDeleteConversation: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
+        ZStack {
+            Text(headerTitle)
+                .font(ABY.Font.calloutSemibold)
+                .foregroundStyle(palette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .padding(.horizontal, 92)
+
+            HStack(spacing: 2) {
                 ChatHeaderIconButton(icon: "chevron.left", action: onBack)
-
-                HStack(spacing: 8) {
-                    chaplainHeaderAvatar
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Chaplain")
-                            .font(ABY.Font.calloutSemibold)
-                            .foregroundStyle(palette.textPrimary)
-                        Text(headerSubtitle)
-                            .font(ABY.Font.caption)
-                            .foregroundStyle(palette.textSecondary)
-                            .lineLimit(1)
-                    }
-                }
 
                 Spacer(minLength: 0)
 
-                HStack(spacing: 2) {
-                    ChatHeaderIconButton(icon: "square.and.pencil", action: onNewChat)
+                ChatHeaderIconButton(icon: "square.and.pencil", action: onNewChat)
 
-                    Menu {
-                        Button("Past conversations", action: onShowHistory)
-                        if let onDeleteConversation {
-                            Divider()
-                            Button("Delete conversation", role: .destructive, action: onDeleteConversation)
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(ABY.Font.bodySemibold)
-                            .foregroundStyle(palette.textSecondary)
-                            .frame(width: 36, height: 36)
-                            .contentShape(Rectangle())
+                Menu {
+                    Button("Past conversations", action: onShowHistory)
+                    if let onDeleteConversation {
+                        Divider()
+                        Button("Delete conversation", role: .destructive, action: onDeleteConversation)
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("More options")
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(ABY.Font.bodySemibold)
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("More options")
             }
-            .padding(.horizontal, ABY.Spacing.screen)
-            .padding(.top, 4)
-            .padding(.bottom, 10)
         }
+        .padding(.horizontal, ABY.Spacing.screen - 6)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
         .background { headerChrome }
     }
 
-    private var headerSubtitle: String {
+    private var headerTitle: String {
         if let threadTitle, !threadTitle.isEmpty, threadTitle != "Chaplain" {
             return threadTitle
         }
-        return voice.name
-    }
-
-    @ViewBuilder
-    private var chaplainHeaderAvatar: some View {
-        if palette.isNight {
-            SacredOrbShell(size: 28, visualStyle: .calm, showsMark: true, showsGlow: false)
-        } else {
-            ABYChaplainAvatar(size: 28)
-        }
+        return "Chaplain \(voice.name)"
     }
 
     @ViewBuilder

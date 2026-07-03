@@ -61,14 +61,16 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
+        ABYFadingHeaderScrollView(
+            title: "Home",
+            subtitle: greeting,
+            trailing: {
+                if streakManager.currentStreak > 0 {
+                    ABYFlameBadge(streak: streakManager.currentStreak, action: openStreakScreen)
+                }
+            }
+        ) {
             VStack(alignment: .leading, spacing: 0) {
-                timelineHeader
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 12)
-                    .padding(.bottom, 16)
-                    .staggeredAppear(appeared, delay: 0)
-
                 ABYWeeklyStrip(completedDays: streakManager.weekCompletionFlags)
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 16)
@@ -172,9 +174,7 @@ struct HomeView: View {
                     .staggeredAppear(appeared, delay: 0.18)
                 }
             }
-            .padding(.bottom, 120)
         }
-        .abyTransparentScroll()
         .onAppear {
             refreshHomeState()
             withAnimation(AppTheme.springGentle) { appeared = true }
@@ -202,7 +202,7 @@ struct HomeView: View {
                     passage: dailyPassage,
                     onReflect: {
                         openChaplainChat(
-                            "Help me reflect on today's passage: \"\(dailyPassage.text)\" — \(dailyPassage.attribution)",
+                            "Help me reflect on today's passage: \"\(dailyPassage.text)\" (\(dailyPassage.attribution))",
                             []
                         )
                     },
@@ -250,14 +250,6 @@ struct HomeView: View {
 
     private func requirePremium(_ action: @escaping () -> Void) {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall, action: action)
-    }
-
-    private var timelineHeader: some View {
-        ABYScreenHeader(title: "Home", showDot: false, subtitle: greeting) {
-            if streakManager.currentStreak > 0 {
-                ABYFlameBadge(streak: streakManager.currentStreak, action: openStreakScreen)
-            }
-        }
     }
 
     private var greeting: String {

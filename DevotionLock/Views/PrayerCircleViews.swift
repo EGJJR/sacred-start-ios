@@ -1192,7 +1192,7 @@ struct CircleMilestoneCelebrationView: View {
                         .font(ABY.Font.title2)
                         .foregroundStyle(ABY.Color.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("Celebrate what God is doing together — no rankings, just gratitude.")
+                    Text("Celebrate what God is doing together. No rankings, just gratitude.")
                         .font(ABY.Font.callout)
                         .foregroundStyle(ABY.Color.textSecondary)
                         .multilineTextAlignment(.center)

@@ -90,10 +90,14 @@ final class GuidedPrayerComposer: ObservableObject {
         Return an array of exactly \(count) objects: {"section":"...","line":"..."}.
         Mood: \(context.mood). Focus: \(focus).
         Each line must be a short spoken prayer the user repeats aloud in first person, addressing God directly (Lord/Father/Thank you).
+        The mood describes the person, never the day or objects ("I come to you anxious", NOT "this anxious morning").
         Never narrate about the user in third person. No coaching language like "you are held."
+        Follow a liturgical arc across the lines: arrive honestly, then offer or confess, then receive scripture truth or God's promise, then close in trust or release.
+        The final line should land as a benediction the person can carry into their day.
         Sections in order: \(sections.joined(separator: ", ")).
         \(name.isEmpty ? "" : "The person's name is \(name) — weave gently into one line only if natural.")
-        Keep each line under 130 characters. Personal, gentle, not preachy.
+        Keep each line under 130 characters. Personal, gentle, not preachy. Vary sentence openings — do not start every line the same way.
+        Never use em dashes (—) in the prayer lines. Use commas or separate sentences instead.
         """
 
         let message = ChaplainMessage(role: .user, text: prompt)
@@ -147,7 +151,10 @@ final class GuidedPrayerComposer: ObservableObject {
         guard payloads.count >= 2 else { return fallback }
 
         return payloads.map { item in
-            let line = item.line.trimmingCharacters(in: .whitespacesAndNewlines)
+            let line = item.line
+                .replacingOccurrences(of: " — ", with: ", ")
+                .replacingOccurrences(of: "—", with: ", ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let highlight: String?
             if line.localizedCaseInsensitiveContains(context.mood) {
                 highlight = context.mood.lowercased()

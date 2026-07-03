@@ -89,7 +89,7 @@ struct MorningFlowView: View {
         Group {
             if currentStep == .complete {
                 ZStack {
-                    ABYBackground()
+                    ABYGuidedJournalBackground()
                     DevotionCompletionView(
                         streak: completedStreak,
                         mood: mood,
@@ -369,7 +369,7 @@ struct MorningFlowView: View {
         VStack(alignment: .leading, spacing: 28) {
             ABYHeadline(
                 title: "How are you?",
-                subtitle: "No perfect words — just what's true before the day begins."
+                subtitle: "No perfect words. Just what's true before the day begins."
             )
 
             VStack(alignment: .leading, spacing: 12) {
@@ -391,7 +391,7 @@ struct MorningFlowView: View {
                 Text("In focus today")
                     .font(ABY.Font.captionMedium)
                     .foregroundStyle(palette.textSecondary)
-                Text("Optional — one thing to hold gently")
+                Text("Optional: one thing to hold gently")
                     .font(ABY.Font.caption)
                     .foregroundStyle(palette.isNight ? palette.textSecondary : palette.textTertiary)
 
@@ -474,7 +474,7 @@ struct MorningFlowView: View {
                     .foregroundStyle(palette.textTertiary)
                     .textCase(.uppercase)
 
-                Text(profile.affirmation(mood: mood, tags: tags))
+                Text(profile.affirmation(mood: mood, tags: tags, passage: passage))
                     .font(ABY.Font.bodyMedium)
                     .foregroundStyle(palette.textPrimary)
                     .multilineTextAlignment(.center)
@@ -507,7 +507,7 @@ struct MorningFlowView: View {
         VStack(alignment: .leading, spacing: 22) {
             ABYHeadline(
                 title: "Stay a little longer",
-                subtitle: "Only if you have capacity — there's no extra credit here."
+                subtitle: "Only if you have capacity. There's no extra credit here."
             )
 
             DepthOptionRow(icon: "waveform", title: "Speak it out", subtitle: "Pray aloud with your Chaplain") {
@@ -634,7 +634,7 @@ struct MorningFlowView: View {
         draft.emotion = mood.lowercased()
         draft.focusTags = tags.map(\.rawValue)
         draft.onMind = promptResponse
-        draft.affirmation = profile.affirmation(mood: mood, tags: tags)
+        draft.affirmation = profile.affirmation(mood: mood, tags: tags, passage: passage)
         draft.savedVersePhrase = passage.text
         if !gratitudeLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             draft.gratitudeItems = [gratitudeLine, "", ""]
@@ -739,7 +739,7 @@ private struct MorningPathCard: View {
     private var subtitle: String {
         switch path {
         case .pray: "Breath, orb, and words woven to your morning"
-        case .reflect: "Type or speak — saved with today's devotion"
+        case .reflect: "Type or speak, saved with today's devotion"
         }
     }
 

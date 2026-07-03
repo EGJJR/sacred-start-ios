@@ -306,7 +306,7 @@ struct JournalFreeWritePromptCard: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Write freely — no template required.")
+                Text("Write freely. No template required.")
                     .font(ABY.Font.callout)
                     .foregroundStyle(palette.textSecondary)
                     .lineSpacing(4)
@@ -954,7 +954,7 @@ enum JournalPromptLibrary {
             id: "evening",
             title: "Evening Reflection",
             preview: "Reflect on your day",
-            prompt: "What felt heavy — or surprisingly light?"
+            prompt: "What felt heavy, or surprisingly light?"
         ),
         JournalPromptTemplate(
             id: "presence",
@@ -1032,22 +1032,34 @@ struct JournalScreenHeader: View {
     var body: some View {
         ABYScreenHeader(title: "Journal", subtitle: "Your reflection history") {
             if streak > 0, let onStreakTap {
-                Button(action: onStreakTap) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(ABY.Font.footnoteSemibold)
-                        Text("\(streak)")
-                            .font(ABY.Font.captionSemibold)
-                    }
-                    .foregroundStyle(ABY.Color.pillOrange)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(ABY.Color.pillOrange.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
+                JournalStreakPill(streak: streak, action: onStreakTap)
             }
         }
+    }
+}
+
+/// Slim orange streak pill used in the journal inline header and its compact
+/// fading top bar so the trailing element stays visually stable during scroll.
+struct JournalStreakPill: View {
+    let streak: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(ABY.Font.footnoteSemibold)
+                Text("\(streak)")
+                    .font(ABY.Font.captionSemibold)
+            }
+            .foregroundStyle(ABY.Color.pillOrange)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(ABY.Color.pillOrange.opacity(0.12))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Streak: \(streak) days")
     }
 }
 
@@ -1292,11 +1304,11 @@ enum JournalDayInsightBuilder {
         let summary: String
         if uniqueMoodLabels.count >= 2 {
             let moodPhrase = uniqueMoodLabels.prefix(2).map { $0.lowercased() }.joined(separator: " and ")
-            summary = "\(dayRef) you leaned into \(moodPhrase) — \(entries.count) moments captured."
+            summary = "\(dayRef) you leaned into \(moodPhrase). \(entries.count) moments captured."
         } else if let mood = uniqueMoodLabels.first {
-            summary = "\(dayRef) centered on \(mood.lowercased()) — \(entries.count) moments captured."
+            summary = "\(dayRef) centered on \(mood.lowercased()). \(entries.count) moments captured."
         } else if let kinds = entryKindPhrase(entries), !kinds.isEmpty {
-            summary = "\(dayRef) held \(kinds) — \(entries.count) moments captured."
+            summary = "\(dayRef) held \(kinds). \(entries.count) moments captured."
         } else {
             summary = "\(entries.count) reflections from \(dayRef.lowercased())."
         }

@@ -182,7 +182,7 @@ struct GuidedJournalFlowView: View {
                 )
             } else if step == .complete {
                 ZStack {
-                    ABYBackground()
+                    ABYGuidedJournalBackground()
                     DevotionCompletionView(
                         streak: completedStreak,
                         mood: draft.mood,
@@ -386,7 +386,7 @@ struct GuidedJournalFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             ABYHeadline(
                 title: "Pause with Scripture",
-                subtitle: "Tap the words that speak to you — then share a short reflection."
+                subtitle: "Tap the words that speak to you, then share a short reflection."
             )
 
             BlackoutVerseView(

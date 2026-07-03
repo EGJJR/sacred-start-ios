@@ -43,13 +43,27 @@ struct AIInsightsView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
+        ABYFadingHeaderScrollView(
+            title: "Chaplain",
+            subtitle: greetingSubtitle,
+            trailing: {
+                Button(action: { insightsSheet = .chatHistory }) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(ABY.Font.bodyMedium)
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(width: 40, height: 40)
+                        .background(palette.composerFill)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(palette.divider.opacity(0.5), lineWidth: 1))
+                        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 6, y: 2)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Chat history")
+            }
+        ) {
             VStack(alignment: .leading, spacing: 0) {
-                hubHeader
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 12)
-                    .padding(.bottom, 28)
-                    .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+                Spacer(minLength: 12)
 
                 GeminiChatGreeting()
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -80,9 +94,7 @@ struct AIInsightsView: View {
                 .padding(.horizontal, ABY.Spacing.screen)
                 .blurReveal(appeared, blurRadius: 4, scale: 1.002)
             }
-            .padding(.bottom, 120)
         }
-        .abyTransparentScroll()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             ChaplainComposeLauncher(voiceName: selectedVoice.name) {
                 openChaplainChatWithPortal(selectedVoice.name, nil, [])
@@ -118,6 +130,7 @@ struct AIInsightsView: View {
             }
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
+            .presentationDetents([.fraction(0.78), .large])
         }
         .fullScreenCover(item: $guidedPrayerLaunch) { launch in
             GuidedPrayerFlowView(
@@ -151,24 +164,6 @@ struct AIInsightsView: View {
         }
     }
 
-    private var hubHeader: some View {
-        ABYScreenHeader(title: "Chaplain", subtitle: greetingSubtitle) {
-            Button(action: { insightsSheet = .chatHistory }) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(ABY.Font.bodyMedium)
-                    .foregroundStyle(palette.textSecondary)
-                    .frame(width: 40, height: 40)
-                    .background(palette.composerFill)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(palette.divider.opacity(0.5), lineWidth: 1))
-                    .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 6, y: 2)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Chat history")
-        }
-    }
-
     private var greetingSubtitle: String {
         "A quiet place to talk and reflect"
     }
@@ -190,6 +185,31 @@ private struct GuidedPrayerPickerSheet: View {
     @State private var selectedStyle: GuidedPrayerExperienceStyle = .threshold
     let onSelect: (GuidedPrayer, GuidedPrayerExperienceStyle) -> Void
 
+    /// Time-appropriate prayer surfaced as the hero card (Calm/Oura "for this moment" pattern).
+    private var featuredPrayer: GuidedPrayer {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let id: String
+        switch hour {
+        case 5..<11: id = "morning"
+        case 11..<17: id = "gratitude"
+        default: id = "evening"
+        }
+        return GuidedPrayerCatalog.all.first { $0.id == id } ?? GuidedPrayerCatalog.all[0]
+    }
+
+    private var featuredLabel: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11: return "For this morning"
+        case 11..<17: return "For this afternoon"
+        default: return "For tonight"
+        }
+    }
+
+    private var remainingPrayers: [GuidedPrayer] {
+        GuidedPrayerCatalog.all.filter { $0.id != featuredPrayer.id }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -198,6 +218,7 @@ private struct GuidedPrayerPickerSheet: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         experiencePicker
+                        featuredCard
                         prayerList
                     }
                     .padding(.top, 8)
@@ -208,17 +229,97 @@ private struct GuidedPrayerPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(ABY.Font.calloutSemibold)
-                        .foregroundStyle(palette.isNight ? ABY.Color.eveningReflectionTop : palette.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(palette.isNight ? ABY.Color.starlight : Color.clear)
-                        .clipShape(Capsule())
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(ABY.Font.captionSemibold)
+                            .foregroundStyle(palette.textSecondary)
+                            .frame(width: 30, height: 30)
+                            .background(palette.composerFill)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(palette.divider.opacity(0.5), lineWidth: 1))
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Close")
                 }
             }
             .abyScreen()
         }
+    }
+
+    private var featuredCard: some View {
+        let prayer = featuredPrayer
+        let tint = prayer.tintColor
+
+        return Button {
+            DevotionHaptics.light()
+            onSelect(prayer, selectedStyle)
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    Text(featuredLabel.uppercased())
+                        .font(ABY.Font.section)
+                        .tracking(0.8)
+                        .foregroundStyle(palette.isNight ? tint.opacity(0.95) : tint)
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: prayer.icon)
+                        .font(ABY.Font.bodyMedium)
+                        .foregroundStyle(tint)
+                        .frame(width: 36, height: 36)
+                        .background(tint.opacity(palette.isNight ? 0.2 : 0.12))
+                        .clipShape(Circle())
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(prayer.title)
+                        .font(ABY.Font.editorialTitle)
+                        .foregroundStyle(palette.textPrimary)
+                    Text(prayer.subtitle)
+                        .font(ABY.Font.callout)
+                        .foregroundStyle(palette.textSecondary)
+                }
+
+                HStack(spacing: 6) {
+                    Text("Begin")
+                        .font(ABY.Font.captionSemibold)
+                    Image(systemName: "arrow.right")
+                        .font(ABY.Font.captionSemibold)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(tint.opacity(palette.isNight ? 0.85 : 1))
+                .clipShape(Capsule())
+            }
+            .padding(ABY.Spacing.card + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                    .fill(palette.cardFill)
+                    .overlay {
+                        LinearGradient(
+                            colors: [
+                                tint.opacity(palette.isNight ? 0.26 : 0.14),
+                                tint.opacity(palette.isNight ? 0.08 : 0.04),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+                    }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                    .strokeBorder(tint.opacity(palette.isNight ? 0.4 : 0.25), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
+            .contentShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .padding(.horizontal, ABY.Spacing.screen)
+        .accessibilityLabel("\(featuredLabel): \(prayer.title). \(prayer.subtitle)")
     }
 
     private var experiencePicker: some View {
@@ -248,28 +349,36 @@ private struct GuidedPrayerPickerSheet: View {
     }
 
     private var prayerList: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(GuidedPrayerCatalog.all.enumerated()), id: \.element.id) { index, prayer in
-                GuidedPrayerPickerRow(prayer: prayer) {
-                    DevotionHaptics.light()
-                    onSelect(prayer, selectedStyle)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            Text("More prayers")
+                .font(ABY.Font.section)
+                .tracking(0.6)
+                .foregroundStyle(palette.textSecondary)
+                .padding(.horizontal, ABY.Spacing.screen + 4)
 
-                if index < GuidedPrayerCatalog.all.count - 1 {
-                    Divider()
-                        .padding(.leading, 56)
-                        .allowsHitTesting(false)
+            VStack(spacing: 0) {
+                ForEach(Array(remainingPrayers.enumerated()), id: \.element.id) { index, prayer in
+                    GuidedPrayerPickerRow(prayer: prayer) {
+                        DevotionHaptics.light()
+                        onSelect(prayer, selectedStyle)
+                    }
+
+                    if index < remainingPrayers.count - 1 {
+                        Divider()
+                            .padding(.leading, 64)
+                            .allowsHitTesting(false)
+                    }
                 }
             }
+            .background(palette.cardFill)
+            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
+                    .strokeBorder(palette.divider, lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
+            .padding(.horizontal, ABY.Spacing.screen)
         }
-        .background(palette.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                .strokeBorder(palette.divider, lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(palette.cardShadowOpacity), radius: 8, y: 2)
-        .padding(.horizontal, ABY.Spacing.screen)
     }
 }
 
@@ -327,16 +436,18 @@ private struct GuidedPrayerPickerRow: View {
     let action: () -> Void
 
     var body: some View {
+        let tint = prayer.tintColor
+
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 Image(systemName: prayer.icon)
                     .font(ABY.Font.bodyMedium)
-                    .foregroundStyle(ABY.Color.pillTeal)
-                    .frame(width: 36, height: 36)
-                    .background(ABY.Color.pillTeal.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .foregroundStyle(palette.isNight ? tint.opacity(0.95) : tint)
+                    .frame(width: 40, height: 40)
+                    .background(tint.opacity(palette.isNight ? 0.18 : 0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(prayer.title)
                         .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(palette.textPrimary)
@@ -348,13 +459,17 @@ private struct GuidedPrayerPickerRow: View {
 
                 Spacer(minLength: 8)
 
+                Text("\(prayer.steps.count) moments")
+                    .font(ABY.Font.micro)
+                    .foregroundStyle(palette.textTertiary)
+
                 Image(systemName: "chevron.right")
                     .font(ABY.Font.captionSemibold)
                     .foregroundStyle(palette.textTertiary)
             }
             .padding(.horizontal, ABY.Spacing.card)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -70,6 +70,30 @@ extension View {
     }
 }
 
+/// Blur-dissolve for step changes — the outgoing screen melts out of focus
+/// while the incoming one sharpens (ABY entry pattern).
+private struct BlurDissolveModifier: ViewModifier {
+    let radius: CGFloat
+    let opacity: Double
+    let scale: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: radius)
+            .opacity(opacity)
+            .scaleEffect(scale)
+    }
+}
+
+extension AnyTransition {
+    static var blurDissolve: AnyTransition {
+        .modifier(
+            active: BlurDissolveModifier(radius: 14, opacity: 0, scale: 1.02),
+            identity: BlurDissolveModifier(radius: 0, opacity: 1, scale: 1)
+        )
+    }
+}
+
 enum OnboardingStepTransition {
     static func animateChange(
         revealed: Binding<Bool>,

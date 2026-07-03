@@ -253,7 +253,7 @@ final class PrayerWallStore {
             ),
             PrayerWallNote(
                 kind: .answered,
-                text: "Clarity about the job decision — doors opened gently.",
+                text: "Clarity about the job decision. Doors opened gently.",
                 createdAt: Date().addingTimeInterval(-86400 * 5),
                 answeredAt: Date().addingTimeInterval(-86400),
                 rotation: -1.1,

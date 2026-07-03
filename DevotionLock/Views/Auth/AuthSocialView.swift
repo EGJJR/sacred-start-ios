@@ -140,7 +140,7 @@ struct AuthSocialView: View {
         VStack(spacing: 16) {
             if intent == .signIn {
                 AuthTextLink(title: "Forgot password?") {
-                    auth.errorMessage = "Password reset is coming soon — use email sign-in for now."
+                    auth.errorMessage = "Password reset is coming soon. Use email sign-in for now."
                 }
             }
 

@@ -251,7 +251,7 @@ struct BibleChapterReaderView: View {
 
     private var shareBody: String {
         let text = activeVerses.map(\.text).joined(separator: " ")
-        return "\(text)\n\n— \(saveReference) (KJV)"
+        return "\(text)\n\n\(saveReference) (KJV)"
     }
 
     private func referenceLabel(for verses: [BibleVerse]) -> String {

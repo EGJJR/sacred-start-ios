@@ -50,17 +50,23 @@ struct ConversationsListView: View {
     private var hasEntries: Bool { !mergedEntries.isEmpty }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
+        ABYCustomFadingHeaderScrollView(
+            compactTitle: "Journal",
+            bottomPadding: Self.bottomScrollPadding,
+            inlineTopPadding: 8,
+            inlineHeader: {
                 JournalScreenHeader(
                     streak: streakManager.currentStreak,
                     onStreakTap: openStreakScreen
                 )
-                .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 8)
-                .padding(.bottom, 16)
-                .blurReveal(appeared, blurRadius: 6, scale: 1.004)
-
+            },
+            compactTrailing: {
+                if streakManager.currentStreak > 0 {
+                    JournalStreakPill(streak: streakManager.currentStreak, action: openStreakScreen)
+                }
+            }
+        ) {
+            VStack(alignment: .leading, spacing: 0) {
                 ABYWeeklyStrip(completedDays: streakManager.weekCompletionFlags)
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 16)
@@ -73,10 +79,7 @@ struct ConversationsListView: View {
 
                 browseContent
             }
-            .padding(.bottom, Self.bottomScrollPadding)
         }
-        .abyTransparentScroll()
-        .abyScrollEdgeFades(top: false, bottom: false)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             await repository.refresh()

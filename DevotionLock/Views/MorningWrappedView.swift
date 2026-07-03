@@ -234,7 +234,7 @@ struct MorningWrappedView: View {
                 .font(ABY.Font.headline)
                 .foregroundStyle(palette.textPrimary)
 
-            Text("Keep building the rhythm — one gentle morning at a time.")
+            Text("Keep building the rhythm, one gentle morning at a time.")
                 .font(ABY.Font.body)
                 .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
@@ -259,7 +259,7 @@ struct MorningWrappedView: View {
 
     private var rhythmHeadline: String {
         let completed = stats.weekCompleted.filter { $0 }.count
-        if completed == 7 { return "A perfect week — you checked in every day" }
+        if completed == 7 { return "A perfect week. You checked in every day" }
         if completed >= 5 { return "Your rhythm held steady" }
         let morningWord = completed == 1 ? "morning" : "mornings"
         return "Your week had \(completed) devoted \(morningWord)"
@@ -297,8 +297,8 @@ struct MorningWrappedView: View {
             topMoodEmoji: "🍃",
             currentStreak: 5,
             totalDays: 12,
-            highlightInsight: "You showed up peaceful today — a gentle beginning before the world rushes in.",
-            weeklyNarrative: "This week you returned to stillness even when mornings felt heavy. Your journal named gratitude more than once — a sign your heart is learning to notice mercy in small places.",
+            highlightInsight: "You showed up peaceful today, a gentle beginning before the world rushes in.",
+            weeklyNarrative: "This week you returned to stillness even when mornings felt heavy. Your journal named gratitude more than once, a sign your heart is learning to notice mercy in small places.",
             weekLabels: [],
             weekCompleted: [true, true, false, true, true, true, false]
         ),

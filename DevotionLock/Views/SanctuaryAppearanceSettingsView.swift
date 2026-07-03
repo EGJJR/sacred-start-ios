@@ -18,7 +18,7 @@ struct SanctuaryAppearanceSettingsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ABYDetailHeader(
                     title: "Appearance",
-                    subtitle: "Evening sanctuary uses the same twilight palette as Close the day — plum, indigo, and soft glass."
+                    subtitle: "Evening sanctuary uses the same twilight palette as Close the day: plum, indigo, and soft glass."
                 )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.top, 8)

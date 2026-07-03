@@ -17,7 +17,7 @@ struct DevotionCompletionView: View {
     @State private var appeared = false
 
     private var bodyText: String {
-        insight ?? "Today you showed up with a \(mood.lowercased()) heart. Sacred Start noticed the honesty in your reflection."
+        insight ?? "Today you showed up with \(DaySummary.withArticle(mood.lowercased())) heart. Sacred Start noticed the honesty in your reflection."
     }
 
     var body: some View {
@@ -93,7 +93,7 @@ private struct DevotionCompletionInsightCard: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Sacred Start noticed…")
                 .font(ABY.Font.captionSemibold)
-                .foregroundStyle(ABY.Color.meshPeriwinkle)
+                .foregroundStyle(ABY.Color.moodPeachText)
                 .textCase(.none)
 
             HStack {
@@ -121,9 +121,9 @@ private struct DevotionCompletionInsightCard: View {
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            ABY.Color.meshSky.opacity(0.55),
-                            ABY.Color.meshPeriwinkle.opacity(0.45),
-                            ABY.Color.meshLilac.opacity(0.35)
+                            ABY.Color.moodPeach.opacity(0.9),
+                            ABY.Color.pillOrange.opacity(0.30),
+                            ABY.Color.moodPeach.opacity(0.55)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -136,7 +136,7 @@ private struct DevotionCompletionInsightCard: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            ABY.Color.meshSky.opacity(0.18),
+                            ABY.Color.moodPeach.opacity(0.35),
                             Color.clear
                         ],
                         center: .center,
@@ -184,7 +184,7 @@ private struct DevotionCompletionStreakChip: View {
                     LinearGradient(
                         colors: [
                             ABY.Color.pillOrange.opacity(0.35),
-                            ABY.Color.meshPeriwinkle.opacity(0.25)
+                            ABY.Color.moodPeach.opacity(0.8)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing

@@ -12,7 +12,6 @@ struct MainTabView: View {
     @Environment(\.authManager) private var auth
 
     @State private var coordinator = MainTabCoordinator()
-    @State private var quickMenuDismissSignal = 0
     private let streakManager = StreakManager.shared
     private let rhythmStore = DailyRhythmStore.shared
     private let journalStore = JournalLocalStore.shared
@@ -40,32 +39,22 @@ struct MainTabView: View {
                 onOrbLongPress: performSacredOrbLongPress
             )
             .id(sacredOrbRefreshKey)
+            .zIndex(1)
         }
-        .overlay {
-            if coordinator.sacredOrbQuickMenuPresented {
-                SacredOrbQuickActionsOverlay(
-                    isPresented: Binding(
-                        get: { coordinator.sacredOrbQuickMenuPresented },
-                        set: { coordinator.sacredOrbQuickMenuPresented = $0 }
-                    ),
-                    dismissSignal: quickMenuDismissSignal,
-                    actions: coordinator.sacredOrbMenuActions,
-                    onSelect: { action in
-                        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                            coordinator.performSacredOrbQuickAction(action)
-                        }
+        .sheet(isPresented: Binding(
+            get: { coordinator.sacredOrbQuickMenuPresented },
+            set: { coordinator.sacredOrbQuickMenuPresented = $0 }
+        )) {
+            SacredOrbQuickActionsSheet(
+                actions: coordinator.sacredOrbMenuActions,
+                onSelect: { action in
+                    PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
+                        coordinator.performSacredOrbQuickAction(action)
                     }
-                )
-                .transition(
-                    .asymmetric(
-                        insertion: .opacity,
-                        removal: .opacity
-                    )
-                )
-                .zIndex(100)
-            }
+                }
+            )
+            .abyScreen()
         }
-        .animation(AppTheme.springMenu, value: coordinator.sacredOrbQuickMenuPresented)
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
         .modifier(MainTabVoiceSessionModifier(coordinator: coordinator, onSwitchToChat: { transcript in
@@ -178,7 +167,7 @@ struct MainTabView: View {
     private func performSacredOrbTap() {
         if coordinator.sacredOrbQuickMenuPresented {
             DevotionHaptics.soft()
-            quickMenuDismissSignal += 1
+            coordinator.dismissSacredOrbQuickMenu()
             return
         }
 
@@ -192,12 +181,10 @@ struct MainTabView: View {
 
     private func performSacredOrbLongPress() {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            withAnimation(AppTheme.springMenu) {
-                coordinator.presentSacredOrbQuickMenu(
-                    rhythmStore: rhythmStore,
-                    streakManager: streakManager
-                )
-            }
+            coordinator.presentSacredOrbQuickMenu(
+                rhythmStore: rhythmStore,
+                streakManager: streakManager
+            )
         }
     }
 }
@@ -431,7 +418,7 @@ private struct MainTabPresentationsModifier: ViewModifier {
                             try? await Task.sleep(for: .milliseconds(350))
                             PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
                                 coordinator.openChaplainChat(
-                                    starter: "Help me reflect on today's passage: \"\(passage.text)\" — \(passage.attribution)",
+                                    starter: "Help me reflect on today's passage: \"\(passage.text)\" (\(passage.attribution))",
                                     seedMessages: []
                                 )
                             }

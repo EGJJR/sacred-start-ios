@@ -410,30 +410,22 @@ struct SacredStartCloudMark: View {
     }
 }
 
+/// Sacred Start quatrefoil mark — matches the app icon; white variant on night sanctuary.
 struct DevotionLockBrandMark: View {
+    @Environment(\.sanctuaryPalette) private var palette
     var size: CGFloat = 112
     var showsShadow = true
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [ABY.Color.brandGreenTop, ABY.Color.brandGreenBottom],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size, height: size)
-
-            SacredStartCloudMark(size: size * 0.52)
-                .offset(y: -size * 0.02)
-        }
-        .shadow(
-            color: ABY.Color.brandGreenBottom.opacity(showsShadow ? 0.28 : 0),
-            radius: size * 0.14,
-            y: size * 0.05
-        )
+        Image(palette.isNight ? "BrandQuatrefoilWhite" : "BrandQuatrefoilBlue")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .shadow(
+                color: .black.opacity(showsShadow ? (palette.isNight ? 0.30 : 0.12) : 0),
+                radius: size * 0.10,
+                y: size * 0.04
+            )
     }
 }
 
@@ -639,7 +631,7 @@ enum SanctuaryGradientMode: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .light: "Soft lavender, pink & sky blue mist"
-        case .night: "Twilight plum & indigo — like Close the day"
+        case .night: "Twilight plum & indigo, like Close the day"
         }
     }
 

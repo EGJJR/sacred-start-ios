@@ -131,7 +131,7 @@ final class AuthManager {
         case .email:
             break
         case .apple, .google:
-            errorMessage = "Coming soon — use email sign-in for now."
+            errorMessage = "Coming soon. Use email sign-in for now."
         }
     }
 
@@ -213,8 +213,9 @@ final class AuthManager {
         ConversationRepository.shared.clear()
         AppShieldManager.shared.unlockForCompletedDevotion()
         UserDefaults.standard.set(false, forKey: "hasDismissedPaywall")
-        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
-        UserDefaults.standard.set(true, forKey: "showOnboardingAfterSignOut")
+        // Onboarding completion is intentionally preserved — signing out and back in
+        // should land on auth, not restart onboarding. (Fresh sign-ups still onboard;
+        // signUp resets the flag.)
     }
 
     func clearMessages() {

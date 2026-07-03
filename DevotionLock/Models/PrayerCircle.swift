@@ -152,7 +152,7 @@ struct CircleThoughtTemplate: Identifiable, Equatable {
             title: "Prayer request",
             prompt: "What would you like your circle to pray for?",
             madLibPrefix: "Please pray for ",
-            madLibSuffix: " — I'm carrying this in my heart."
+            madLibSuffix: ". I'm carrying this in my heart."
         ),
         CircleThoughtTemplate(
             id: "request-family",
@@ -182,7 +182,7 @@ struct CircleThoughtTemplate: Identifiable, Equatable {
             id: "testimony",
             kind: .testimony,
             title: "Answered prayer",
-            prompt: "Celebrate something God did — big or small.",
+            prompt: "Celebrate something God did, big or small.",
             madLibPrefix: "God answered my prayer about ",
             madLibSuffix: "."
         ),

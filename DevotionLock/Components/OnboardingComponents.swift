@@ -347,7 +347,7 @@ struct OnboardingRhythmTimeline: View {
     private let steps: [(String, String, String)] = [
         ("lock.shield.fill", "Shield", "Optional app blocking until devotion is done."),
         ("book.fill", "Devotion", "Scripture, reflection, and journaling with your Chaplain."),
-        ("sun.max.fill", "Unlock", "Start the day with peace — then open your apps."),
+        ("sun.max.fill", "Unlock", "Start the day with peace, then open your apps."),
     ]
 
     var body: some View {

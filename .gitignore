@@ -48,6 +48,9 @@ supabase/.branches/
 # Cursor / editor
 .cursor/
 
+# Graphify knowledge graph (local build artifact)
+graphify-out/
+
 # Local agent tooling & design comparison assets (not part of the app)
 .agents/
 .comparison-screenshots/

@@ -258,82 +258,271 @@ private struct GuidedEntryChaplainHandoffCard: View {
 }
 
 // MARK: - Entry hub
+//
+//  Mobbin refs:
+//  Fabric action sheet — https://mobbin.com/screens/f2902335-d4e8-4f10-a540-8764198d023f
+//  ChatGPT attach sheet — https://mobbin.com/screens/cf94f6ed-ad32-48c1-ad40-e8ee75e9615a
+//  Obsidian action groups — https://mobbin.com/screens/09dec6de-5d1b-4020-922b-ad238e77263c
 
 struct JournalEntryHubSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sanctuaryPalette) private var palette
     @Environment(\.openGuidedJournal) private var openGuidedJournal
+    @Environment(\.openChaplainChat) private var openChaplainChat
+    @Environment(\.openChaplainChatWithPortal) private var openChaplainChatWithPortal
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("selectedChaplainVoice") private var selectedVoiceID = "grace"
 
     var onAssisted: () -> Void
     var onVoice: () -> Void
 
+    @State private var revealed = false
+
+    private var selectedVoice: ChaplainVoice {
+        ChaplainVoice.options.first { $0.id == selectedVoiceID } ?? ChaplainVoice.options[0]
+    }
+
+    private struct HubOption: Identifiable {
+        let id: String
+        let icon: String
+        let tint: Color
+        let title: String
+        let subtitle: String
+        let meta: String?
+        let perform: () -> Void
+    }
+
+    private var options: [HubOption] {
+        var items: [HubOption] = [
+            HubOption(
+                id: "devotion",
+                icon: "sun.horizon",
+                tint: ABY.Color.pillTeal,
+                title: "Morning devotion",
+                subtitle: "Scripture, gratitude, and a quiet start",
+                meta: "~5 min",
+                perform: { openGuidedJournal() }
+            ),
+            HubOption(
+                id: "guided",
+                icon: "text.quote",
+                tint: ABY.Color.pillPurple,
+                title: "Guided entry",
+                subtitle: "One prompt, type or speak your reflection",
+                meta: nil,
+                perform: onAssisted
+            ),
+        ]
+        if FeatureFlags.voiceChatEnabled {
+            items.append(
+                HubOption(
+                    id: "voice",
+                    icon: "waveform",
+                    tint: ABY.Color.pillOrange,
+                    title: "Voice note",
+                    subtitle: "Speak freely, then read it back",
+                    meta: nil,
+                    perform: onVoice
+                )
+            )
+        }
+        return items
+    }
+
+    /// Separate cards + footer pill need more vertical room than a stacked list.
+    private var sheetHeight: CGFloat {
+        let header: CGFloat = 86
+        let card: CGFloat = 78
+        let cardGap: CGFloat = 10
+        let cards = CGFloat(options.count) * card + CGFloat(max(options.count - 1, 0)) * cardGap
+        let chaplainPill: CGFloat = 88
+        let padding: CGFloat = 28
+        return header + cards + chaplainPill + padding
+    }
+
+    private var sheetBackground: Color {
+        palette.isNight ? ABY.Color.eveningReflectionMid : ABY.Color.background
+    }
+
+    private var momentSubtitle: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 { return "Capture this morning" }
+        if hour < 17 { return "Capture this afternoon" }
+        return "Capture this evening"
+    }
+
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Add to your journal")
-                        .font(ABY.Font.title2)
-                        .foregroundStyle(palette.textPrimary)
-                    Text("Choose how you'd like to capture this moment.")
-                        .font(ABY.Font.callout)
-                        .foregroundStyle(palette.textSecondary)
-                }
-
-                VStack(spacing: 12) {
-                    JournalEntryOptionCard(
-                        icon: "sun.horizon.fill",
-                        tint: ABY.Color.pillTeal,
-                        title: "Morning devotion",
-                        subtitle: "Guided flow · scripture, gratitude & streak",
-                        badge: "~5 min"
-                    ) {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            openGuidedJournal()
-                        }
-                    }
-
-                    JournalEntryOptionCard(
-                        icon: "pencil.and.outline",
-                        tint: ABY.Color.pillPurple,
-                        title: "Guided Entry",
-                        subtitle: "One prompt — type or speak your reflection",
-                        badge: "Write"
-                    ) {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            onAssisted()
-                        }
-                    }
-
-                    if FeatureFlags.voiceChatEnabled {
-                        JournalEntryOptionCard(
-                            icon: "waveform",
-                            tint: ABY.Color.pillOrange,
-                            title: "Voice note",
-                            subtitle: "Speak naturally — we'll transcribe it for you",
-                            badge: "Voice"
-                        ) {
-                            dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                onVoice()
-                            }
-                        }
-                    }
-                }
-
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Add to your journal")
+                    .font(ABY.Font.title2)
+                    .foregroundStyle(palette.textPrimary)
+                Text(momentSubtitle)
+                    .font(ABY.Font.callout)
+                    .foregroundStyle(palette.textSecondary)
             }
-            .padding(ABY.Spacing.screen)
-            .background(palette.background)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cancel") { dismiss() }
+            .padding(.top, 20)
+            .padding(.bottom, 20)
+            .opacity(revealed ? 1 : 0)
+            .offset(y: revealed ? 0 : 8)
+
+            optionCards
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 10)
+
+            ChaplainGlowPill {
+                openChaplainFromHub()
+            }
+            .padding(.top, 22)
+            .opacity(revealed ? 1 : 0)
+            .offset(y: revealed ? 0 : 12)
+        }
+        .padding(.horizontal, ABY.Spacing.screen)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(min(sheetHeight, 520))])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(sheetBackground)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(named: "Dismiss") {
+            dismiss()
+        }
+        .onAppear(perform: reveal)
+    }
+
+    /// Each option is its own elevated card with real margins — not a cramped list.
+    private var optionCards: some View {
+        VStack(spacing: 10) {
+            ForEach(options) { option in
+                JournalHubSheetRow(
+                    icon: option.icon,
+                    tint: option.tint,
+                    title: option.title,
+                    subtitle: option.subtitle,
+                    meta: option.meta
+                ) {
+                    select(option)
                 }
             }
         }
-        .presentationDetents([.medium, .large])
-        .presentationBackground(palette.background)
+    }
+
+    private func reveal() {
+        guard !reduceMotion else {
+            revealed = true
+            return
+        }
+        withAnimation(AppTheme.springGentle.delay(0.02)) {
+            revealed = true
+        }
+    }
+
+    private func select(_ option: HubOption) {
+        DevotionHaptics.light()
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            option.perform()
+        }
+    }
+
+    private func openChaplainFromHub() {
+        DevotionHaptics.soft()
+
+        if reduceMotion {
+            dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                openChaplainChat(nil, [])
+            }
+            return
+        }
+
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+            openChaplainChatWithPortal(selectedVoice.name, nil, [])
+        }
+    }
+}
+
+private struct JournalHubSheetRow: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    let icon: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    let meta: String?
+    var onTap: () -> Void
+
+    private var iconForeground: Color {
+        palette.isNight ? ABY.Color.starlight : tint
+    }
+
+    private var iconFill: Color {
+        palette.isNight ? Color.white.opacity(0.12) : tint.opacity(0.14)
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(iconForeground)
+                    .frame(width: 44, height: 44)
+                    .background(iconFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(ABY.Font.headline)
+                        .foregroundStyle(palette.textPrimary)
+                        .lineLimit(1)
+
+                    Text(subtitle)
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 10)
+
+                if let meta {
+                    Text(meta)
+                        .font(ABY.Font.captionMedium)
+                        .foregroundStyle(palette.isNight ? ABY.Color.starlight.opacity(0.7) : tint)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            (palette.isNight ? Color.white.opacity(0.08) : tint.opacity(0.12))
+                        )
+                        .clipShape(Capsule())
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(palette.textTertiary.opacity(palette.isNight ? 0.65 : 0.75))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(palette.cardFill)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: .black.opacity(palette.isNight ? 0.16 : 0.05), radius: 12, y: 4)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(JournalHubSheetRowStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint(subtitle)
+    }
+}
+
+private struct JournalHubSheetRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(AppTheme.springSnappy, value: configuration.isPressed)
     }
 }
 
@@ -375,7 +564,7 @@ struct AssistedJournalView: View {
     private let prompts = [
         "What's on your heart right now?",
         "Where did you sense God today?",
-        "What felt heavy — or surprisingly light?",
+        "What felt heavy, or surprisingly light?",
         "What are you grateful for in this moment?",
         "What do you need to release before tomorrow?",
     ]

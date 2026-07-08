@@ -67,7 +67,7 @@ enum CircleMilestoneKind: String, Codable, CaseIterable, Identifiable {
         if isPrayerMilestone {
             let remaining = threshold - stats.prayersLifted
             guard remaining > 0, remaining <= 5 else { return nil }
-            return "You're \(remaining) prayer\(remaining == 1 ? "" : "s") from \(threshold) together — keep lifting"
+            return "You're \(remaining) prayer\(remaining == 1 ? "" : "s") from \(threshold) together. Keep lifting"
         }
         let remaining = threshold - stats.testimoniesCelebrated
         guard remaining > 0, remaining <= 2 else { return nil }

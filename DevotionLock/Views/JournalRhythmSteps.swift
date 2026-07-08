@@ -94,7 +94,7 @@ struct GratitudeStepView: View {
         VStack(alignment: .leading, spacing: 20) {
             ABYHeadline(
                 title: "Three gratitudes",
-                subtitle: "Name at least two — small things count."
+                subtitle: "Name at least two. Small things count."
             )
 
             VStack(alignment: .leading, spacing: 14) {
@@ -354,7 +354,7 @@ struct WisdomReflectionView: View {
         "What is God inviting you to notice today?",
         "Where did you sense grace in an ordinary moment?",
         "What truth do you need to carry into the rest of today?",
-        "What feels unfinished — and what might God be saying through it?",
+        "What feels unfinished, and what might God be saying through it?",
         "What would it look like to receive today without striving?",
     ]
 

@@ -120,21 +120,21 @@ final class MorningProfile {
         if let theme = themes.first {
             switch theme.id {
             case "anxiety":
-                return "You've been carrying worry lately — what's one small weight you could set down this morning?"
+                return "You've been carrying worry lately. What's one small weight you could set down this morning?"
             case "gratitude":
-                return "Gratitude keeps surfacing for you — what grace are you noticing before the day begins?"
+                return "Gratitude keeps surfacing for you. What grace are you noticing before the day begins?"
             case "rest":
-                return "Rest has been on your heart — where could you receive gentleness today?"
+                return "Rest has been on your heart. Where could you receive gentleness today?"
             case "family":
-                return "Family keeps showing up in your reflections — who needs your presence today?"
+                return "Family keeps showing up in your reflections. Who needs your presence today?"
             case "work":
-                return "Work is on your mind — what would it look like to bring your whole self, not just your tasks?"
+                return "Work is on your mind. What would it look like to bring your whole self, not just your tasks?"
             case "faith":
-                return "Your faith thread is deepening — where do you most want to sense God with you today?"
+                return "Your faith thread is deepening. Where do you most want to sense God with you today?"
             case "relationships":
-                return "Relationships are stirring in you — who is on your heart this morning, and why?"
+                return "Relationships are stirring in you. Who is on your heart this morning, and why?"
             case "health":
-                return "You've been thinking about health — how can you be kind to your body today?"
+                return "You've been thinking about health. How can you be kind to your body today?"
             default:
                 break
             }
@@ -163,8 +163,17 @@ final class MorningProfile {
         }
     }
 
-    /// A short, templated affirmation/prayer to pair with the revealed passage.
-    func affirmation(mood: String, tags: [FocusTag]) -> String {
+    /// A short "carry with you" line paired with the revealed passage.
+    /// Anchored to the passage's themes so it echoes the verse, and rotated
+    /// by day + passage so the same line never greets every morning.
+    func affirmation(mood: String, tags: [FocusTag], passage: SpiritualPassage? = nil) -> String {
+        if let passage {
+            let lines = passage.topics.flatMap { Self.carryLines[$0] ?? [] }
+            if !lines.isEmpty {
+                return lines[carrySeed(for: passage) % lines.count]
+            }
+        }
+
         if let tag = tags.first {
             switch tag {
             case .family: return "Today I will love the people closest to me with patience."
@@ -183,6 +192,97 @@ final class MorningProfile {
         default: return "I begin this day grounded, unhurried, and not alone."
         }
     }
+
+    /// Stable per-day, per-passage seed (String.hashValue is randomized per launch).
+    private func carrySeed(for passage: SpiritualPassage) -> Int {
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0
+        let idHash = passage.id.unicodeScalars.reduce(0) { $0 &* 31 &+ Int($1.value) }
+        return abs(day &+ idHash)
+    }
+
+    /// Carry-with-you lines keyed to passage themes — each echoes the verse it follows.
+    private static let carryLines: [PassageTopic: [String]] = [
+        .peace: [
+            "I carry God's peace into whatever today holds.",
+            "Stillness is one breath away, all day long.",
+            "I don't have to manufacture calm. I can receive it.",
+        ],
+        .anxiety: [
+            "What worries me today, I hand over as it comes.",
+            "I am held, even when my thoughts race.",
+            "Today I trade my grip for God's care, one worry at a time.",
+        ],
+        .hope: [
+            "I will watch for the small ways light breaks in today.",
+            "Today is not finished, and neither is God.",
+            "I carry a hope that doesn't depend on how today goes.",
+        ],
+        .gratitude: [
+            "I will name the small graces as they come today.",
+            "Today I choose to notice before I ask.",
+            "Thankfulness will be my first response, not my last.",
+        ],
+        .rest: [
+            "I am allowed to move gently through today.",
+            "I don't have to earn my rest. It is given.",
+            "Today I will stop before I am empty.",
+        ],
+        .guidance: [
+            "One step at a time is enough for today.",
+            "I don't need the whole map, just the next step.",
+            "Today I will listen before I decide.",
+        ],
+        .strength: [
+            "I do not face today in my own strength.",
+            "What today asks of me, God will carry with me.",
+            "I am stronger held than striving.",
+        ],
+        .love: [
+            "Today I will let myself be loved first, and love from there.",
+            "I will lead with tenderness today.",
+            "Love is the strongest thing I carry today.",
+        ],
+        .faith: [
+            "I will look for God in the ordinary moments today.",
+            "Today I act on what I believe, not only what I feel.",
+            "I walk into today trusting God is already ahead of me.",
+        ],
+        .grief: [
+            "I can carry sorrow and hope in the same hands today.",
+            "My tears are safe with God today.",
+            "Today I let myself feel, and let myself be comforted.",
+        ],
+        .forgiveness: [
+            "Today I loosen my grip on what someone owes me.",
+            "I receive mercy today, and I pass it on.",
+            "Grace brought me here; grace can go with me.",
+        ],
+        .courage: [
+            "I will do the brave thing today, even quietly.",
+            "Fear may ride along today, but it doesn't drive.",
+            "I am not alone in what I have to face today.",
+        ],
+        .provision: [
+            "What I truly need today will be there.",
+            "I have enough for today, and today is all I'm asked to carry.",
+            "I will hold what I have with open hands today.",
+        ],
+        .presence: [
+            "God is with me in every room I enter today.",
+            "I will pause today and remember I am accompanied.",
+            "No moment of today is out of God's sight or reach.",
+        ],
+        .joy: [
+            "I will let delight interrupt me today.",
+            "Joy is allowed today, even here.",
+            "I will take the joy today offers without apology.",
+        ],
+        .promises: [
+            "What God said, God will do. I can build on that today.",
+            "I stand on promises older than my worries.",
+            "Today I lean on what is promised, not just what I can see.",
+        ],
+    ]
 
     // MARK: - Recording a session
 

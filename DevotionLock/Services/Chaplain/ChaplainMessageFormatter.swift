@@ -47,8 +47,11 @@ enum ChaplainMessageFormatter {
             with: "• ",
             options: .regularExpression
         )
+        text = text.replacingOccurrences(of: " — ", with: ", ")
+        text = text.replacingOccurrences(of: " – ", with: ", ")
         text = text.replacingOccurrences(of: "—", with: ", ")
         text = text.replacingOccurrences(of: "–", with: ", ")
+        text = text.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
         text = text.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
         text = text.replacingOccurrences(of: "*", with: "")
 

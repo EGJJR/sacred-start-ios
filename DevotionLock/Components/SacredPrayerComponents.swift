@@ -59,13 +59,11 @@ enum LiturgyWeaveBuilder {
     static func wovenBeats(context: LiturgyWeaveContext) -> [LiturgyBeat] {
         let mood = context.mood.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let focusPhrase = context.focus?.label.lowercased() ?? "this day"
-        let name = context.userName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let greeting = name.isEmpty ? "Lord" : "Lord"
 
         var beats: [LiturgyBeat] = [
             LiturgyBeat(
                 section: "Arrival",
-                fullText: "\(greeting), I arrive feeling \(mood) before this day begins.",
+                fullText: "Lord, I arrive feeling \(mood) before this day begins.",
                 highlight: mood
             ),
             LiturgyBeat(
@@ -83,7 +81,7 @@ enum LiturgyWeaveBuilder {
             beats.append(
                 LiturgyBeat(
                     section: "Word",
-                    fullText: "Your word reminds me — \(snippet)…",
+                    fullText: "Your word reminds me: \(snippet)…",
                     highlight: nil
                 )
             )
@@ -99,7 +97,7 @@ enum LiturgyWeaveBuilder {
         beats.append(
             LiturgyBeat(
                 section: "Release",
-                fullText: "Receive my honest morning — \(mood) and all — and walk with me today.",
+                fullText: "Receive my honest morning, \(mood) and all, and walk with me today.",
                 highlight: mood
             )
         )
@@ -154,11 +152,9 @@ enum LiturgyWeaveBuilder {
         case "morning":
             switch index {
             case 0:
-                if !name.isEmpty, !mood.isEmpty {
-                    return "Lord, I bring you this day before it begins — arriving \(mood), \(name)."
-                }
+                // Mood describes the person, never the morning ("overwhelmed morning" reads wrong).
                 if !mood.isEmpty {
-                    return "Lord, I bring you this \(mood) morning before it begins."
+                    return "Lord, I arrive \(mood) as this day begins. I bring it to you first."
                 }
                 return template
             case 2 where !focus.isEmpty:
@@ -168,17 +164,18 @@ enum LiturgyWeaveBuilder {
             }
         case "anxiety":
             if index == 0, !mood.isEmpty {
-                return "Father, you see the \(mood) weight I am carrying."
+                return "Father, I come to you \(mood). You see the weight I am carrying."
             }
             return template
         case "gratitude":
             if index == 0, !mood.isEmpty {
-                return "Thank you for this \(mood) heart and the grace of this moment."
+                return "Thank you for meeting me \(mood), for breath, shelter, and this moment."
             }
             return template
         case "evening":
-            if index == 3, !name.isEmpty {
-                return "Receive me as I am tonight, \(name), and guard my rest."
+            // Prayer addresses God — never inserts the user's own name as the addressee.
+            if index == 3, !mood.isEmpty {
+                return "Receive me as I am tonight, \(mood) and all, and guard my rest."
             }
             return template
         case "others":
@@ -316,16 +313,36 @@ struct PrayerBreathOrb: View {
                         .scaleEffect(snapshot.ringScale)
                 }
 
+                // No UI marks inside a breathing orb — soft luminous core instead
+                // (Mobbin: Calm Sleep, TIDE, Breathwrk breath circles).
                 SacredOrbShell(
                     size: shellSize,
                     visualStyle: visualStyle,
                     rhythmProgress: rhythmProgress,
                     showsNudge: false,
-                    showsMark: true,
+                    showsMark: false,
                     showsGlow: true,
                     extraScale: snapshot.ringScale,
                     locksScaleToBreath: true
                 )
+
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.55),
+                                Color.white.opacity(0.12),
+                                .clear,
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: shellSize * 0.30
+                        )
+                    )
+                    .frame(width: shellSize * 0.6, height: shellSize * 0.6)
+                    .blur(radius: 6)
+                    .scaleEffect(snapshot.ringScale)
+                    .allowsHitTesting(false)
             }
             .frame(width: size, height: size)
             .contentShape(Circle())

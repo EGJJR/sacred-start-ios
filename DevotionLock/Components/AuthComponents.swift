@@ -321,13 +321,33 @@ struct AuthFieldStatus: View {
 }
 
 struct AuthInlineBanner: View {
-    let message: String
+    enum Tone {
+        case error
+        case success
 
-    private let tint = Color(red: 0.82, green: 0.18, blue: 0.16)
+        var tint: Color {
+            switch self {
+            case .error: Color(red: 0.82, green: 0.18, blue: 0.16)
+            case .success: Color(red: 0.18, green: 0.52, blue: 0.38)
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .error: "exclamationmark.circle.fill"
+            case .success: "checkmark.circle.fill"
+            }
+        }
+    }
+
+    let message: String
+    var tone: Tone = .error
+
+    private var tint: Color { tone.tint }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.circle.fill")
+            Image(systemName: tone.icon)
                 .font(ABY.Font.bodySemibold)
                 .foregroundStyle(tint)
             Text(message)
@@ -530,6 +550,31 @@ struct AuthTermsFooter: View {
         screenStyle == .welcome
             ? "By tapping 'Get started', you're accepting our terms and privacy policy."
             : "By continuing, you agree to our"
+    }
+}
+
+/// Quiet counterpart to `AuthPrimaryCapsuleButton` — white capsule, hairline border.
+struct AuthSecondaryCapsuleButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ABY.Font.button)
+                .foregroundStyle(ABY.Color.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(Color.white)
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(Color.black.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(title)
     }
 }
 

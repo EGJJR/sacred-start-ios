@@ -8,11 +8,12 @@ import SwiftUI
 struct StreakBornView: View {
     var onCommit: () -> Void
 
+    @Environment(\.sanctuaryPalette) private var palette
     @State private var appeared = false
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 24) {
@@ -32,10 +33,10 @@ struct StreakBornView: View {
                 VStack(spacing: 10) {
                     Text("A streak is born")
                         .font(ABY.Font.title)
-                        .foregroundStyle(ABY.Color.textPrimary)
+                        .foregroundStyle(palette.textPrimary)
                     Text("Open Devotion Lock each morning to help it grow. Even one day is a beautiful start.")
                         .font(ABY.Font.callout)
-                        .foregroundStyle(ABY.Color.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                 }
@@ -44,15 +45,15 @@ struct StreakBornView: View {
                 VStack(spacing: 12) {
                     Text("This week")
                         .font(ABY.Font.captionMedium)
-                        .foregroundStyle(ABY.Color.textTertiary)
+                        .foregroundStyle(palette.textTertiary)
                     HStack(spacing: 8) {
                         ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
                             VStack(spacing: 6) {
                                 Text(day)
                                     .font(ABY.Font.caption)
-                                    .foregroundStyle(ABY.Color.textTertiary)
+                                    .foregroundStyle(palette.textTertiary)
                                 Circle()
-                                    .fill(day == todaySymbol ? StreakPalette.orange : ABY.Color.track)
+                                    .fill(day == todaySymbol ? StreakPalette.orange : palette.track)
                                     .frame(width: 10, height: 10)
                             }
                         }
@@ -60,7 +61,7 @@ struct StreakBornView: View {
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity)
-                .background(ABY.Color.surface)
+                .background(palette.cardFill)
                 .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge))
                 .padding(.horizontal, ABY.Spacing.screen)
 
@@ -95,12 +96,17 @@ struct StreakCelebrationView: View {
     let weekFlags: [Bool]
     var onContinue: () -> Void
 
+    @Environment(\.sanctuaryPalette) private var palette
     @State private var appeared = false
     @State private var sharePresented = false
 
+    private var insightColor: Color {
+        palette.isNight ? ABY.Color.starlight.opacity(0.90) : ABY.Color.moodPeachText
+    }
+
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 22) {
@@ -115,7 +121,7 @@ struct StreakCelebrationView: View {
                         Image(systemName: "flame.fill")
                             .font(ABY.Font.largeTitle)
                             .foregroundStyle(StreakPalette.orange)
-                        AnimatedStreakNumber(target: result.streak, color: ABY.Color.textPrimary)
+                        AnimatedStreakNumber(target: result.streak, color: palette.textPrimary)
                             .font(ABY.Font.largeTitle)
                     }
                 }
@@ -123,10 +129,10 @@ struct StreakCelebrationView: View {
                 VStack(spacing: 8) {
                     Text("day streak")
                         .font(ABY.Font.headline)
-                        .foregroundStyle(ABY.Color.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                     Text("You showed up \(result.mood.lowercased()) today.")
                         .font(ABY.Font.title2)
-                        .foregroundStyle(ABY.Color.textPrimary)
+                        .foregroundStyle(palette.textPrimary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 28)
@@ -136,7 +142,7 @@ struct StreakCelebrationView: View {
 
                 Text(result.summary.insight)
                     .font(ABY.Font.body)
-                    .foregroundStyle(ABY.Color.moodPeachText)
+                    .foregroundStyle(insightColor)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.horizontal, 32)
@@ -152,12 +158,12 @@ struct StreakCelebrationView: View {
                             Text("Share streak")
                                 .font(ABY.Font.button)
                         }
-                        .foregroundStyle(ABY.Color.textPrimary)
+                        .foregroundStyle(palette.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(ABY.Color.surface)
+                        .background(palette.cardFill)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(ABY.Color.divider, lineWidth: 1))
+                        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
                     }
                     .buttonStyle(ScaleButtonStyle())
 
@@ -194,12 +200,13 @@ struct StreakMilestoneCelebrationView: View {
     let identity: StreakIdentity
     var onContinue: () -> Void
 
+    @Environment(\.sanctuaryPalette) private var palette
     @State private var appeared = false
     @State private var sharePresented = false
 
     var body: some View {
         ZStack {
-            ABYCleanGradientBackground()
+            ABYGuidedJournalBackground()
             ConfettiView(isActive: appeared)
 
             VStack(spacing: 24) {
@@ -211,13 +218,13 @@ struct StreakMilestoneCelebrationView: View {
                 VStack(spacing: 10) {
                     Text(identity.statusName)
                         .font(ABY.Font.title)
-                        .foregroundStyle(ABY.Color.textPrimary)
+                        .foregroundStyle(palette.textPrimary)
                     Text("\(milestoneDays)-day milestone")
                         .font(ABY.Font.headline)
                         .foregroundStyle(ABY.Color.pillTeal)
                     Text(StreakIdentity.milestoneCelebrationCopy(days: milestoneDays))
                         .font(ABY.Font.callout)
-                        .foregroundStyle(ABY.Color.textSecondary)
+                        .foregroundStyle(palette.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                 }
@@ -234,12 +241,12 @@ struct StreakMilestoneCelebrationView: View {
                             Text("Share")
                                 .font(ABY.Font.button)
                         }
-                        .foregroundStyle(ABY.Color.textPrimary)
+                        .foregroundStyle(palette.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(ABY.Color.surface)
+                        .background(palette.cardFill)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(ABY.Color.divider, lineWidth: 1))
+                        .overlay(Capsule().stroke(palette.divider, lineWidth: 1))
                     }
                     .buttonStyle(ScaleButtonStyle())
 
@@ -260,7 +267,7 @@ struct StreakMilestoneCelebrationView: View {
         }
         .sheet(isPresented: $sharePresented) {
             ShareSheet(items: [
-                "I just reached \(milestoneDays) days in the Word — \(identity.statusName) with Devotion Lock",
+                "I just reached \(milestoneDays) days in the Word: \(identity.statusName) with Devotion Lock",
             ])
         }
     }

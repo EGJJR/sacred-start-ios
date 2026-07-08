@@ -51,23 +51,38 @@ struct DaySummary: Codable, Identifiable, Equatable {
 
     static func insight(for draft: JournalDraft) -> String {
         let mood = draft.mood.lowercased()
+        let aMood = withArticle(mood)
         let onMind = draft.onMind.trimmingCharacters(in: .whitespacesAndNewlines)
         let affirmation = draft.affirmation.trimmingCharacters(in: .whitespacesAndNewlines)
         let tagLabel = draft.selectedFocusTags.first?.label.lowercased()
 
         if !affirmation.isEmpty, let tagLabel {
-            return "A \(mood) morning with \(tagLabel) in view — \"\(affirmation)\" is a gentle intention to carry."
+            return "\(aMood.capitalizedFirst) morning with \(tagLabel) in view. \"\(affirmation)\" is a gentle intention to carry."
         }
         if !affirmation.isEmpty {
-            return "You named your intention: \"\(affirmation)\" — a \(mood) way to begin."
+            return "You named your intention. \"\(affirmation)\" is \(aMood) way to begin."
         }
         if onMind.isEmpty {
-            return "You showed up \(mood) today — a gentle beginning before the world rushes in."
+            return "You showed up \(mood) today, a gentle beginning before the world rushes in."
         }
         if let tagLabel {
-            return "A \(mood) morning, with \(onMind.lowercased()) on your heart and \(tagLabel) in focus."
+            return "\(aMood.capitalizedFirst) morning, with \(onMind.lowercased()) on your heart and \(tagLabel) in focus."
         }
-        return "A \(mood) morning, with \(onMind.lowercased()) on your heart. Your Chaplain is walking with you in this."
+        return "\(aMood.capitalizedFirst) morning, with \(onMind.lowercased()) on your heart. Your Chaplain is walking with you in this."
+    }
+
+    /// "a peaceful" / "an overwhelmed" — correct indefinite article for mood words.
+    static func withArticle(_ word: String) -> String {
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u"]
+        guard let first = word.lowercased().first else { return "a \(word)" }
+        return vowels.contains(first) ? "an \(word)" : "a \(word)"
+    }
+}
+
+private extension String {
+    var capitalizedFirst: String {
+        guard let first = first else { return self }
+        return first.uppercased() + dropFirst()
     }
 }
 

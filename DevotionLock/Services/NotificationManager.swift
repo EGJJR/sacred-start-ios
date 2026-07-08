@@ -107,6 +107,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let affirmationEnabled = UserDefaults.standard.object(forKey: "affirmationEnabled") as? Bool ?? true
         let prayerWallEnabled = UserDefaults.standard.object(forKey: "prayerWallReminderEnabled") as? Bool ?? false
         let tone = NotificationTone(rawValue: UserDefaults.standard.string(forKey: "notificationTone") ?? "") ?? .gentle
+        let hasActiveStreak = StreakManager.shared.currentStreak >= 1
 
         center.removeAllPendingNotificationRequests()
 
@@ -116,7 +117,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         if eveningEnabled {
             scheduleEvening(at: storedTime(key: "eveningReminderTime", defaultHour: 18, defaultMinute: 0), tone: tone)
         }
-        if streakEnabled {
+        // Only nag about a streak the user actually has. A "0-day streak" nudge is spam.
+        if streakEnabled && hasActiveStreak {
             scheduleStreakNudge(at: DateComponents(hour: 14, minute: 30), tone: tone)
         }
         if affirmationEnabled {
@@ -130,7 +132,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     func postAnsweredPrayerCelebration(text: String) {
         let tone = NotificationTone(rawValue: UserDefaults.standard.string(forKey: "notificationTone") ?? "") ?? .gentle
         let content = UNMutableNotificationContent()
-        content.title = tone == .gentle ? "Praise — an answered prayer" : "Answered! 🙌"
+        content.title = tone == .gentle ? "Praise: an answered prayer" : "Answered! 🙌"
         content.body = tone == .gentle
             ? "Give thanks for: \"\(text)\""
             : "You marked this answered: \"\(text)\""
@@ -145,19 +147,29 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     func previewContent(for kind: DevotionNotificationCategory, tone: NotificationTone) -> (title: String, body: String) {
         let quote = LoadingQuoteCatalog.today
+        let streak = StreakManager.shared.currentStreak
+        let hasActiveStreak = streak >= 1
+
         switch kind {
         case .morning:
-            return tone == .gentle
-                ? ("Your morning sanctuary is ready", "“\(quote.text)” — \(quote.reference)")
-                : ("Don't miss today's devotion", "Your \(StreakManager.shared.currentStreak)-day streak is on the line.")
+            if tone == .gentle || !hasActiveStreak {
+                return ("Your morning sanctuary is ready", "“\(quote.text)” (\(quote.reference))")
+            }
+            let dayWord = streak == 1 ? "day" : "days"
+            return ("Don't miss today's devotion", "Your \(streak)-\(dayWord) streak is on the line.")
         case .evening:
             return tone == .gentle
                 ? ("A quiet moment before sleep", "How did God show up today?")
-                : ("Evening reflection", "Close the day — journal before bed.")
+                : ("Evening reflection", "Close the day. Journal before bed.")
         case .streak:
-            return tone == .gentle
-                ? ("Your streak is waiting", "A few minutes with God still counts.")
-                : ("Streak alert", "\(StreakManager.shared.currentStreak) days strong — keep it going.")
+            if !hasActiveStreak {
+                return ("Your morning sanctuary is ready", "A quiet moment before the day begins.")
+            }
+            if tone == .gentle {
+                return ("Your streak is waiting", "A few minutes with God still counts.")
+            }
+            let dayWord = streak == 1 ? "day" : "days"
+            return ("Streak alert", "\(streak) \(dayWord) strong. Keep it going.")
         case .affirmation:
             return ("A word for today", "“\(quote.text)”")
         case .prayerWall:
@@ -165,7 +177,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 ? ("Someone on your wall", "Pause and pray for what's pinned.")
                 : ("Prayer wall check-in", "Active requests need you today.")
         case .answered:
-            return ("Praise — an answered prayer", "Give thanks for what God has done.")
+            return ("Praise: an answered prayer", "Give thanks for what God has done.")
         }
     }
 
@@ -173,7 +185,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        let category = notification.request.content.categoryIdentifier
+        let alreadyCompleted = await MainActor.run { StreakManager.shared.isCompletedToday }
+        if alreadyCompleted, category == DevotionNotificationCategory.morning.rawValue
+            || category == DevotionNotificationCategory.streak.rawValue {
+            return []
+        }
+        return [.banner, .sound]
     }
 
     nonisolated func userNotificationCenter(

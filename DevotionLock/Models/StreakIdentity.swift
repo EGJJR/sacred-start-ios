@@ -75,7 +75,7 @@ struct StreakIdentity: Equatable {
         case 7: "One full week of showing up. That's a real sanctuary rhythm taking root."
         case 30: "A month of devotion. Notice how your journal already holds a shape."
         case 100: "One hundred mornings. What a witness to patience and presence."
-        default: "\(days) days of showing up — keep honoring this practice."
+        default: "\(days) days of showing up. Keep honoring this practice."
         }
     }
 }

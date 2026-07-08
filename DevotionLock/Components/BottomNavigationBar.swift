@@ -9,85 +9,95 @@ struct BottomNavigationBar: View {
     @Binding var selectedTab: AppTab
     let orbState: SacredOrbState
     var onOrbTap: () -> Void
-    var onOrbLongPress: () -> Void = {}
     @Environment(\.sanctuaryPalette) private var palette
-    @Namespace private var tabSelection
+    @State private var tabFrames: [AppTab: CGRect] = [:]
 
-    private let orbSize: CGFloat = 58
-    private let barHeight: CGFloat = 64
+    private let tabIconSize: CGFloat = 24
+    private let orbSize: CGFloat = 26
+    private let barHeight: CGFloat = 56
+
+    private var leadingTabs: [AppTab] { [.home, .conversations] }
+    private var trailingTabs: [AppTab] { [.insights, .profile] }
 
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
 
-            HStack(spacing: 12) {
-                navGlassPill {
-                    ForEach(AppTab.allCases) { tab in
-                        navButton(tab: tab)
-                    }
-                }
-
-                SacredOrbNavHoldButton(
-                    orbState: orbState,
-                    barHeight: barHeight,
-                    orbSize: orbSize,
-                    onTap: onOrbTap,
-                    onHoldComplete: onOrbLongPress
-                )
+            navGlassPill {
+                navTabRow()
             }
+            .frame(maxWidth: .infinity)
 
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
         .animation(AppTheme.springGentle, value: orbState)
     }
 
     private func navGlassPill<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 6) {
-            content()
+        Group {
+            if #available(iOS 26.0, *) {
+                // One glass surface for the pill; selection chip is a fill overlay (Conor §4.2 — no glass-on-glass).
+                GlassEffectContainer(spacing: 16) {
+                    content()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(height: barHeight)
+                .background(Color.clear, in: Capsule())
+                .abyLiquidGlassCapsule(tint: liquidGlassBarTint)
+                .contentShape(Capsule())
+            } else {
+                HStack(spacing: 6) {
+                    content()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(height: barHeight)
+                .sanctuaryNavBarGlass()
+                .contentShape(Capsule())
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(height: barHeight)
-        .background {
-            ABYGlassBarBackground()
-        }
+    }
+
+    @available(iOS 26.0, *)
+    private var liquidGlassBarTint: Color {
+        // Strategic tint — higher opacity on night twilight so icons stay legible.
+        palette.isNight ? Color.white.opacity(0.38) : Color.white.opacity(0.82)
+    }
+
+    private var navIconSelectedTint: Color {
+        palette.isNight ? .white : palette.textPrimary
+    }
+
+    private var navIconUnselectedTint: Color {
+        palette.isNight ? Color.white.opacity(0.68) : palette.textSecondary
     }
 
     private func navButton(tab: AppTab) -> some View {
         let isSelected = selectedTab == tab
 
         return Button {
-            withAnimation(AppTheme.springSnappy) { selectedTab = tab }
+            selectedTab = tab
         } label: {
-            HStack(spacing: isSelected ? 8 : 0) {
-                ABYTabIcon(
-                    systemName: isSelected ? tab.iconSelected : tab.icon,
-                    isSelected: isSelected,
-                    tint: palette.textPrimary,
-                    size: 24
-                )
-
-                if isSelected {
-                    Text(tab.label)
-                        .font(ABY.Font.tabLabelSelected)
-                        .foregroundStyle(palette.textPrimary)
-                        .lineLimit(1)
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
-                }
-            }
-            .padding(.horizontal, isSelected ? 16 : 12)
+            ABYTabIcon(
+                systemName: isSelected ? tab.iconSelected : tab.icon,
+                isSelected: isSelected,
+                tint: navIconSelectedTint,
+                unselectedTint: navIconUnselectedTint,
+                size: tabIconSize
+            )
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background {
-                if isSelected {
-                    Capsule()
-                        .fill(palette.surface.opacity(0.96))
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(palette.divider.opacity(0.45), lineWidth: 0.5)
-                        }
-                        .matchedGeometryEffect(id: "tabHighlight", in: tabSelection)
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: NavTabFrameKey.self,
+                        value: [tab: proxy.frame(in: .named("navBarTabs"))]
+                    )
                 }
             }
         }
@@ -95,185 +105,122 @@ struct BottomNavigationBar: View {
         .accessibilityLabel(tab.label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
+
+    @ViewBuilder
+    private func navTabRow() -> some View {
+        ZStack(alignment: .topLeading) {
+            if let frame = tabFrames[selectedTab] {
+                let insetX: CGFloat = 4
+                let insetY: CGFloat = 2
+                NavTabSlidingGlassHighlight()
+                    .frame(
+                        width: max(0, frame.width - insetX * 2),
+                        height: max(0, frame.height - insetY * 2)
+                    )
+                    .offset(x: frame.minX + insetX, y: frame.minY + insetY)
+                    .allowsHitTesting(false)
+            }
+
+            HStack(spacing: 0) {
+                ForEach(leadingTabs) { tab in
+                    navButton(tab: tab)
+                }
+
+                SacredOrbNavButton(
+                    orbState: orbState,
+                    barHeight: barHeight,
+                    orbSize: orbSize,
+                    onTap: onOrbTap
+                )
+                .frame(maxWidth: .infinity)
+
+                ForEach(trailingTabs) { tab in
+                    navButton(tab: tab)
+                }
+            }
+        }
+        .coordinateSpace(name: "navBarTabs")
+        .onPreferenceChange(NavTabFrameKey.self) { tabFrames = $0 }
+        .animation(AppTheme.springSnappy, value: selectedTab)
+    }
 }
 
-// MARK: - Orb hold interaction
+// MARK: - Tab frame tracking (sliding glass chip)
 
-private struct SacredOrbNavHoldButton: View {
+private struct NavTabFrameKey: PreferenceKey {
+    static var defaultValue: [AppTab: CGRect] { [:] }
+
+    static func reduce(value: inout [AppTab: CGRect], nextValue: () -> [AppTab: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
+// MARK: - Sliding glass selection chip (inside nav pill)
+
+private struct NavTabSlidingGlassHighlight: View {
+    @Environment(\.sanctuaryPalette) private var palette
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            // Vibrancy fill on glass — not a second glass layer (Conor §4.2).
+            Capsule()
+                .fill(liquidGlassChipFill)
+        } else {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .background {
+                    Capsule()
+                        .fill(palette.surface.opacity(palette.isNight ? 0.18 : 0.72))
+                }
+                .overlay {
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    palette.navBarStrokeTop.opacity(palette.isNight ? 0.55 : 0.9),
+                                    palette.navBarStrokeBottom.opacity(0.35),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                }
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private var liquidGlassChipFill: Color {
+        palette.isNight ? Color.white.opacity(0.42) : Color.white.opacity(0.95)
+    }
+}
+
+// MARK: - Orb tap button
+
+private struct SacredOrbNavButton: View {
     let orbState: SacredOrbState
     let barHeight: CGFloat
     let orbSize: CGFloat
     var onTap: () -> Void
-    var onHoldComplete: () -> Void
-
-    @State private var holdProgress: CGFloat = 0
-    @State private var holdBloom: CGFloat = 1
-    @State private var isPressing = false
-    @State private var didCompleteHold = false
-    @State private var pressBeganAt: Date?
-    @State private var holdTask: Task<Void, Never>?
-
-    private let holdDuration: TimeInterval = 0.52
-    private let tapThreshold: TimeInterval = 0.28
 
     var body: some View {
-        ZStack {
-            if holdProgress > 0 {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                ABY.Color.orbTeal.opacity(0.32 * Double(holdProgress)),
-                                ABY.Color.orbSage.opacity(0.12 * Double(holdProgress)),
-                                .clear,
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: barHeight * 0.85
-                        )
-                    )
-                    .frame(
-                        width: barHeight + 28 * holdProgress,
-                        height: barHeight + 28 * holdProgress
-                    )
-                    .blur(radius: 4)
-            }
-
-            Circle()
-                .stroke(paletteTrack, lineWidth: 2.5)
-                .frame(width: barHeight + 2, height: barHeight + 2)
-                .opacity(holdProgress > 0 ? 1 : 0)
-
-            Circle()
-                .trim(from: 0, to: holdProgress)
-                .stroke(
-                    AngularGradient(
-                        colors: [
-                            ABY.Color.orbTeal,
-                            ABY.Color.orbSage,
-                            ABY.Color.pillPurple.opacity(0.9),
-                            ABY.Color.orbTeal,
-                        ],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: barHeight + 2, height: barHeight + 2)
-                .opacity(holdProgress > 0 ? 1 : 0)
-
-            SacredOrbShell(
-                size: orbSize,
-                visualStyle: isPressing ? .weaving : orbState.visualStyle,
-                rhythmProgress: orbState.rhythmProgress,
-                showsNudge: orbState.showsMorningFirstNudge,
-                extraScale: holdBloom * (1 - 0.06 * holdProgress)
-            )
-        }
-        .frame(width: barHeight, height: barHeight)
-        .scaleEffect(holdBloom)
-        .contentShape(Circle())
-        .gesture(holdGesture)
-        .accessibilityLabel(orbState.accessibilityLabel)
-        .accessibilityHint("Press and hold for quick capture. \(orbState.microLabel ?? "")")
-        .accessibilityAction(named: "Quick capture") {
-            onHoldComplete()
-        }
-        .onDisappear {
-            cancelHold(animated: false)
-        }
-    }
-
-    private var paletteTrack: Color {
-        Color.white.opacity(0.22)
-    }
-
-    private var holdGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .local)
-            .onChanged { _ in
-                beginHoldIfNeeded()
-            }
-            .onEnded { _ in
-                endHold()
-            }
-    }
-
-    private func beginHoldIfNeeded() {
-        guard !isPressing else { return }
-        isPressing = true
-        didCompleteHold = false
-        pressBeganAt = Date()
-        DevotionHaptics.soft()
-
-        holdProgress = 0
-        withAnimation(.linear(duration: holdDuration)) {
-            holdProgress = 1
-        }
-
-        holdTask?.cancel()
-        holdTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(holdDuration))
-            guard !Task.isCancelled, isPressing else { return }
-
-            didCompleteHold = true
-            DevotionHaptics.medium()
-
-            withAnimation(AppTheme.springSnappy) {
-                holdBloom = 1.1
-            }
-
-            try? await Task.sleep(for: .milliseconds(90))
-            guard !Task.isCancelled else { return }
-
-            onHoldComplete()
-
-            try? await Task.sleep(for: .milliseconds(160))
-            guard !Task.isCancelled else { return }
-
-            resetHoldVisuals()
-            isPressing = false
-            pressBeganAt = nil
-        }
-    }
-
-    private func endHold() {
-        let pressDuration = pressBeganAt.map { Date().timeIntervalSince($0) } ?? 0
-        let shouldTap = !didCompleteHold && pressDuration < tapThreshold
-
-        holdTask?.cancel()
-        holdTask = nil
-        isPressing = false
-        pressBeganAt = nil
-
-        resetHoldVisuals()
-
-        if shouldTap {
+        Button {
             DevotionHaptics.light()
             onTap()
+        } label: {
+            RadiantCaptureOrb(
+                size: orbSize,
+                rhythmProgress: 0,
+                showsNudge: orbState.showsMorningFirstNudge,
+                embeddedInBar: true
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: barHeight)
+            .contentShape(Rectangle())
         }
-
-        didCompleteHold = false
-    }
-
-    private func cancelHold(animated: Bool) {
-        holdTask?.cancel()
-        holdTask = nil
-        isPressing = false
-        pressBeganAt = nil
-        didCompleteHold = false
-        if animated {
-            resetHoldVisuals()
-        } else {
-            holdProgress = 0
-            holdBloom = 1
-        }
-    }
-
-    private func resetHoldVisuals() {
-        withAnimation(AppTheme.springSnappy) {
-            holdProgress = 0
-            holdBloom = 1
-        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(orbState.accessibilityLabel)
+        .accessibilityHint(orbState.microLabel ?? "")
     }
 }
 
@@ -281,14 +228,15 @@ struct ABYTabIcon: View {
     let systemName: String
     var isSelected: Bool
     var tint: Color = ABY.Color.textPrimary
+    var unselectedTint: Color?
     var size: CGFloat = 21
     @Environment(\.sanctuaryPalette) private var palette
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: size, weight: isSelected ? .medium : .light))
+            .font(.system(size: size, weight: isSelected ? .semibold : .regular))
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(isSelected ? tint : palette.textTertiary)
+            .foregroundStyle(isSelected ? tint : (unselectedTint ?? palette.textSecondary))
             .frame(width: size + 4, height: size + 4)
             .contentTransition(.symbolEffect(.replace))
     }

@@ -26,7 +26,7 @@ struct NotificationSettingsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ABYDetailHeader(
                     title: "Notifications",
-                    subtitle: "Gentle nudges and direct streak reminders — your choice."
+                    subtitle: "Gentle nudges and direct streak reminders. Your choice."
                 )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.top, 8)

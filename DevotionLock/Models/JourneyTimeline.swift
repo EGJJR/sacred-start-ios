@@ -183,11 +183,7 @@ final class JourneyTimelineStore {
     }
 
     func logEvening(highlight: String) {
-        add(JourneyTimelineEntry(
-            kind: .evening,
-            title: "Evening reflection",
-            body: highlight
-        ))
+        JournalLocalStore.shared.addEveningReflection(highlight: highlight)
     }
 
     func logReflection(title: String, body: String, moodEmoji: String? = nil) {

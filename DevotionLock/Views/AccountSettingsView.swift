@@ -91,7 +91,7 @@ struct AccountSettingsView: View {
                     ABYSettingsReadOnlyRow(
                         icon: "envelope",
                         title: "Email",
-                        value: auth.email ?? "—"
+                        value: auth.email ?? "Not set"
                     )
                 }
                 .padding(.horizontal, ABY.Spacing.screen)

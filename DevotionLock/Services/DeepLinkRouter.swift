@@ -39,6 +39,9 @@ final class DeepLinkRouter {
             pendingRoute = .prayerWall(addKind: parsed.query["kind"] ?? "request")
         case .joinCircle:
             pendingRoute = .prayerWall(addKind: nil, openCircles: true, joinCode: parsed.query["code"])
+        case .passwordReset:
+            // Handled by AuthManager via session(from:) on ContentView.
+            break
         }
     }
 

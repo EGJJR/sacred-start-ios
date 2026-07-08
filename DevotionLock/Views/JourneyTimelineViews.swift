@@ -31,47 +31,57 @@ struct JourneyTimelineView: View {
         ZStack {
             ABYCleanGradientBackground()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
+            ABYCustomFadingHeaderScrollView(
+                compactTitle: "Timeline",
+                bottomPadding: 40,
+                inlineTopPadding: 8,
+                inlineBottomPadding: 20,
+                inlineHeader: {
                     ABYTimelineScreenHeader(
                         sectionTitle: sectionTitle,
                         streak: StreakManager.shared.currentStreak,
                         onStreakTap: openStreakScreen
                     )
-                    .padding(.horizontal, ABY.Spacing.screen)
-                    .padding(.top, 8)
-                    .padding(.bottom, 20)
                     .opacity(appeared ? 1 : 0)
+                },
+                compactTrailing: {
+                    if StreakManager.shared.currentStreak > 0 {
+                        JournalStreakPill(
+                            streak: StreakManager.shared.currentStreak,
+                            action: openStreakScreen
+                        )
+                    }
+                }
+            ) {
+                if store.recentEntries.isEmpty {
+                    emptyState
+                        .padding(.horizontal, ABY.Spacing.screen)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 22) {
+                        ForEach(Array(grouped.enumerated()), id: \.offset) { sectionIndex, group in
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text(group.0)
+                                    .font(ABY.Font.captionMedium)
+                                    .foregroundStyle(palette.textSecondary)
+                                    .padding(.horizontal, ABY.Spacing.screen)
 
-                    if store.recentEntries.isEmpty {
-                        emptyState
-                            .padding(.horizontal, ABY.Spacing.screen)
-                    } else {
-                        LazyVStack(alignment: .leading, spacing: 22) {
-                            ForEach(Array(grouped.enumerated()), id: \.offset) { sectionIndex, group in
-                                VStack(alignment: .leading, spacing: 14) {
-                                    Text(group.0)
-                                        .font(ABY.Font.captionMedium)
-                                        .foregroundStyle(palette.textSecondary)
+                                ForEach(Array(group.1.enumerated()), id: \.element.id) { index, entry in
+                                    ABYJourneyTimelineRow(entry: entry)
                                         .padding(.horizontal, ABY.Spacing.screen)
-
-                                    ForEach(Array(group.1.enumerated()), id: \.element.id) { index, entry in
-                                        ABYJourneyTimelineRow(entry: entry)
-                                            .padding(.horizontal, ABY.Spacing.screen)
-                                            .blurRevealOnAppear(
-                                                index: sectionIndex * 10 + index,
-                                                stagger: 0.04,
-                                                delay: 0.05
-                                            )
-                                    }
+                                        .blurRevealOnAppear(
+                                            index: sectionIndex * 10 + index,
+                                            stagger: 0.04,
+                                            delay: 0.05
+                                        )
                                 }
                             }
                         }
-                        .padding(.bottom, 40)
                     }
                 }
             }
-            .abyScrollEdgeFades()
+            .overlay(alignment: .bottom) {
+                ABYScrollEdgeFade(placement: .bottom)
+            }
         }
         .abySettingsBackNavigation()
         .onAppear {

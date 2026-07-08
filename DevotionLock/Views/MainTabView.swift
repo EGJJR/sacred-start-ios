@@ -34,40 +34,11 @@ struct MainTabView: View {
             BottomNavigationBar(
                 selectedTab: $coordinator.selectedTab,
                 orbState: sacredOrbState,
-                onOrbTap: performSacredOrbTap,
-                onOrbLongPress: performSacredOrbLongPress
+                onOrbTap: performSacredOrbTap
             )
             .id(sacredOrbRefreshKey)
+            .zIndex(1)
         }
-        .overlay {
-            if coordinator.sacredOrbQuickMenuPresented {
-                SacredOrbQuickActionsOverlay(
-                    actions: coordinator.sacredOrbMenuActions,
-                    onSelect: { action in
-                        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                            withAnimation(AppTheme.springGentle) {
-                                coordinator.performSacredOrbQuickAction(action)
-                            }
-                        }
-                    },
-                    onDismiss: {
-                        withAnimation(AppTheme.springSnappy) {
-                            coordinator.dismissSacredOrbQuickMenu()
-                        }
-                    }
-                )
-                .transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 0.92, anchor: .bottomTrailing)
-                            .combined(with: .offset(x: 8, y: 18)),
-                        removal: .scale(scale: 0.97, anchor: .bottomTrailing)
-                            .combined(with: .opacity)
-                    )
-                )
-                .zIndex(100)
-            }
-        }
-        .animation(AppTheme.springGentle, value: coordinator.sacredOrbQuickMenuPresented)
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
         .modifier(MainTabVoiceSessionModifier(coordinator: coordinator, onSwitchToChat: { transcript in
@@ -182,17 +153,6 @@ struct MainTabView: View {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
             withAnimation(AppTheme.springGentle) {
                 coordinator.performSacredOrbAction(state)
-            }
-        }
-    }
-
-    private func performSacredOrbLongPress() {
-        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            withAnimation(AppTheme.springGentle) {
-                coordinator.presentSacredOrbQuickMenu(
-                    rhythmStore: rhythmStore,
-                    streakManager: streakManager
-                )
             }
         }
     }
@@ -427,7 +387,7 @@ private struct MainTabPresentationsModifier: ViewModifier {
                             try? await Task.sleep(for: .milliseconds(350))
                             PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
                                 coordinator.openChaplainChat(
-                                    starter: "Help me reflect on today's passage: \"\(passage.text)\" — \(passage.attribution)",
+                                    starter: "Help me reflect on today's passage: \"\(passage.text)\" (\(passage.attribution))",
                                     seedMessages: []
                                 )
                             }

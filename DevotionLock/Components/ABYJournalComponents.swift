@@ -156,6 +156,7 @@ struct ABYMoodSmileyBadge: View {
 /// ABY Journal mood chip — peach pill with emoji + label.
 /// Mobbin: https://mobbin.com/screens/b6769a87-5bd1-4fd3-9309-8f7cdae58991
 struct ABYMoodChip: View {
+    @Environment(\.sanctuaryPalette) private var palette
     let emoji: String
     let label: String
 
@@ -165,11 +166,11 @@ struct ABYMoodChip: View {
                 .font(ABY.Font.callout)
             Text(label)
                 .font(ABY.Font.captionMedium)
-                .foregroundStyle(ABY.Color.moodPeachText)
+                .foregroundStyle(palette.isNight ? ABY.Color.starlight : ABY.Color.moodPeachText)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(ABY.Color.moodPeach)
+        .background(palette.isNight ? Color.white.opacity(0.12) : ABY.Color.moodPeach)
         .clipShape(Capsule())
     }
 }
@@ -1180,7 +1181,7 @@ struct ABYGuidedVoiceHandoffCard: View {
                     Text("Speak your reflection")
                         .font(ABY.Font.calloutSemibold)
                         .foregroundStyle(palette.textPrimary)
-                    Text("We'll transcribe your words — then you can continue with Chaplain.")
+                    Text("We'll transcribe your words, then you can continue with Chaplain.")
                         .font(ABY.Font.caption)
                         .foregroundStyle(palette.textSecondary)
                         .lineSpacing(3)
@@ -1202,12 +1203,24 @@ struct ABYJourneyTimelineRow: View {
         entry.createdAt.formatted(date: .omitted, time: .shortened)
     }
 
+    private var entryKindEmoji: String {
+        switch entry.kind {
+        case .evening: "🌙"
+        case .devotion: "☀️"
+        case .gratitude: "🙏"
+        case .verse: "📖"
+        case .voiceNote: "🎙️"
+        case .answeredPrayer: "✅"
+        default: "📝"
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             ABYTimelineTimePill(time: timeLabel)
 
             ABYTimelineEntryCard(
-                moodEmoji: entry.moodEmoji ?? "",
+                moodEmoji: entry.moodEmoji ?? entryKindEmoji,
                 bodyText: entry.body ?? entry.title,
                 secondaryEmojis: entry.kind == .devotion ? "🙏" : "",
                 showsMetadata: false
@@ -1313,7 +1326,7 @@ struct ABYJournalDailyQuoteCard: View {
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("— \(attribution)")
+            Text(attribution)
                 .font(ABY.Font.caption)
                 .foregroundStyle(palette.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .trailing)

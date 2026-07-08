@@ -17,7 +17,10 @@ struct DevotionCompletionView: View {
     @State private var appeared = false
 
     private var bodyText: String {
-        insight ?? "Today you showed up with a \(mood.lowercased()) heart. Sacred Start noticed the honesty in your reflection."
+        if let insight, !insight.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return insight
+        }
+        return "Today you showed up with \(DaySummary.withArticle(mood.lowercased())) heart. Sacred Start noticed the quiet faithfulness in showing up."
     }
 
     var body: some View {
@@ -93,7 +96,7 @@ private struct DevotionCompletionInsightCard: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Sacred Start noticed…")
                 .font(ABY.Font.captionSemibold)
-                .foregroundStyle(ABY.Color.meshPeriwinkle)
+                .foregroundStyle(ABY.Color.moodPeachText)
                 .textCase(.none)
 
             HStack {
@@ -101,12 +104,12 @@ private struct DevotionCompletionInsightCard: View {
                 Spacer()
                 Text("Just now")
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(ABY.Color.textTertiary)
             }
 
             Text(bodyText)
                 .font(ABY.Font.body)
-                .foregroundStyle(palette.textSecondary)
+                .foregroundStyle(ABY.Color.textSecondary)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -121,9 +124,9 @@ private struct DevotionCompletionInsightCard: View {
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            ABY.Color.meshSky.opacity(0.55),
-                            ABY.Color.meshPeriwinkle.opacity(0.45),
-                            ABY.Color.meshLilac.opacity(0.35)
+                            ABY.Color.moodPeach.opacity(0.9),
+                            ABY.Color.pillOrange.opacity(0.30),
+                            ABY.Color.moodPeach.opacity(0.55)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -136,7 +139,7 @@ private struct DevotionCompletionInsightCard: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            ABY.Color.meshSky.opacity(0.18),
+                            ABY.Color.moodPeach.opacity(0.35),
                             Color.clear
                         ],
                         center: .center,
@@ -169,7 +172,7 @@ private struct DevotionCompletionStreakChip: View {
                 .foregroundStyle(ABY.Color.pillOrange)
             Text(label)
                 .font(ABY.Font.calloutSemibold)
-                .foregroundStyle(palette.textPrimary)
+                .foregroundStyle(ABY.Color.textPrimary)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 11)
@@ -184,7 +187,7 @@ private struct DevotionCompletionStreakChip: View {
                     LinearGradient(
                         colors: [
                             ABY.Color.pillOrange.opacity(0.35),
-                            ABY.Color.meshPeriwinkle.opacity(0.25)
+                            ABY.Color.moodPeach.opacity(0.8)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing

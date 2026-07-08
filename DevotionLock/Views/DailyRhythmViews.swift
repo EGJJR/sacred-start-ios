@@ -276,7 +276,7 @@ struct EveningReflectionSheet: View {
                 .font(ABY.Font.onboardingTitle)
                 .foregroundStyle(.white)
 
-            Text("Name one grace before you rest — or speak it aloud.")
+            Text("Name one grace before you rest, or speak it aloud.")
                 .font(ABY.Font.callout)
                 .foregroundStyle(Color.white.opacity(0.72))
                 .lineSpacing(4)

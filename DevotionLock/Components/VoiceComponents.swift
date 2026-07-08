@@ -381,7 +381,7 @@ struct ABYSpeechPolishReview: View {
                 Text("Your words are here")
                     .font(ABY.Font.calloutSemibold)
                     .foregroundStyle(primaryText)
-                Text("Keep them exactly as spoken, or let us tidy spacing — never changing what you meant.")
+                Text("Keep them exactly as spoken, or let us tidy spacing, never changing what you meant.")
                     .font(ABY.Font.caption)
                     .foregroundStyle(secondaryText)
                     .lineSpacing(3)

@@ -157,7 +157,7 @@ struct ChaplainChatView: View {
                         ChaplainPresenceIndicator(mode: presenceMode)
                             .padding(.top, messages.isEmpty && presenceMode == .loadingThread ? 28 : 0)
                             .id("presence")
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .transition(.blurDissolve)
                     }
 
                     if let errorMessage {
@@ -181,7 +181,7 @@ struct ChaplainChatView: View {
                     }
                 }
                 .padding(.horizontal, ABY.Spacing.screen)
-                .padding(.top, 4)
+                .padding(.top, 12)
                 .padding(.bottom, messages.isEmpty ? 8 : 20)
                 .frame(maxWidth: .infinity)
                 .blurReveal(contentRevealed, blurRadius: playsPortalEntrance ? 10 : 0, scale: 1.008)
@@ -263,16 +263,14 @@ struct ChaplainChatView: View {
     }
 
     private var chatHeader: some View {
-        GeminiChatScreenHeader(
-            title: headerTitle,
-            onClose: { dismiss() },
+        ChaplainChatScreenHeader(
+            voice: voice,
+            threadTitle: headerTitle,
+            onBack: { dismiss() },
             onNewChat: requestNewChat,
             onShowHistory: { showChatHistory = true },
             onDeleteConversation: canDeleteConversation ? { showDeleteConversationAlert = true } : nil
         )
-        .padding(.horizontal, ABY.Spacing.screen)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
     }
 
     private var chatComposer: some View {

@@ -6,16 +6,25 @@
 import SwiftUI
 
 private enum AuthStep: Equatable {
+    case hero
     case welcome
     case authenticate(AuthIntent)
 }
 
 struct AuthFlowView: View {
-    @State private var step: AuthStep = .welcome
+    @State private var step: AuthStep = .hero
 
     var body: some View {
         Group {
             switch step {
+            case .hero:
+                AuthHeroView {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        step = .welcome
+                    }
+                }
+                .transition(.blurDissolve)
+
             case .welcome:
                 AuthWelcomeView(
                     onContinue: {
@@ -29,7 +38,7 @@ struct AuthFlowView: View {
                         }
                     }
                 )
-                .transition(.opacity.combined(with: .offset(y: 6)))
+                .transition(.blurDissolve)
 
             case .authenticate(let intent):
                 AuthSocialView(intent: intent) {

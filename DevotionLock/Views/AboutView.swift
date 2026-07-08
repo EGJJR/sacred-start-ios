@@ -13,7 +13,7 @@ struct AboutView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ABYDetailHeader(
                     title: "About",
-                    subtitle: "Devotion Lock helps you begin each day with intention — before the world rushes in."
+                    subtitle: "Devotion Lock helps you begin each day with intention, before the world rushes in."
                 )
                 .padding(.horizontal, ABY.Spacing.screen)
                 .padding(.top, 8)

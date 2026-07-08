@@ -21,7 +21,7 @@ struct CircleEmptyFeedPrompt: View {
                 Text("Start the conversation")
                     .font(ABY.Font.headline)
                     .foregroundStyle(palette.textPrimary)
-                Text("Pick a prompt below or share what's on your heart — your circle is here to pray with you.")
+                Text("Pick a prompt below or share what's on your heart. Your circle is here to pray with you.")
                     .font(ABY.Font.callout)
                     .foregroundStyle(palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -190,7 +190,7 @@ struct CircleThoughtComposeSheet: View {
                 .font(ABY.Font.headline)
                 .foregroundStyle(palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Your private journal stays yours — only what you share here appears in the circle.")
+            Text("Your private journal stays yours. Only what you share here appears in the circle.")
                 .font(ABY.Font.caption)
                 .foregroundStyle(palette.textTertiary)
         }
@@ -614,7 +614,7 @@ struct CircleLifecycleConfirmSheet: View {
     private var message: String {
         switch action {
         case .leave:
-            "You'll no longer see posts from this circle. Your private journal and prayer wall stay exactly as they are — you can rejoin anytime with the invite code."
+            "You'll no longer see posts from this circle. Your private journal and prayer wall stay exactly as they are, and you can rejoin anytime with the invite code."
         case .delete:
             "This permanently removes the circle for all members. Shared posts and encouragements will be gone, but each person's private journal is untouched."
         }

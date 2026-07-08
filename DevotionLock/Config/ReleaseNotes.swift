@@ -19,12 +19,12 @@ enum SacredStartReleaseNotes {
                         .init(
                             symbolSystemName: "moon.stars.fill",
                             title: "Evening sanctuary",
-                            description: "A twilight appearance for night and low-light devotion — frosted cards, starlight buttons, and calm plum backgrounds."
+                            description: "A twilight appearance for night and low-light devotion: frosted cards, starlight buttons, and calm plum backgrounds."
                         ),
                         .init(
                             symbolSystemName: "circle.hexagongrid.fill",
                             title: "Sacred orb shortcuts",
-                            description: "Press and hold the orb for quick capture — morning devotion, journal, assisted write, or Chaplain."
+                            description: "Press and hold the orb for quick capture: morning devotion, journal, assisted write, or Chaplain."
                         ),
                         .init(
                             symbolSystemName: "rectangle.bottomthird.inset.filled",
@@ -54,7 +54,7 @@ enum SacredStartReleaseNotes {
                         .init(
                             symbolSystemName: "house.fill",
                             title: "A calmer Home",
-                            description: "Today's devotion is front and center — less scrolling, more beginning."
+                            description: "Today's devotion is front and center. Less scrolling, more beginning."
                         ),
                         .init(
                             symbolSystemName: "book.closed.fill",

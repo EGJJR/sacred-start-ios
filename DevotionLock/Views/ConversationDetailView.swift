@@ -61,11 +61,12 @@ struct ConversationDetailView: View {
                                 .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                             chatThread
                         } else if isSimpleJournalReflection {
-                            JournalEntryReadCard(
-                                conversation: displayConversation,
-                                onEdit: isEditable ? { openEditSheet() } : nil
-                            )
+                            // Header "Edit" pill already covers editing — no duplicate in-card button.
+                            JournalEntryReadCard(conversation: displayConversation)
                                 .blurReveal(appeared, blurRadius: 6, scale: 1.004)
+
+                            reflectDeeperRow
+                                .blurReveal(appeared, blurRadius: 4, scale: 1.002)
                         } else {
                             journalHeader
                                 .blurReveal(appeared, blurRadius: 6, scale: 1.004)
@@ -281,6 +282,44 @@ struct ConversationDetailView: View {
             .padding(.bottom, 12)
             .background(Color.white.opacity(0.92))
         }
+    }
+
+    /// Quiet follow-up beneath the entry card — fills the sheet's dead space with a next step
+    /// (Mobbin: pillowtalk analysis, Moonly dream read).
+    private var reflectDeeperRow: some View {
+        Button(action: exploreWithChaplain) {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(ABY.Font.calloutMedium)
+                    .foregroundStyle(ABY.Color.pillPurple)
+                    .frame(width: 36, height: 36)
+                    .background(ABY.Color.pillPurple.opacity(palette.isNight ? 0.18 : 0.10))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Take it deeper")
+                        .font(ABY.Font.calloutSemibold)
+                        .foregroundStyle(palette.textPrimary)
+                    Text("Reflect on this entry with Chaplain")
+                        .font(ABY.Font.caption)
+                        .foregroundStyle(palette.textSecondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(ABY.Font.captionSemibold)
+                    .foregroundStyle(palette.textTertiary)
+            }
+            .padding(14)
+            .background(palette.cardFill.opacity(palette.isNight ? 0.65 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(palette.divider, lineWidth: 1)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     private var exploreWithChaplainCTA: some View {

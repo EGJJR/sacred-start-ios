@@ -12,7 +12,10 @@ enum SupabaseManager {
             supabaseURL: SupabaseConfig.projectURL,
             supabaseKey: SupabaseConfig.anonKey,
             options: SupabaseClientOptions(
-                auth: .init(emitLocalSessionAsInitialSession: true)
+                auth: .init(
+                    redirectToURL: URL(string: "devotionlock://password-reset"),
+                    emitLocalSessionAsInitialSession: true
+                )
             )
         )
     }()

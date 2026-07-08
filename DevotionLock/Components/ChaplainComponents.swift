@@ -394,28 +394,33 @@ enum ChaplainPresenceMode: Equatable {
 
 struct ChaplainPresenceIndicator: View {
     @Environment(\.sanctuaryPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let mode: ChaplainPresenceMode
+
+    @State private var appeared = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             ChaplainPresenceAvatar()
 
-            VStack(alignment: .leading, spacing: 8) {
+            Group {
                 switch mode {
                 case .thinking:
-                    thinkingCard
+                    ChaplainRespondingBlurCard()
                 case .searchingScripture(let label):
                     scriptureCard(label)
                 case .loadingThread:
-                    threadSkeleton
+                    ChaplainRespondingBlurCard(lineCount: 3, showsLabel: false)
                 }
             }
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .blurReveal(appeared, blurRadius: 14, scale: 1.02)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+        .onAppear(perform: reveal)
     }
 
     private var accessibilityLabel: String {
@@ -426,23 +431,11 @@ struct ChaplainPresenceIndicator: View {
         }
     }
 
-    private var thinkingCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ChaplainThinkingDots()
-            Text("Reflecting…")
-                .font(ABY.Font.caption)
-                .foregroundStyle(palette.textTertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(presenceCardBackground)
-    }
-
     private func scriptureCard(_ label: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Image(systemName: "text.book.closed")
                 .font(ABY.Font.footnoteMedium)
-                .foregroundStyle(ABY.Color.pillTeal)
+                .foregroundStyle(palette.isNight ? ABY.Color.starlight : ABY.Color.pillTeal)
                 .symbolEffect(.pulse, options: .repeating)
 
             Text(label)
@@ -451,18 +444,7 @@ struct ChaplainPresenceIndicator: View {
                 .multilineTextAlignment(.leading)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(presenceCardBackground)
-    }
-
-    private var threadSkeleton: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ChaplainSkeletonLine(widthRatio: 0.92)
-            ChaplainSkeletonLine(widthRatio: 0.74)
-            ChaplainSkeletonLine(widthRatio: 0.56)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .background(presenceCardBackground)
     }
 
@@ -474,6 +456,103 @@ struct ChaplainPresenceIndicator: View {
                     .stroke(palette.divider, lineWidth: 1)
             }
     }
+
+    private func reveal() {
+        guard !appeared else { return }
+        if reduceMotion {
+            appeared = true
+            return
+        }
+        withAnimation(AppTheme.springGentle) {
+            appeared = true
+        }
+    }
+}
+
+/// Soft blur-breathing reply ghost — dissolves into the real message when tokens arrive.
+private struct ChaplainRespondingBlurCard: View {
+    @Environment(\.sanctuaryPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var lineCount: Int = 2
+    var showsLabel: Bool = true
+
+    @State private var pulse = false
+
+    private var lineWidths: [CGFloat] {
+        switch lineCount {
+        case 1: [148]
+        case 3: [172, 132, 96]
+        default: [168, 118]
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(lineWidths.enumerated()), id: \.offset) { _, width in
+                    Capsule()
+                        .fill(ghostFill)
+                        .frame(width: width, height: 11)
+                        .blur(radius: pulse ? 0.6 : 4.5)
+                        .opacity(pulse ? 0.9 : 0.42)
+                }
+            }
+
+            if showsLabel {
+                Text("Reflecting")
+                    .font(ABY.Font.caption)
+                    .foregroundStyle(palette.textTertiary)
+                    .blur(radius: pulse ? 0 : 3)
+                    .opacity(pulse ? 0.85 : 0.4)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(palette.surface)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(palette.divider, lineWidth: 1)
+                }
+                // Soft bloom behind the card while waiting.
+                .shadow(
+                    color: (palette.isNight ? ABY.Color.meshPeriwinkle : ABY.Color.meshLilac)
+                        .opacity(pulse ? 0.22 : 0.08),
+                    radius: pulse ? 16 : 8,
+                    y: 2
+                )
+        }
+        .scaleEffect(pulse ? 1 : 0.985)
+        .onAppear {
+            guard !reduceMotion else {
+                pulse = true
+                return
+            }
+            withAnimation(.easeInOut(duration: 1.45).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+
+    private var ghostFill: some ShapeStyle {
+        LinearGradient(
+            colors: palette.isNight
+                ? [
+                    Color.white.opacity(0.14),
+                    ABY.Color.meshPeriwinkle.opacity(0.18),
+                    Color.white.opacity(0.10),
+                ]
+                : [
+                    ABY.Color.meshLilac.opacity(0.35),
+                    ABY.Color.meshPeriwinkle.opacity(0.22),
+                    ABY.Color.meshSky.opacity(0.18),
+                ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
 }
 
 /// Legacy name — use `ChaplainPresenceIndicator`.
@@ -484,6 +563,7 @@ struct ChaplainTypingIndicator: View {
 }
 
 private struct ChaplainPresenceAvatar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathe = false
 
     var body: some View {
@@ -491,66 +571,16 @@ private struct ChaplainPresenceAvatar: View {
             .padding(.top, 2)
             .scaleEffect(breathe ? 1.04 : 0.96)
             .opacity(breathe ? 1 : 0.88)
+            .blur(radius: breathe ? 0 : 1.2)
             .onAppear {
+                guard !reduceMotion else {
+                    breathe = true
+                    return
+                }
                 withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
                     breathe = true
                 }
             }
-    }
-}
-
-private struct ChaplainThinkingDots: View {
-    @Environment(\.sanctuaryPalette) private var palette
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 0.34, paused: false)) { context in
-            let phase = Int(context.date.timeIntervalSinceReferenceDate / 0.34) % 3
-            HStack(spacing: 6) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(palette.textTertiary.opacity(phase == index ? 0.9 : 0.28))
-                        .frame(width: 7, height: 7)
-                        .scaleEffect(phase == index ? 1.08 : 0.92)
-                }
-            }
-        }
-    }
-}
-
-private struct ChaplainSkeletonLine: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    var widthRatio: CGFloat
-
-    @State private var shimmer = false
-
-    var body: some View {
-        GeometryReader { geo in
-            Capsule()
-                .fill(palette.surfaceMuted.opacity(0.65))
-                .frame(width: geo.size.width * widthRatio, height: 10)
-                .overlay {
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.clear,
-                                    palette.surface.opacity(0.85),
-                                    Color.clear,
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .offset(x: shimmer ? geo.size.width * 0.35 : -geo.size.width * 0.35)
-                }
-                .clipShape(Capsule())
-        }
-        .frame(height: 10)
-        .onAppear {
-            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
-                shimmer = true
-            }
-        }
     }
 }
 

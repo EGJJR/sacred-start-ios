@@ -17,6 +17,7 @@ struct AuthSocialView: View {
     @State private var password = ""
     @State private var usernameStatus: UsernameAvailability = .idle
     @State private var availabilityTask: Task<Void, Never>?
+    @State private var showPasswordReset = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -83,6 +84,10 @@ struct AuthSocialView: View {
             resetUsernameState()
             focusInitialField(for: newIntent)
         }
+        .sheet(isPresented: $showPasswordReset) {
+            PasswordResetRequestView(initialEmail: email)
+                .abyScreen()
+        }
     }
 
     private var authNavigationBar: some View {
@@ -140,7 +145,8 @@ struct AuthSocialView: View {
         VStack(spacing: 16) {
             if intent == .signIn {
                 AuthTextLink(title: "Forgot password?") {
-                    auth.errorMessage = "Password reset is coming soon — use email sign-in for now."
+                    auth.clearMessages()
+                    showPasswordReset = true
                 }
             }
 

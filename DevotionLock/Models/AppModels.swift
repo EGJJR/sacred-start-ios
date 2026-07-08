@@ -107,8 +107,8 @@ struct Conversation: Identifiable, Hashable {
                 emoji: "🙏",
                 moodEmoji: "😊",
                 moodLabel: "Grateful",
-                title: "Morning Devotion — Cast Your Cares",
-                preview: "There's something grounded about how you're moving through this moment — noticing what feels good and reflecting on what matters.",
+                title: "Morning Devotion: Cast Your Cares",
+                preview: "There's something grounded about how you're moving through this moment, noticing what feels good and reflecting on what matters.",
                 duration: "7m 22s",
                 isToday: true,
                 transcript: [
@@ -125,7 +125,7 @@ struct Conversation: Identifiable, Hashable {
                 emoji: "🍃",
                 moodEmoji: "🍃",
                 moodLabel: "Peaceful",
-                title: "Voice Journal — Grateful Heart",
+                title: "Voice Journal: Grateful Heart",
                 preview: "Morning voice journaling on family, health, and quiet moments of grace before the day began.",
                 duration: "12m 08s",
                 isToday: false,
@@ -203,7 +203,7 @@ struct AIInsight: Identifiable {
         ),
         AIInsight(
             title: "Season of Peace",
-            body: "You've mentioned feeling overwhelmed twice — your reflections are turning toward rest and trust.",
+            body: "You've mentioned feeling overwhelmed twice. Your reflections are turning toward rest and trust.",
             icon: "leaf.fill",
             accent: DevotionTheme.teal
         ),

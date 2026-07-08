@@ -152,6 +152,7 @@ enum DevotionDeepLink {
         case streak
         case addPrayer = "add-prayer"
         case joinCircle = "join-circle"
+        case passwordReset = "password-reset"
     }
 
     static func url(host: Host, query: [String: String] = [:]) -> URL? {

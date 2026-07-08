@@ -149,7 +149,7 @@ struct RecordingSessionView: View {
                         .font(ABY.Font.title2)
                         .foregroundStyle(palette.textPrimary)
 
-                    Text("Your Chaplain will respond in text chat — you can keep the conversation going there.")
+                    Text("Your Chaplain will respond in text chat. You can keep the conversation going there.")
                         .font(ABY.Font.callout)
                         .foregroundStyle(palette.textSecondary)
                         .multilineTextAlignment(.center)

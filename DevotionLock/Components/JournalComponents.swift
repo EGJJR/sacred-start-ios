@@ -33,7 +33,7 @@ extension Conversation {
         let tag = tag.lowercased()
         if tag == "voice" { return !primaryUserText.isEmpty }
 
-        let capturedPracticeTags = ["scripture", "devotion", "prayer", "gratitude", "reflection"]
+        let capturedPracticeTags = ["scripture", "devotion", "prayer", "gratitude", "reflection", "evening"]
         if capturedPracticeTags.contains(tag) {
             return !primaryUserText.isEmpty
         }
@@ -56,6 +56,7 @@ extension Conversation {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedTitle.hasPrefix("Morning —")
             || trimmedTitle.hasPrefix("Evening —")
+            || trimmedTitle == "Evening reflection"
             || trimmedTitle == "Journal entry" {
             let body = primaryUserText
             if !body.isEmpty { return body }
@@ -130,7 +131,7 @@ extension Conversation {
         }
         guard !journalReadBody.isEmpty else { return false }
         guard let local = JournalLocalStore.shared.entry(id: id) else { return false }
-        return local.kind == .assisted || local.kind == .voiceNote
+        return local.kind == .assisted || local.kind == .evening || local.kind == .voiceNote
     }
 
     var journalReadDateLabel: String {
@@ -167,7 +168,10 @@ extension Conversation {
         case "scripture", "devotion": return "📖"
         case "gratitude": return "🙏"
         case "prayer": return "✨"
-        case "reflection": return "✍️"
+        case "reflection":
+            if moodEmoji == "🌙" { return "🌙" }
+            return "✍️"
+        case "evening": return "🌙"
         default: break
         }
         if !timelineEmojiSuffix.isEmpty { return timelineEmojiSuffix }
@@ -181,6 +185,7 @@ extension Conversation {
         case "gratitude": "heart.fill"
         case "prayer": "hands.sparkles.fill"
         case "reflection": "sparkles"
+        case "evening": "moon.stars.fill"
         case "chaplain": "ellipsis.bubble.fill"
         case "voice": "waveform"
         default: "ellipsis.bubble.fill"
@@ -419,57 +424,6 @@ struct JournalQuickEntryChip: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-    }
-}
-
-struct JournalEntryOptionCard: View {
-    @Environment(\.sanctuaryPalette) private var palette
-    let icon: String
-    let tint: Color
-    let title: String
-    let subtitle: String
-    let badge: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(ABY.Font.headline)
-                    .foregroundStyle(tint)
-                    .frame(width: 44, height: 44)
-                    .background(tint.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(ABY.Font.headline)
-                        .foregroundStyle(palette.textPrimary)
-                    Text(subtitle)
-                        .font(ABY.Font.caption)
-                        .foregroundStyle(palette.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 0)
-
-                Text(badge)
-                    .font(ABY.Font.captionMedium)
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(tint.opacity(0.1))
-                    .clipShape(Capsule())
-            }
-            .padding(14)
-            .background(palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ABY.Radius.cardLarge, style: .continuous)
-                    .stroke(palette.divider, lineWidth: 1)
-            }
-        }
-        .buttonStyle(ScaleButtonStyle())
     }
 }
 

@@ -25,7 +25,11 @@ struct MorningWrappedContainerView: View {
     var body: some View {
         MorningWrappedView(stats: stats, onDismiss: onDismiss)
             .task {
-                stats = await InsightService.shared.fetchWeeklyInsight(fallback: baseStats)
+                let refreshed = await InsightService.shared.fetchWeeklyInsight(fallback: baseStats)
+                stats = refreshed
+                if let narrative = refreshed.weeklyNarrative {
+                    AmbientEmpathy.cacheWeeklyNarrative(narrative)
+                }
             }
     }
 }

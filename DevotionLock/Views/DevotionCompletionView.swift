@@ -17,7 +17,10 @@ struct DevotionCompletionView: View {
     @State private var appeared = false
 
     private var bodyText: String {
-        insight ?? "Today you showed up with \(DaySummary.withArticle(mood.lowercased())) heart. Sacred Start noticed the honesty in your reflection."
+        if let insight, !insight.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return insight
+        }
+        return "Today you showed up with \(DaySummary.withArticle(mood.lowercased())) heart. Sacred Start noticed the quiet faithfulness in showing up."
     }
 
     var body: some View {
@@ -101,12 +104,12 @@ private struct DevotionCompletionInsightCard: View {
                 Spacer()
                 Text("Just now")
                     .font(ABY.Font.caption)
-                    .foregroundStyle(palette.textTertiary)
+                    .foregroundStyle(ABY.Color.textTertiary)
             }
 
             Text(bodyText)
                 .font(ABY.Font.body)
-                .foregroundStyle(palette.textSecondary)
+                .foregroundStyle(ABY.Color.textSecondary)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -169,7 +172,7 @@ private struct DevotionCompletionStreakChip: View {
                 .foregroundStyle(ABY.Color.pillOrange)
             Text(label)
                 .font(ABY.Font.calloutSemibold)
-                .foregroundStyle(palette.textPrimary)
+                .foregroundStyle(ABY.Color.textPrimary)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 11)

@@ -40,10 +40,15 @@ final class AuthManager {
 
     var isLoading = false
     var errorMessage: String?
+    var successMessage: String?
+    /// True after a password-recovery deep link lands; show the update-password screen.
+    private(set) var pendingPasswordUpdate = false
     /// False until the first `.initialSession` auth event is handled (session may still be refreshing).
     private(set) var hasResolvedInitialSession = false
 
     private var authTask: Task<Void, Never>?
+
+    static let passwordResetRedirectURL = URL(string: "devotionlock://password-reset")!
 
     init() {
         authTask = Task { await listenForAuthChanges() }
@@ -135,6 +140,175 @@ final class AuthManager {
         }
     }
 
+    /// Email waiting for a recovery code after `requestPasswordReset`.
+    private(set) var passwordResetEmail: String?
+
+    func requestPasswordReset(email rawEmail: String) async -> Bool {
+        guard let email = normalizedEmail(rawEmail) else {
+            errorMessage = "Enter a valid email address."
+            return false
+        }
+
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        defer { isLoading = false }
+
+        do {
+            try await SupabaseManager.client.auth.resetPasswordForEmail(
+                email,
+                redirectTo: Self.passwordResetRedirectURL
+            )
+            passwordResetEmail = email
+            successMessage = "Check your email for a 6-digit code. Enter it below to choose a new password."
+            return true
+        } catch {
+            errorMessage = friendlyAuthError(from: error)
+            return false
+        }
+    }
+
+    func verifyPasswordResetCode(_ rawCode: String) async {
+        guard let email = passwordResetEmail else {
+            errorMessage = "Request a reset code first."
+            return
+        }
+        let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard code.count >= 6 else {
+            errorMessage = "Enter the 6-digit code from your email."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let response = try await SupabaseManager.client.auth.verifyOTP(
+                email: email,
+                token: code,
+                type: .recovery
+            )
+            if let session = response.session {
+                applySession(session)
+            }
+            pendingPasswordUpdate = true
+            passwordResetEmail = nil
+        } catch {
+            errorMessage = friendlyAuthError(from: error)
+        }
+    }
+
+    func updatePassword(_ password: String) async {
+        guard password.count >= 8 else {
+            errorMessage = "Password must be at least 8 characters."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        defer { isLoading = false }
+
+        do {
+            try await SupabaseManager.client.auth.update(
+                user: UserAttributes(password: password)
+            )
+            pendingPasswordUpdate = false
+            passwordResetEmail = nil
+            successMessage = "Your password has been updated."
+        } catch {
+            errorMessage = friendlyAuthError(from: error)
+        }
+    }
+
+    func handleAuthURL(_ url: URL) async {
+        guard url.scheme == DevotionDeepLink.scheme else { return }
+
+        let params = authURLParams(from: url)
+        let host = url.host?.lowercased()
+        let type = params["type"]?.lowercased()
+        let isRecovery = host == DevotionDeepLink.Host.passwordReset.rawValue
+            || type == "recovery"
+            || params["token_hash"] != nil
+            || params["code"] != nil
+            || params["access_token"] != nil
+            || params["error_description"] != nil
+            || params["error"] != nil
+
+        guard isRecovery else { return }
+
+        if let description = params["error_description"]?.replacingOccurrences(of: "+", with: " "),
+           !description.isEmpty {
+            errorMessage = friendlyRecoveryLinkError(description)
+            return
+        }
+        if params["error"] != nil {
+            errorMessage = "This reset link is invalid or was already used. Request a new code from Forgot password."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        defer { isLoading = false }
+
+        do {
+            if let tokenHash = params["token_hash"], !tokenHash.isEmpty {
+                let otpType = EmailOTPType(rawValue: type ?? "recovery") ?? .recovery
+                let response = try await SupabaseManager.client.auth.verifyOTP(
+                    tokenHash: tokenHash,
+                    type: otpType
+                )
+                if let session = response.session {
+                    applySession(session)
+                }
+            } else {
+                _ = try await SupabaseManager.client.auth.session(from: url)
+            }
+            pendingPasswordUpdate = true
+            passwordResetEmail = nil
+        } catch {
+            errorMessage = friendlyAuthError(from: error)
+        }
+    }
+
+    func cancelPasswordUpdate() {
+        pendingPasswordUpdate = false
+    }
+
+    func clearPasswordResetEmail() {
+        passwordResetEmail = nil
+    }
+
+    private func authURLParams(from url: URL) -> [String: String] {
+        var params: [String: String] = [:]
+        if let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
+            for item in items {
+                if let value = item.value {
+                    params[item.name] = value
+                }
+            }
+        }
+        if let fragment = url.fragment {
+            for pair in fragment.split(separator: "&") {
+                let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { continue }
+                params[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+            }
+        }
+        return params
+    }
+
+    private func friendlyRecoveryLinkError(_ description: String) -> String {
+        let lower = description.lowercased()
+        if lower.contains("invalid") || lower.contains("expired") {
+            return "This reset link was already used or expired. Mail apps often open links early. Request a new code and enter it in the app."
+        }
+        return description
+    }
+
     func updateUsername(_ rawUsername: String) async throws {
         guard isAuthenticated else { throw ProfileError.notAuthenticated }
         guard let username = UsernameValidator.normalize(rawUsername) else {
@@ -220,6 +394,7 @@ final class AuthManager {
 
     func clearMessages() {
         errorMessage = nil
+        successMessage = nil
     }
 
     private func listenForAuthChanges() async {
@@ -242,7 +417,12 @@ final class AuthManager {
                     // Full sync only on sign-in — not on tokenRefreshed (avoids redundant pulls).
                     SyncCoordinator.shared.scheduleFlush(force: true)
                 }
-            case .tokenRefreshed, .passwordRecovery, .userUpdated, .mfaChallengeVerified:
+            case .passwordRecovery:
+                if let session, !session.isExpired {
+                    applySession(session)
+                    pendingPasswordUpdate = true
+                }
+            case .tokenRefreshed, .userUpdated, .mfaChallengeVerified:
                 if let session, !session.isExpired {
                     applySession(session)
                 }
@@ -257,6 +437,7 @@ final class AuthManager {
         username = nil
         avatarURL = nil
         localAvatarData = nil
+        pendingPasswordUpdate = false
         JournalLocalStore.shared.activateAccount(userId: nil)
     }
 
@@ -377,6 +558,10 @@ final class AuthManager {
             return profileError.localizedDescription
         }
         let message = error.localizedDescription.lowercased()
+        if message.contains("email link is invalid") || message.contains("otp_expired")
+            || message.contains("token has expired") || message.contains("invalid or has expired") {
+            return "This reset link was already used or expired. Mail apps often open links early. Request a new code and enter it in the app."
+        }
         if message.contains("invalid login credentials") {
             return "Email or password is incorrect."
         }

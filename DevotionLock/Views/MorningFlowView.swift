@@ -85,6 +85,17 @@ struct MorningFlowView: View {
 
     private var tags: [FocusTag] { selectedTag.map { [$0] } ?? [] }
 
+    private var completionInsight: String? {
+        let reflection = promptResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !reflection.isEmpty {
+            return reflection
+        }
+        if committedPath == .pray || morningPath == .pray {
+            return "Today you prayed through the morning. Sacred Start noticed the quiet faithfulness in showing up."
+        }
+        return nil
+    }
+
     var body: some View {
         Group {
             if currentStep == .complete {
@@ -93,6 +104,7 @@ struct MorningFlowView: View {
                     DevotionCompletionView(
                         streak: completedStreak,
                         mood: mood,
+                        insight: completionInsight,
                         onContinue: dismissFlow
                     )
                 }

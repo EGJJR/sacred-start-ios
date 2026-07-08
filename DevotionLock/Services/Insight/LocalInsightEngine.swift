@@ -221,8 +221,8 @@ enum LocalInsightEngine {
             insights.append(PersonalInsight(
                 id: "streak-nudge",
                 kind: .streakNudge,
-                title: "Keep your streak alive",
-                body: "You're on a \(streakDays)-day streak. A few quiet minutes this morning keeps the rhythm you've built.",
+                title: "Your rhythm is waiting",
+                body: "You have shown up \(streakDays) days in a row. A few quiet minutes can meet you here again.",
                 priority: 95
             ))
         } else if !completedToday, streakDays == 0, streak.daysJournaled > 0, hour >= 10 {
@@ -230,29 +230,40 @@ enum LocalInsightEngine {
                 id: "welcome-back",
                 kind: .streakNudge,
                 title: "Welcome back",
-                body: "No pressure, just presence. Your journal remembers past mornings; today can be a gentle restart.",
+                body: "No pressure, just presence. Your journal remembers past mornings. Today can be a gentle restart.",
                 priority: 88
             ))
         }
 
         if let moodTrend, moodTrend.count >= 2 {
-            let plural = moodTrend.count == 1 ? "time" : "times"
+            let word = moodTrend.dominantMood.lowercased()
+            let body: String
+            if moodTrend.count == 2 {
+                body = "You have named \(word) twice in the last \(moodTrend.windowDays) days. That feeling has been close."
+            } else {
+                body = "You have named \(word) \(moodTrend.count) times in the last \(moodTrend.windowDays) days, more than any other mood."
+            }
             insights.append(PersonalInsight(
                 id: "mood-trend",
                 kind: .moodTrend,
-                title: "Mood pattern",
-                body: "\(moodTrend.dominantMood) has shown up \(moodTrend.count) \(plural) in the last \(moodTrend.windowDays) days, more than any other mood you've logged.",
+                title: "What you have been feeling",
+                body: body,
                 priority: 82
             ))
         }
 
         if let theme = topThemes.first, theme.count >= 2 {
-            let frequency = theme.count >= 4 ? "often" : "a few times"
+            let body: String
+            if theme.count == 2 {
+                body = "\(theme.label) has come up twice in your reflections. You do not have to carry it alone."
+            } else {
+                body = "\(theme.label) keeps returning in your reflections. You have named it often enough to notice."
+            }
             insights.append(PersonalInsight(
                 id: "theme-\(theme.id)",
                 kind: .recurringTheme,
-                title: "Recurring theme",
-                body: "\(theme.label) keeps appearing in your reflections. You've named it \(frequency) recently.",
+                title: "What has been on your heart",
+                body: body,
                 priority: 78
             ))
         }
@@ -261,16 +272,16 @@ enum LocalInsightEngine {
             insights.append(PersonalInsight(
                 id: "week-strong",
                 kind: .weeklyPattern,
-                title: "Strong week",
-                body: "You've shown up \(morningsThisWeek) mornings this week. That consistency is shaping a quiet anchor before the day begins.",
+                title: "Your mornings this week",
+                body: "You have shown up \(morningsThisWeek) mornings this week. A quiet rhythm is taking shape.",
                 priority: 72
             ))
         } else if morningsThisWeek >= 1, morningsThisWeek <= 2, !completedToday {
             insights.append(PersonalInsight(
                 id: "week-building",
                 kind: .weeklyPattern,
-                title: "Building rhythm",
-                body: "You've started \(morningsThisWeek) morning\(morningsThisWeek == 1 ? "" : "s") this week. One more would deepen the pattern.",
+                title: "A gentle start",
+                body: "You have begun \(morningsThisWeek) morning\(morningsThisWeek == 1 ? "" : "s") this week. Presence is enough.",
                 priority: 68
             ))
         }
@@ -279,8 +290,8 @@ enum LocalInsightEngine {
             insights.append(PersonalInsight(
                 id: "theme-secondary-\(secondaryTheme.id)",
                 kind: .recurringTheme,
-                title: "Also on your heart",
-                body: "\(secondaryTheme.label) is another thread running through your journal lately.",
+                title: "Also close by",
+                body: "\(secondaryTheme.label) is another thread in your journal lately.",
                 priority: 64
             ))
         }
@@ -291,8 +302,8 @@ enum LocalInsightEngine {
                 kind: .encouragement,
                 title: "Your story is forming",
                 body: streak.daysJournaled == 0
-                    ? "After a few devotions, Devotion Lock will notice moods and themes, all on your device, privately."
-                    : "Keep journaling. Local patterns will grow clearer with each morning you show up.",
+                    ? "After a few mornings, Sacred Start will notice moods and themes here, on this device, privately."
+                    : "Keep writing. Local patterns grow clearer with each morning you show up.",
                 priority: 50
             ))
         }

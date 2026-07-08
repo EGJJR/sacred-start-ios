@@ -34,26 +34,10 @@ struct MainTabView: View {
             BottomNavigationBar(
                 selectedTab: $coordinator.selectedTab,
                 orbState: sacredOrbState,
-                isQuickMenuPresented: coordinator.sacredOrbQuickMenuPresented,
-                onOrbTap: performSacredOrbTap,
-                onOrbLongPress: performSacredOrbLongPress
+                onOrbTap: performSacredOrbTap
             )
             .id(sacredOrbRefreshKey)
             .zIndex(1)
-        }
-        .sheet(isPresented: Binding(
-            get: { coordinator.sacredOrbQuickMenuPresented },
-            set: { coordinator.sacredOrbQuickMenuPresented = $0 }
-        )) {
-            SacredOrbQuickActionsSheet(
-                actions: coordinator.sacredOrbMenuActions,
-                onSelect: { action in
-                    PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-                        coordinator.performSacredOrbQuickAction(action)
-                    }
-                }
-            )
-            .abyScreen()
         }
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
@@ -165,26 +149,11 @@ struct MainTabView: View {
     }
 
     private func performSacredOrbTap() {
-        if coordinator.sacredOrbQuickMenuPresented {
-            DevotionHaptics.soft()
-            coordinator.dismissSacredOrbQuickMenu()
-            return
-        }
-
         let state = sacredOrbState
         PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
             withAnimation(AppTheme.springGentle) {
                 coordinator.performSacredOrbAction(state)
             }
-        }
-    }
-
-    private func performSacredOrbLongPress() {
-        PaywallAccess.guardPremium(presentPaywall: presentPaywall) {
-            coordinator.presentSacredOrbQuickMenu(
-                rhythmStore: rhythmStore,
-                streakManager: streakManager
-            )
         }
     }
 }

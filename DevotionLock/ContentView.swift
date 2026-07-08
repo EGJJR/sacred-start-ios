@@ -32,6 +32,8 @@ struct ContentView: View {
         Group {
             if !auth.hasResolvedInitialSession {
                 Color.clear
+            } else if auth.pendingPasswordUpdate {
+                PasswordUpdateView()
             } else if !auth.isAuthenticated {
                 AuthFlowView()
             } else if !hasCompletedOnboarding {
@@ -59,6 +61,9 @@ struct ContentView: View {
             showPaywall = true
         }
         .environment(\.authManager, auth)
+        .onOpenURL { url in
+            Task { await auth.handleAuthURL(url) }
+        }
     }
 
     private func presentPaywallIfNeeded() {

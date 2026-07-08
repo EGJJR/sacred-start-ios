@@ -34,9 +34,12 @@ struct AIInsightsView: View {
     @State private var guidedPrayerLaunch: GuidedPrayerLaunch?
     @State private var pendingGuidedPrayerLaunch: GuidedPrayerLaunch?
     @State private var wisdomPrompt = "What is God inviting you to notice today?"
+    @State private var ambientInsight: PersonalInsight?
+    @State private var companionMemory: AmbientEmpathy.CompanionMemory?
     @AppStorage("intentionMood") private var intentionMood = "Peaceful"
     private let chaplainSession = ChaplainSessionStore.shared
     private let conversationRepository = ConversationRepository.shared
+    private let insightStore = PersonalInsightStore.shared
 
     private var selectedVoice: ChaplainVoice {
         ChaplainVoice.options.first { $0.id == selectedVoiceID } ?? ChaplainVoice.options[0]
@@ -64,6 +67,33 @@ struct AIInsightsView: View {
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 12)
+
+                if let ambientInsight {
+                    PersonalInsightCard(insight: ambientInsight) {
+                        dismissAmbientInsight()
+                    }
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 16)
+                    .blurReveal(appeared, blurRadius: 4, scale: 1.003)
+                }
+
+                if let companionMemory {
+                    ChaplainCompanionMemoryCard(
+                        memory: companionMemory,
+                        onKeepGoing: {
+                            let prompt = companionMemory.keepGoingPrompt
+                            AmbientEmpathy.dismissCompanionForSession()
+                            self.companionMemory = nil
+                            openChaplainChat(prompt, [])
+                        },
+                        onSomethingNew: {
+                            dismissCompanionMemory()
+                        }
+                    )
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 16)
+                    .blurReveal(appeared, blurRadius: 4, scale: 1.003)
+                }
 
                 GeminiChatGreeting()
                     .padding(.horizontal, ABY.Spacing.screen)
@@ -99,6 +129,7 @@ struct AIInsightsView: View {
             ChaplainComposeLauncher(voiceName: selectedVoice.name) {
                 openChaplainChatWithPortal(selectedVoice.name, nil, [])
             }
+            .ambientAIGlow()
             .padding(.horizontal, ABY.Spacing.screen)
             .padding(.bottom, 88)
         }
@@ -114,8 +145,10 @@ struct AIInsightsView: View {
         }
         .task {
             await conversationRepository.refresh()
+            refreshAmbientSurfaces()
         }
         .onAppear {
+            refreshAmbientSurfaces()
             withAnimation(AppTheme.springGentle.delay(0.05)) { appeared = true }
         }
         .sheet(isPresented: $showGuidedPrayerPicker, onDismiss: {
@@ -170,6 +203,40 @@ struct AIInsightsView: View {
 
     private func requirePremium(_ action: @escaping () -> Void) {
         PaywallAccess.guardPremium(presentPaywall: presentPaywall, action: action)
+    }
+
+    private func refreshAmbientSurfaces() {
+        insightStore.refresh()
+        let snapshot = insightStore.snapshot
+        // One ambient card at a time: insight first, companion memory only when no insight.
+        if let insight = AmbientEmpathy.ambientInsight(from: snapshot) {
+            ambientInsight = insight
+            companionMemory = nil
+        } else {
+            ambientInsight = nil
+            companionMemory = AmbientEmpathy.companionMemory(
+                snapshot: snapshot,
+                journey: JourneyTimelineStore.shared
+            )
+        }
+    }
+
+    private func dismissAmbientInsight() {
+        AmbientEmpathy.dismissInsightForToday()
+        withAnimation(AppTheme.springGentle) {
+            ambientInsight = nil
+            companionMemory = AmbientEmpathy.companionMemory(
+                snapshot: insightStore.snapshot,
+                journey: JourneyTimelineStore.shared
+            )
+        }
+    }
+
+    private func dismissCompanionMemory() {
+        AmbientEmpathy.dismissCompanionForSession()
+        withAnimation(AppTheme.springGentle) {
+            companionMemory = nil
+        }
     }
 }
 

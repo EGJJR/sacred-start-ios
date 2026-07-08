@@ -7,15 +7,34 @@ import SwiftUI
 import WidgetKit
 
 enum WidgetPalette {
+    // MARK: - ABY sanctuary (aligned with main app)
+
     static let pillTeal = Color(red: 0.30, green: 0.62, blue: 0.58)
     static let pillPurple = Color(red: 0.55, green: 0.48, blue: 0.72)
-    static let pillOrange = Color(red: 0.92, green: 0.55, blue: 0.32)
+    static let pillOrange = Color(red: 1.0, green: 0.55, blue: 0.22)
     static let orbSage = Color(red: 0.48, green: 0.68, blue: 0.56)
-    static let meshLilac = Color(red: 0.74, green: 0.66, blue: 0.93)
-    static let meshPeriwinkle = Color(red: 0.56, green: 0.66, blue: 0.91)
+    static let orbTeal = Color(red: 0.36, green: 0.71, blue: 0.64)
+
+    static let meshLilac = Color(red: 0.72, green: 0.58, blue: 0.88)
+    static let meshLavender = Color(red: 0.88, green: 0.70, blue: 0.86)
+    static let meshPeriwinkle = Color(red: 0.58, green: 0.64, blue: 0.90)
+    static let meshSky = Color(red: 0.52, green: 0.74, blue: 0.94)
+    static let meshGold = Color(red: 0.99, green: 0.78, blue: 0.35)
+
+    static let sanctuaryTop = Color(red: 0.90, green: 0.84, blue: 0.96)
+    static let sanctuaryMid = Color(red: 0.94, green: 0.86, blue: 0.94)
+    static let sanctuaryBottom = Color(red: 0.86, green: 0.92, blue: 0.98)
     static let warmCream = Color(red: 0.984, green: 0.948, blue: 0.908)
-    static let textPrimary = Color.primary
-    static let textSecondary = Color(red: 0.557, green: 0.557, blue: 0.576)
+    static let warmPaper = Color.white
+
+    static let moodPeach = Color(red: 1.0, green: 0.93, blue: 0.88)
+    static let moodPeachText = Color(red: 0.72, green: 0.45, blue: 0.28)
+    static let moodGreen = Color(red: 0.62, green: 0.90, blue: 0.72)
+
+    static let textPrimary = Color(red: 0.08, green: 0.08, blue: 0.10)
+    static let textSecondary = Color(red: 0.42, green: 0.42, blue: 0.46)
+    static let textTertiary = Color(red: 0.58, green: 0.58, blue: 0.62)
+
     static let liveActivityTint = Color(red: 0.90, green: 0.88, blue: 0.97)
 
     static let paper = [
@@ -57,66 +76,128 @@ enum WidgetTypography {
         .system(size: size, weight: .regular, design: .serif)
     }
 
+    static func editorialTitle(_ size: CGFloat = 22) -> Font {
+        .system(size: size, weight: .semibold, design: .serif)
+    }
+
     static func label(_ size: CGFloat = 11) -> Font {
         .system(size: size, weight: .semibold, design: .rounded)
     }
+
+    static func micro(_ size: CGFloat = 9) -> Font {
+        .system(size: size, weight: .bold, design: .rounded)
+    }
 }
+
+// MARK: - Backgrounds
 
 struct WidgetSanctuaryBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.975, green: 0.968, blue: 0.992),
-                    Color(red: 0.928, green: 0.918, blue: 0.958),
-                    WidgetPalette.warmCream,
+                    WidgetPalette.sanctuaryTop,
+                    WidgetPalette.sanctuaryMid,
+                    WidgetPalette.sanctuaryBottom,
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            WidgetSoftOrbs(intensity: 0.55)
+            WidgetSanctuaryOrbs(intensity: 0.65)
         }
     }
 }
 
-struct WidgetStreakGradient: View {
-    var completed: Bool
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: completed
-                    ? [WidgetPalette.orbSage, WidgetPalette.pillTeal, Color(red: 0.36, green: 0.71, blue: 0.64)]
-                    : [WidgetPalette.meshLilac, WidgetPalette.meshPeriwinkle, WidgetPalette.pillPurple.opacity(0.75)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            WidgetSoftOrbs(intensity: completed ? 0.35 : 0.5)
-        }
-    }
-}
-
-struct WidgetSoftOrbs: View {
+struct WidgetSanctuaryOrbs: View {
     var intensity: Double = 1
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.white.opacity(0.22 * intensity))
-                .frame(width: 120, height: 120)
-                .blur(radius: 2)
-                .offset(x: -50, y: -30)
+                .fill(WidgetPalette.meshLilac.opacity(0.22 * intensity))
+                .frame(width: 140, height: 140)
+                .blur(radius: 1)
+                .offset(x: -58, y: -42)
             Circle()
-                .fill(WidgetPalette.meshLilac.opacity(0.28 * intensity))
-                .frame(width: 90, height: 90)
-                .blur(radius: 4)
-                .offset(x: 60, y: 40)
-            Circle()
-                .fill(Color.white.opacity(0.16 * intensity))
-                .frame(width: 70, height: 70)
+                .fill(WidgetPalette.meshSky.opacity(0.20 * intensity))
+                .frame(width: 110, height: 110)
                 .blur(radius: 2)
-                .offset(x: 30, y: -50)
+                .offset(x: 64, y: 48)
+            Circle()
+                .fill(WidgetPalette.meshGold.opacity(0.12 * intensity))
+                .frame(width: 72, height: 72)
+                .blur(radius: 1)
+                .offset(x: 40, y: -56)
         }
+    }
+}
+
+/// Completed devotion — warm sage celebration wash.
+struct WidgetCompletedBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    WidgetPalette.orbSage.opacity(0.92),
+                    WidgetPalette.orbTeal.opacity(0.88),
+                    WidgetPalette.pillTeal.opacity(0.82),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            WidgetSanctuaryOrbs(intensity: 0.35)
+        }
+    }
+}
+
+struct WidgetAdaptiveBackground: View {
+    var completed: Bool
+
+    var body: some View {
+        if completed {
+            WidgetCompletedBackground()
+        } else {
+            WidgetSanctuaryBackground()
+        }
+    }
+}
+
+// MARK: - Cards & chrome
+
+struct WidgetPaperCard<Content: View>: View {
+    var cornerRadius: CGFloat = 20
+    var peachAccent = true
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        content()
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(WidgetPalette.warmPaper)
+                    .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: peachAccent
+                                ? [
+                                    WidgetPalette.moodPeach.opacity(0.95),
+                                    WidgetPalette.pillOrange.opacity(0.35),
+                                    WidgetPalette.moodPeach.opacity(0.6),
+                                ]
+                                : [
+                                    WidgetPalette.meshPeriwinkle.opacity(0.55),
+                                    WidgetPalette.meshLilac.opacity(0.45),
+                                    WidgetPalette.meshSky.opacity(0.35),
+                                ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.1
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
@@ -125,53 +206,90 @@ struct WidgetBrandMark: View {
     var onDark = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Image(systemName: "sparkles")
-                .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
                 .foregroundStyle(onDark ? .white.opacity(0.9) : WidgetPalette.pillPurple)
-            Text("Devotion Lock")
-                .font(WidgetTypography.label(compact ? 10 : 11))
-                .foregroundStyle(onDark ? .white.opacity(0.92) : WidgetPalette.textSecondary)
+            Text("DEVOTION LOCK")
+                .font(WidgetTypography.micro(compact ? 8 : 9))
+                .tracking(0.8)
+                .foregroundStyle(onDark ? .white.opacity(0.82) : WidgetPalette.textTertiary)
         }
     }
 }
 
+struct WidgetCTAPill: View {
+    let title: String
+    var tint: Color = WidgetPalette.textPrimary
+
+    var body: some View {
+        Text(title)
+            .font(WidgetTypography.label(11))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(tint)
+            .clipShape(Capsule())
+    }
+}
+
+// MARK: - Streak visuals
+
 struct WidgetWeekRingRow: View {
     let flags: [Bool]
-    var onDark = true
+    var onDark = false
     var compact = false
 
     private var weekdaySymbols: [String] {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        return formatter.veryShortWeekdaySymbols
+        let calendar = Calendar.current
+        let symbols = calendar.shortWeekdaySymbols
+        let start = calendar.firstWeekday - 1
+        return (0..<7).map { i in
+            String(symbols[(i + start) % 7].prefix(1))
+        }
+    }
+
+    private var todayIndex: Int {
+        let today = Calendar.current.component(.weekday, from: Date()) - Calendar.current.firstWeekday
+        return today < 0 ? today + 7 : today
     }
 
     var body: some View {
-        HStack(spacing: compact ? 4 : 6) {
+        HStack(spacing: compact ? 3 : 5) {
             ForEach(0..<7, id: \.self) { index in
-                VStack(spacing: compact ? 2 : 4) {
-                    ZStack {
-                        Circle()
-                            .stroke(
-                                onDark ? Color.white.opacity(0.35) : WidgetPalette.textSecondary.opacity(0.25),
-                                lineWidth: 1.5
-                            )
-                            .frame(width: compact ? 16 : 20, height: compact ? 16 : 20)
-                        if flags[index] {
-                            Circle()
-                                .fill(onDark ? Color.white : WidgetPalette.pillTeal)
-                                .frame(width: compact ? 16 : 20, height: compact ? 16 : 20)
-                            Image(systemName: "checkmark")
-                                .font(.system(size: compact ? 7 : 8, weight: .bold))
-                                .foregroundStyle(onDark ? WidgetPalette.pillTeal : .white)
-                        }
-                    }
-                    Text(weekdaySymbols[index].prefix(1))
-                        .font(.system(size: compact ? 8 : 9, weight: .medium, design: .rounded))
-                        .foregroundStyle(onDark ? .white.opacity(0.72) : WidgetPalette.textSecondary)
+                dayCell(index: index)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func dayCell(index: Int) -> some View {
+        let completed = flags.indices.contains(index) && flags[index]
+        let isToday = index == todayIndex
+        let size: CGFloat = compact ? 15 : 18
+
+        VStack(spacing: compact ? 2 : 3) {
+            ZStack {
+                if completed {
+                    Circle()
+                        .fill(WidgetPalette.moodGreen)
+                        .frame(width: size, height: size)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: compact ? 6 : 7, weight: .bold))
+                        .foregroundStyle(WidgetPalette.textPrimary.opacity(0.72))
+                } else if isToday {
+                    Circle()
+                        .stroke(WidgetPalette.pillOrange, lineWidth: compact ? 1.5 : 2)
+                        .frame(width: size, height: size)
+                } else {
+                    Circle()
+                        .fill(onDark ? Color.white.opacity(0.14) : WidgetPalette.textPrimary.opacity(0.07))
+                        .frame(width: size, height: size)
                 }
             }
+            Text(weekdaySymbols[index])
+                .font(WidgetTypography.micro(compact ? 7 : 8))
+                .foregroundStyle(onDark ? .white.opacity(0.65) : WidgetPalette.textTertiary)
         }
     }
 }
@@ -180,7 +298,8 @@ struct WidgetStreakRing: View {
     let streak: Int
     let weekFlags: [Bool]
     var diameter: CGFloat = 72
-    var onDark = true
+    var onDark = false
+    var accent: Color = WidgetPalette.pillOrange
 
     private var weekProgress: Double {
         Double(weekFlags.filter { $0 }.count) / 7
@@ -190,15 +309,15 @@ struct WidgetStreakRing: View {
         ZStack {
             Circle()
                 .stroke(
-                    onDark ? Color.white.opacity(0.22) : WidgetPalette.textSecondary.opacity(0.15),
+                    onDark ? Color.white.opacity(0.20) : WidgetPalette.textPrimary.opacity(0.08),
                     lineWidth: 5
                 )
             Circle()
-                .trim(from: 0, to: max(weekProgress, 0.08))
+                .trim(from: 0, to: max(weekProgress, streak > 0 ? 0.12 : 0.06))
                 .stroke(
                     AngularGradient(
                         colors: onDark
-                            ? [.white.opacity(0.95), .white.opacity(0.55), .white.opacity(0.95)]
+                            ? [accent, accent.opacity(0.55), accent]
                             : [WidgetPalette.pillTeal, WidgetPalette.orbSage, WidgetPalette.pillTeal],
                         center: .center
                     ),
@@ -206,17 +325,23 @@ struct WidgetStreakRing: View {
                 )
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: diameter * 0.16, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .padding(.bottom, 1)
                 Text("\(streak)")
-                    .font(WidgetTypography.streakNumber(diameter * 0.38))
+                    .font(WidgetTypography.streakNumber(diameter * 0.34))
                     .foregroundStyle(onDark ? .white : WidgetPalette.textPrimary)
                 Text(streak == 1 ? "day" : "days")
-                    .font(.system(size: diameter * 0.14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(onDark ? .white.opacity(0.82) : WidgetPalette.textSecondary)
+                    .font(.system(size: diameter * 0.13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(onDark ? .white.opacity(0.78) : WidgetPalette.textSecondary)
             }
         }
         .frame(width: diameter, height: diameter)
     }
 }
+
+// MARK: - Prayer notes
 
 struct WidgetPaperNote: View {
     let text: String
@@ -231,7 +356,7 @@ struct WidgetPaperNote: View {
                 Image(systemName: kindIcon)
                     .font(.system(size: compact ? 8 : 9, weight: .semibold))
                 Text(kindLabel)
-                    .font(.system(size: compact ? 8 : 9, weight: .semibold, design: .rounded))
+                    .font(WidgetTypography.micro(compact ? 8 : 9))
             }
             .foregroundStyle(WidgetPalette.kindAccent(kind))
 
@@ -244,14 +369,16 @@ struct WidgetPaperNote: View {
         .padding(compact ? 8 : 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: compact ? 8 : 10, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 9 : 11, style: .continuous)
                 .fill(WidgetPalette.paperColor(index: tintIndex))
-                .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
+                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: compact ? 8 : 10, style: .continuous)
-                .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
-        )
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(WidgetPalette.kindAccent(kind).opacity(0.35))
+                .frame(width: compact ? 22 : 28, height: 4)
+                .offset(y: -2)
+        }
         .rotationEffect(.degrees(rotation))
     }
 
@@ -273,6 +400,51 @@ struct WidgetPaperNote: View {
         }
     }
 }
+
+struct WidgetActionChip: View {
+    let title: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        Label(title, systemImage: icon)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(tint.opacity(0.11))
+            .clipShape(Capsule())
+            .overlay {
+                Capsule().stroke(tint.opacity(0.22), lineWidth: 0.8)
+            }
+    }
+}
+
+struct WidgetQuoteMark: View {
+    var size: CGFloat = 36
+
+    var body: some View {
+        Text("\u{201C}")
+            .font(.system(size: size, weight: .light, design: .serif))
+            .foregroundStyle(WidgetPalette.moodPeachText.opacity(0.45))
+    }
+}
+
+struct WidgetVerseReferencePill: View {
+    let reference: String
+
+    var body: some View {
+        Text(reference)
+            .font(WidgetTypography.label(10))
+            .foregroundStyle(WidgetPalette.pillPurple)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(WidgetPalette.pillPurple.opacity(0.10))
+            .clipShape(Capsule())
+    }
+}
+
+// MARK: - Live Activity (unchanged API)
 
 struct WidgetStepTrail: View {
     let current: Int
@@ -327,9 +499,7 @@ struct WidgetStepTrail: View {
 
     private func connector(filled: Bool) -> some View {
         Capsule()
-            .fill(filled
-                ? (onDark ? WidgetPalette.pillTeal : WidgetPalette.pillTeal)
-                : (onDark ? Color.black.opacity(0.08) : WidgetPalette.textSecondary.opacity(0.18)))
+            .fill(filled ? WidgetPalette.pillTeal : WidgetPalette.textSecondary.opacity(0.18))
             .frame(height: compact ? 2 : 3)
             .frame(maxWidth: compact ? 10 : 14)
     }
@@ -337,36 +507,9 @@ struct WidgetStepTrail: View {
     private func nodeFill(complete: Bool, current: Bool) -> Color {
         if complete { return onDark ? .white : WidgetPalette.pillTeal }
         if current { return onDark ? WidgetPalette.pillPurple.opacity(0.18) : WidgetPalette.pillPurple }
-        return onDark ? Color.black.opacity(0.06) : WidgetPalette.textSecondary.opacity(0.12)
+        return WidgetPalette.textSecondary.opacity(0.12)
     }
 }
-
-struct WidgetActionChip: View {
-    let title: String
-    let icon: String
-    let tint: Color
-
-    var body: some View {
-        Label(title, systemImage: icon)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .background(tint.opacity(0.12))
-            .clipShape(Capsule())
-    }
-}
-
-struct WidgetQuoteMark: View {
-    var body: some View {
-        Text("“")
-            .font(.system(size: 34, weight: .light, design: .serif))
-            .foregroundStyle(WidgetPalette.pillPurple.opacity(0.35))
-            .offset(y: -4)
-    }
-}
-
-// MARK: - Live Activity
 
 struct LiveActivityStepIcon: View {
     let icon: String
@@ -393,7 +536,6 @@ struct LiveActivityStepIcon: View {
     }
 }
 
-/// Thin progress bar sized for lock-screen Live Activities (max ~160pt total height).
 struct LiveActivityCompactProgress: View {
     let current: Int
     let total: Int
@@ -456,7 +598,6 @@ struct LiveActivityLockBanner: View {
         }
     }
 
-    /// Forest-style single row: icon · timer + label · step badge.
     private var mainRow: some View {
         HStack(alignment: .center, spacing: 12) {
             LiveActivityStepIcon(icon: displayIcon, size: 40)
@@ -505,7 +646,6 @@ struct LiveActivityLockBanner: View {
         }
     }
 
-    /// Subtle footer band — matches Forest / Apple 14pt margin rhythm.
     private var footerStrip: some View {
         HStack(spacing: 8) {
             Label {

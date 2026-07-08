@@ -1203,12 +1203,24 @@ struct ABYJourneyTimelineRow: View {
         entry.createdAt.formatted(date: .omitted, time: .shortened)
     }
 
+    private var entryKindEmoji: String {
+        switch entry.kind {
+        case .evening: "🌙"
+        case .devotion: "☀️"
+        case .gratitude: "🙏"
+        case .verse: "📖"
+        case .voiceNote: "🎙️"
+        case .answeredPrayer: "✅"
+        default: "📝"
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             ABYTimelineTimePill(time: timeLabel)
 
             ABYTimelineEntryCard(
-                moodEmoji: entry.moodEmoji ?? "",
+                moodEmoji: entry.moodEmoji ?? entryKindEmoji,
                 bodyText: entry.body ?? entry.title,
                 secondaryEmojis: entry.kind == .devotion ? "🙏" : "",
                 showsMetadata: false

@@ -23,6 +23,7 @@ struct ConversationsListView: View {
     @Environment(\.streakManager) private var streakManager
 
     private let repository = ConversationRepository.shared
+    private var journalStore = JournalLocalStore.shared
     private let rhythmStore = DailyRhythmStore.shared
     @State private var appeared = false
     @State private var browseMode: JournalBrowseMode = .timeline
@@ -40,6 +41,7 @@ struct ConversationsListView: View {
             return designTourTimelineSamples.filter { ConversationMerger.isJournalTimelineEntry($0) }
         }
         #endif
+        _ = journalStore.revision
         return ConversationMerger.journalTimeline()
     }
 

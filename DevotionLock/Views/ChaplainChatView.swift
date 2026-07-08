@@ -157,7 +157,7 @@ struct ChaplainChatView: View {
                         ChaplainPresenceIndicator(mode: presenceMode)
                             .padding(.top, messages.isEmpty && presenceMode == .loadingThread ? 28 : 0)
                             .id("presence")
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .transition(.blurDissolve)
                     }
 
                     if let errorMessage {

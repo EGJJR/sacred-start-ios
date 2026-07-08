@@ -220,12 +220,16 @@ struct AppRootView: View {
             SyncCoordinator.shared.scheduleFlush(force: true)
             AppShieldManager.shared.syncShieldState()
             PersonalInsightStore.shared.refresh()
+            AmbientEmpathy.resetCompanionSessionFlag()
             // Rebuild scheduled notifications so pending calendar copies reflect today's streak
             // (avoids stale "0-day streak" content baked in at an earlier session).
             NotificationManager.shared.rescheduleAll()
         }
         .onChange(of: scenePhase) { _, phase in
             handleScenePhase(phase)
+        }
+        .onOpenURL { url in
+            Task { await AuthManager.shared.handleAuthURL(url) }
         }
     }
 

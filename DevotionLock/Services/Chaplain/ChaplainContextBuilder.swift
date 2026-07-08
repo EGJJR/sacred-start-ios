@@ -39,6 +39,10 @@ struct ChaplainRequestContext: Encodable {
     let prefetchedScripture: [PrefetchedScripturePayload]?
     /// When true, the edge function streams a reply without creating or saving a conversation.
     let ephemeral: Bool?
+    /// Local period for greetings: morning, afternoon, evening, or night.
+    let timeOfDay: String
+    /// Local hour 0–23 so the model can orient without guessing.
+    let localHour: Int
 
     enum CodingKeys: String, CodingKey {
         case chaplainVoice = "chaplain_voice"
@@ -53,6 +57,8 @@ struct ChaplainRequestContext: Encodable {
         case devotionCompletedToday = "devotion_completed_today"
         case prefetchedScripture = "prefetched_scripture"
         case ephemeral
+        case timeOfDay = "time_of_day"
+        case localHour = "local_hour"
     }
 }
 
@@ -116,6 +122,8 @@ enum ChaplainContextBuilder {
             patterns.refresh()
         }
 
+        let hour = Calendar.current.component(.hour, from: Date())
+
         return ChaplainRequestContext(
             chaplainVoice: voice.id,
             personality: voice.personality,
@@ -130,8 +138,31 @@ enum ChaplainContextBuilder {
             prefetchedScripture: prefetchedScripture.isEmpty
                 ? nil
                 : prefetchedScripture.map(PrefetchedScripturePayload.from),
-            ephemeral: ephemeral ? true : nil
+            ephemeral: ephemeral ? true : nil,
+            timeOfDay: timeOfDay(forHour: hour),
+            localHour: hour
         )
+    }
+
+    /// Shared local period labels for Chaplain context and UI greetings.
+    static func timeOfDay(forHour hour: Int = Calendar.current.component(.hour, from: Date())) -> String {
+        switch hour {
+        case 0..<5: "night"
+        case 5..<12: "morning"
+        case 12..<17: "afternoon"
+        default: "evening"
+        }
+    }
+
+    static func greetingSalutation(
+        forHour hour: Int = Calendar.current.component(.hour, from: Date())
+    ) -> String {
+        switch timeOfDay(forHour: hour) {
+        case "night": "Still awake"
+        case "morning": "Good morning"
+        case "afternoon": "Good afternoon"
+        default: "Good evening"
+        }
     }
 
     private static func normalizedIntent(_ intent: String?) -> String? {

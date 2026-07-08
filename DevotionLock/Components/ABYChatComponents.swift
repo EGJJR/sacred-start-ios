@@ -119,9 +119,13 @@ struct GeminiChatGreeting: View {
         return name.split(separator: " ").first.map(String.init) ?? name
     }
 
+    private var salutation: String {
+        ChaplainContextBuilder.greetingSalutation()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Hi \(firstName)")
+            Text("\(salutation), \(firstName)")
                 .font(ABY.Font.callout)
                 .foregroundStyle(palette.textSecondary)
             Text("Where should we start?")
@@ -524,6 +528,8 @@ struct ChaplainPortalTransition: View {
     @State private var textLift: CGFloat = 18
     @State private var fieldIntensity: CGFloat = 0
     @State private var departing = false
+    @State private var materialOpacity: Double = 0
+    @State private var veilOpacity: Double = 0
 
     private var peakFieldIntensity: CGFloat { palette.isNight ? 0.06 : 0.85 }
     private var peakBloomOpacity: CGFloat { palette.isNight ? 0.55 : 0.95 }
@@ -531,7 +537,13 @@ struct ChaplainPortalTransition: View {
 
     var body: some View {
         ZStack {
+            Rectangle()
+                .fill(palette.isNight ? .thinMaterial : .ultraThinMaterial)
+                .opacity(materialOpacity)
+                .ignoresSafeArea()
+
             portalBackdrop
+                .opacity(veilOpacity)
                 .ignoresSafeArea()
 
             if !palette.isNight {
@@ -571,23 +583,29 @@ struct ChaplainPortalTransition: View {
             VStack(spacing: palette.isNight ? 10 : 8) {
                 Text("Chaplain \(voiceName)")
                     .font(ABY.Font.editorialTitle)
-                    .foregroundStyle(palette.textPrimary)
+                    .foregroundStyle(palette.isNight ? ABY.Color.starlight : palette.textPrimary)
                 Text("A quiet place to begin")
                     .font(palette.isNight ? ABY.Font.editorialAccent : ABY.Font.callout)
-                    .foregroundStyle(palette.isNight ? palette.textSecondary.opacity(0.9) : palette.textSecondary)
+                    .foregroundStyle(
+                        palette.isNight
+                            ? ABY.Color.starlight.opacity(0.78)
+                            : palette.textSecondary
+                    )
             }
             .portalTextReveal(textRevealed, isNight: palette.isNight, blurRadius: palette.isNight ? 6 : 10, scale: 1.04)
             .offset(y: textLift)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            portalBackdrop
+            Rectangle()
+                .fill(palette.isNight ? .thinMaterial : .ultraThinMaterial)
+                .opacity(materialOpacity)
                 .ignoresSafeArea()
         }
         // Whole veil softens and dissolves; the chat's own blur-reveal picks up from here.
-        .blur(radius: departing ? 28 : 0)
+        .blur(radius: departing ? 24 : 0)
         .opacity(departing ? 0 : 1)
-        .scaleEffect(departing ? 1.035 : 1)
+        .scaleEffect(departing ? 1.02 : 1)
         .allowsHitTesting(!departing)
         .preferredColorScheme(palette.isNight ? .dark : .light)
         .onAppear(perform: runPortal)
@@ -633,7 +651,9 @@ struct ChaplainPortalTransition: View {
             return
         }
 
-        withAnimation(.easeOut(duration: palette.isNight ? 0.36 : 0.42)) {
+        withAnimation(.easeOut(duration: palette.isNight ? 0.48 : 0.52)) {
+            materialOpacity = 1
+            veilOpacity = palette.isNight ? 0.92 : 0.72
             bloomScale = peakBloomScale
             bloomOpacity = peakBloomOpacity
             fieldIntensity = peakFieldIntensity
@@ -657,6 +677,8 @@ struct ChaplainPortalTransition: View {
                     departing = true
                     bloomOpacity = 0
                     fieldIntensity = 0
+                    materialOpacity = 0
+                    veilOpacity = 0
                     textLift = -8
                 }
             }

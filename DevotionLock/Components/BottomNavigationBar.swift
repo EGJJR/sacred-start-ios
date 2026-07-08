@@ -8,9 +8,7 @@ import SwiftUI
 struct BottomNavigationBar: View {
     @Binding var selectedTab: AppTab
     let orbState: SacredOrbState
-    var isQuickMenuPresented: Bool = false
     var onOrbTap: () -> Void
-    var onOrbLongPress: () -> Void = {}
     @Environment(\.sanctuaryPalette) private var palette
     @State private var tabFrames: [AppTab: CGRect] = [:]
 
@@ -36,7 +34,6 @@ struct BottomNavigationBar: View {
         .padding(.bottom, 10)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
-        .animation(AppTheme.springMenu, value: isQuickMenuPresented)
         .animation(AppTheme.springGentle, value: orbState)
     }
 
@@ -129,13 +126,11 @@ struct BottomNavigationBar: View {
                     navButton(tab: tab)
                 }
 
-                SacredOrbNavHoldButton(
+                SacredOrbNavButton(
                     orbState: orbState,
                     barHeight: barHeight,
                     orbSize: orbSize,
-                    isQuickMenuPresented: isQuickMenuPresented,
-                    onTap: onOrbTap,
-                    onHoldComplete: onOrbLongPress
+                    onTap: onOrbTap
                 )
                 .frame(maxWidth: .infinity)
 
@@ -200,179 +195,32 @@ private struct NavTabSlidingGlassHighlight: View {
     }
 }
 
-// MARK: - Orb hold interaction
+// MARK: - Orb tap button
 
-private struct SacredOrbNavHoldButton: View {
-    @Environment(\.sanctuaryPalette) private var palette
-
+private struct SacredOrbNavButton: View {
     let orbState: SacredOrbState
     let barHeight: CGFloat
     let orbSize: CGFloat
-    var isQuickMenuPresented: Bool = false
     var onTap: () -> Void
-    var onHoldComplete: () -> Void
-
-    @State private var holdProgress: CGFloat = 0
-    @State private var holdBloom: CGFloat = 1
-    @State private var isPressing = false
-    @State private var didCompleteHold = false
-    @State private var pressBeganAt: Date?
-    @State private var holdTask: Task<Void, Never>?
-
-    private let holdDuration: TimeInterval = 0.48
-    private let tapThreshold: TimeInterval = 0.26
 
     var body: some View {
-        ZStack {
-            if holdProgress > 0, !isQuickMenuPresented {
-                Circle()
-                    .trim(from: 0, to: holdProgress)
-                    .stroke(
-                        AngularGradient(
-                            colors: holdRingColors,
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: orbSize + 8, height: orbSize + 8)
-            }
-
+        Button {
+            DevotionHaptics.light()
+            onTap()
+        } label: {
             RadiantCaptureOrb(
                 size: orbSize,
                 rhythmProgress: 0,
-                showsNudge: orbState.showsMorningFirstNudge && !isQuickMenuPresented,
-                isMenuExpanded: isQuickMenuPresented,
-                isPressing: isPressing,
-                embeddedInBar: true,
-                extraScale: menuScale * holdBloom
+                showsNudge: orbState.showsMorningFirstNudge,
+                embeddedInBar: true
             )
+            .frame(maxWidth: .infinity)
+            .frame(height: barHeight)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: barHeight)
-        .scaleEffect(holdBloom)
-        .contentShape(Rectangle())
-        .gesture(isQuickMenuPresented ? nil : holdGesture)
-        .onTapGesture {
-            if isQuickMenuPresented {
-                DevotionHaptics.soft()
-                onTap()
-            }
-        }
-        .accessibilityLabel(isQuickMenuPresented ? "Close sacred shortcuts" : orbState.accessibilityLabel)
-        .accessibilityHint(
-            isQuickMenuPresented
-                ? "Closes the shortcuts sheet"
-                : "Press and hold for sacred shortcuts. \(orbState.microLabel ?? "")"
-        )
-        .accessibilityAction(named: "Sacred shortcuts") {
-            onHoldComplete()
-        }
-        .onDisappear {
-            cancelHold(animated: false)
-        }
-    }
-
-    private var menuScale: CGFloat {
-        isQuickMenuPresented ? 0.96 : 1
-    }
-
-    private var holdRingColors: [Color] {
-        [
-            Color(red: 0.08, green: 0.76, blue: 0.94),
-            Color(red: 0.10, green: 0.44, blue: 0.96),
-            Color(red: 0.44, green: 0.32, blue: 0.92),
-            Color(red: 0.76, green: 0.26, blue: 0.82),
-            Color(red: 0.08, green: 0.76, blue: 0.94),
-        ]
-    }
-
-    private var holdGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .local)
-            .onChanged { _ in
-                beginHoldIfNeeded()
-            }
-            .onEnded { _ in
-                endHold()
-            }
-    }
-
-    private func beginHoldIfNeeded() {
-        guard !isPressing else { return }
-        isPressing = true
-        didCompleteHold = false
-        pressBeganAt = Date()
-        DevotionHaptics.soft()
-
-        holdProgress = 0
-        withAnimation(.spring(response: holdDuration * 0.95, dampingFraction: 0.9)) {
-            holdProgress = 1
-        }
-
-        holdTask?.cancel()
-        holdTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(holdDuration))
-            guard !Task.isCancelled, isPressing else { return }
-
-            didCompleteHold = true
-            DevotionHaptics.medium()
-
-            withAnimation(AppTheme.springMenu) {
-                holdBloom = 1.12
-            }
-
-            try? await Task.sleep(for: .milliseconds(70))
-            guard !Task.isCancelled else { return }
-
-            onHoldComplete()
-
-            try? await Task.sleep(for: .milliseconds(140))
-            guard !Task.isCancelled else { return }
-
-            resetHoldVisuals()
-            isPressing = false
-            pressBeganAt = nil
-        }
-    }
-
-    private func endHold() {
-        let pressDuration = pressBeganAt.map { Date().timeIntervalSince($0) } ?? 0
-        let shouldTap = !didCompleteHold && pressDuration < tapThreshold
-
-        holdTask?.cancel()
-        holdTask = nil
-        isPressing = false
-        pressBeganAt = nil
-
-        resetHoldVisuals()
-
-        if shouldTap {
-            DevotionHaptics.light()
-            onTap()
-        }
-
-        didCompleteHold = false
-    }
-
-    private func cancelHold(animated: Bool) {
-        holdTask?.cancel()
-        holdTask = nil
-        isPressing = false
-        pressBeganAt = nil
-        didCompleteHold = false
-        if animated {
-            resetHoldVisuals()
-        } else {
-            holdProgress = 0
-            holdBloom = 1
-        }
-    }
-
-    private func resetHoldVisuals() {
-        withAnimation(AppTheme.springMenu) {
-            holdProgress = 0
-            holdBloom = 1
-        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(orbState.accessibilityLabel)
+        .accessibilityHint(orbState.microLabel ?? "")
     }
 }
 

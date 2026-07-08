@@ -14,6 +14,7 @@ struct SavedChatLine: Codable, Equatable {
 struct JournalLocalEntry: Identifiable, Codable, Equatable {
     enum Kind: String, Codable {
         case assisted
+        case evening
         case voiceNote
         case chaplainChat
     }
@@ -71,6 +72,11 @@ struct JournalLocalEntry: Identifiable, Codable, Equatable {
             displayTitle = title
             emoji = "✍️"
             duration = "Written"
+        case .evening:
+            tag = "Evening"
+            displayTitle = title
+            emoji = "🌙"
+            duration = "Written"
         case .chaplainChat:
             tag = "Chaplain"
             displayTitle = title
@@ -124,6 +130,7 @@ final class JournalLocalStore {
     }
 
     private(set) var entries: [JournalLocalEntry] = []
+    private(set) var revision = 0
     private var activeUserId: UUID?
 
     init() {
@@ -139,6 +146,7 @@ final class JournalLocalStore {
         } else {
             entries = []
         }
+        revision += 1
     }
 
     func clearAll(for userId: UUID? = nil) {
@@ -161,7 +169,7 @@ final class JournalLocalStore {
     func updateEntry(id: UUID, body: String) -> JournalLocalEntry? {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return nil }
         let existing = entries[index]
-        guard existing.kind == .assisted || existing.kind == .voiceNote else { return nil }
+        guard existing.kind == .assisted || existing.kind == .evening || existing.kind == .voiceNote else { return nil }
 
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -180,8 +188,35 @@ final class JournalLocalStore {
         entries[index] = updated
         persist()
         JourneyTimelineStore.shared.updateEntryBody(id: id, body: trimmed)
-        NotificationCenter.default.post(name: .devotionRhythmDidUpdate, object: nil)
+        markChanged()
         return updated
+    }
+
+    @discardableResult
+    func addEveningReflection(highlight: String) -> JournalLocalEntry {
+        let trimmed = highlight.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = trimmed.isEmpty ? "Quiet gratitude for today." : trimmed
+        let entryID = UUID()
+        let entry = JournalLocalEntry(
+            id: entryID,
+            kind: .evening,
+            title: "Evening reflection",
+            body: body,
+            moodLabel: "Present",
+            moodEmoji: "🌙"
+        )
+        entries.insert(entry, at: 0)
+        persist()
+        markChanged()
+
+        JourneyTimelineStore.shared.add(JourneyTimelineEntry(
+            id: entryID,
+            kind: .evening,
+            title: "Evening reflection",
+            body: body,
+            moodEmoji: "🌙"
+        ))
+        return entry
     }
 
     @discardableResult
@@ -203,6 +238,7 @@ final class JournalLocalStore {
         )
         entries.insert(entry, at: 0)
         persist()
+        markChanged()
 
         JourneyTimelineStore.shared.add(JourneyTimelineEntry(
             id: entryID,
@@ -233,6 +269,7 @@ final class JournalLocalStore {
         )
         entries.insert(entry, at: 0)
         persist()
+        markChanged()
 
         JourneyTimelineStore.shared.add(JourneyTimelineEntry(
             id: entryID,
@@ -252,6 +289,7 @@ final class JournalLocalStore {
                 || (remoteID != nil && $0.conversationID == remoteID)
         }
         persist()
+        markChanged()
     }
 
     @discardableResult
@@ -292,6 +330,7 @@ final class JournalLocalStore {
         entries.removeAll { $0.id == entryID || $0.conversationID == conversationID }
         entries.insert(entry, at: 0)
         persist()
+        markChanged()
 
         JourneyTimelineStore.shared.add(JourneyTimelineEntry(
             id: entryID,
@@ -303,6 +342,11 @@ final class JournalLocalStore {
         return entry
     }
 
+    private func markChanged() {
+        revision += 1
+        NotificationCenter.default.post(name: .devotionRhythmDidUpdate, object: nil)
+    }
+
     private func load(for userId: UUID) {
         guard let data = UserDefaults.standard.data(forKey: Keys.entries(for: userId)),
               let decoded = try? JSONDecoder().decode([JournalLocalEntry].self, from: data)
@@ -310,7 +354,20 @@ final class JournalLocalStore {
             entries = []
             return
         }
-        entries = decoded
+        entries = decoded.map { entry in
+            guard entry.kind == .assisted, entry.title == "Evening reflection" else { return entry }
+            return JournalLocalEntry(
+                id: entry.id,
+                createdAt: entry.createdAt,
+                kind: .evening,
+                title: entry.title,
+                body: entry.body,
+                moodLabel: entry.moodLabel,
+                moodEmoji: entry.moodEmoji,
+                chatLines: entry.chatLines,
+                conversationID: entry.conversationID
+            )
+        }
     }
 
     private func persist() {

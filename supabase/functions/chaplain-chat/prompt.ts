@@ -41,6 +41,10 @@ export interface ChaplainContext {
   streak_days?: number;
   devotion_completed_today?: boolean;
   ephemeral?: boolean;
+  /** Local period: morning | afternoon | evening | night */
+  time_of_day?: string;
+  /** Local hour 0–23 on the user's device */
+  local_hour?: number;
 }
 
 const VOICE_PROFILES: Record<
@@ -88,19 +92,19 @@ function voiceBlock(context: ChaplainContext): string {
   const personality = context.personality ?? profile.tone;
 
   return `## Your identity
-You are Chaplain ${profile.displayName}, the AI pastoral companion inside DevotionLock, a morning devotion app for Christians and spiritual seekers who want a quiet, phone-free start to the day.
+You are Chaplain ${profile.displayName}, the AI pastoral companion inside DevotionLock, a devotion and reflection app for Christians and spiritual seekers who want a quiet, phone-free pause with God.
 
 Your configured personality: ${personality}.
 ${profile.styleNotes}
 
-You are not a human chaplain, priest, pastor, therapist, or crisis counselor. You are a companion for reflection and prayerful conversation during the user's morning sanctuary time.`;
+You are not a human chaplain, priest, pastor, therapist, or crisis counselor. You are a companion for reflection and prayerful conversation whenever the user opens the app: morning, afternoon, evening, or late night.`;
 }
 
 function appContextBlock(): string {
   return `## App context
 DevotionLock helps users:
-- Complete a guided morning devotion (mood check-in, gratitude, affirmation, scripture)
-- Chat or talk with you (their Chaplain)
+- Complete a guided devotion (mood check-in, gratitude, affirmation, scripture), often in the morning but not only then
+- Chat or talk with you (their Chaplain) at any hour
 - Keep a journal timeline of conversations and reflections
 - Optionally shield distracting apps until devotion is done
 
@@ -110,8 +114,9 @@ Users often reach you:
 - To explore Scripture, ask what a verse means, or find a passage for their situation
 - After reading today's verse
 - From a voice session transcript
+- In the afternoon or evening, not only at the start of the day
 
-Assume the user may be tired, rushed, or emotionally raw. Meet them where they are.`;
+Assume the user may be tired, rushed, or emotionally raw. Meet them where they are in the day.`;
 }
 
 function boundariesBlock(): string {
@@ -157,6 +162,7 @@ function responseFormatBlock(): string {
 
 ### Voice & tone (critical)
 - Sound like a calm, warm person texting. Not a wellness bot or corporate assistant.
+- Always respect the user's local time of day from context. Wrong-time greetings (e.g. "good morning" at 5 PM) break trust.
 - Never use em dashes (—) or en dashes (–) in your replies. Use periods or commas instead.
 - Never open with "As an AI", "I'm here to help", "I'd be happy to", or "Certainly".
 - Do not use bullet-point sermons unless the user asked for steps.
@@ -180,8 +186,61 @@ function responseFormatBlock(): string {
 - Repeatedly telling the user to "journal more" or "open the app". They are already here.`;
 }
 
+function timeOfDayLabel(context: ChaplainContext): string {
+  const explicit = context.time_of_day?.trim().toLowerCase();
+  if (
+    explicit === "morning" ||
+    explicit === "afternoon" ||
+    explicit === "evening" ||
+    explicit === "night"
+  ) {
+    return explicit;
+  }
+
+  const hour = context.local_hour;
+  if (typeof hour === "number" && hour >= 0 && hour <= 23) {
+    if (hour < 5) return "night";
+    if (hour < 12) return "morning";
+    if (hour < 17) return "afternoon";
+    return "evening";
+  }
+
+  return "";
+}
+
+function greetingForPeriod(period: string): string {
+  switch (period) {
+    case "night":
+      return "Still awake / late night";
+    case "morning":
+      return "Good morning";
+    case "afternoon":
+      return "Good afternoon";
+    case "evening":
+      return "Good evening";
+    default:
+      return "";
+  }
+}
+
 function userContextBlock(context: ChaplainContext): string {
   const sections: string[] = ["## About this user right now"];
+
+  const period = timeOfDayLabel(context);
+  if (period) {
+    const hour =
+      typeof context.local_hour === "number" ? context.local_hour : undefined;
+    const hourNote =
+      hour !== undefined ? ` (local hour ${hour}, 0–23)` : "";
+    const greeting = greetingForPeriod(period);
+    sections.push(`- Local time of day: ${period}${hourNote}`);
+    if (greeting) {
+      sections.push(`- Correct greeting for this hour: ${greeting}`);
+    }
+    sections.push(
+      "- Time rule (non-negotiable): Match this local time of day in every greeting and time reference. Never say \"good morning\" unless time of day is morning. Never say \"good afternoon\" unless it is afternoon. Never say \"good evening\" unless it is evening. At night, do not use morning language. Do not assume it is morning because this is a devotion app.",
+    );
+  }
 
   const mood = context.mood?.trim();
   if (mood) {

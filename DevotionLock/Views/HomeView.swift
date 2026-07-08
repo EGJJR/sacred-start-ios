@@ -38,6 +38,7 @@ struct HomeView: View {
     @Environment(\.presentDevotionPaywall) private var presentPaywall
     @Environment(\.selectTab) private var selectTab
     @Environment(\.streakManager) private var streakManager
+    @Environment(\.sanctuaryPalette) private var palette
 
     @AppStorage("intentionMood") private var intentionMood = "Peaceful"
     @AppStorage("shieldEnabled") private var shieldEnabled = true
@@ -48,6 +49,8 @@ struct HomeView: View {
     @State private var appeared = false
     @State private var rhythmSheet: HomeRhythmSheet?
     @State private var scriptureSheet: HomeScriptureSheet?
+    @State private var verseCallback: AmbientEmpathy.VerseCallback?
+    @State private var storyBrief: AmbientEmpathy.StoryBrief?
 
     private var dailyFocus: DailyFocus { DailyFocus.today }
     private var dailyPassage: SpiritualPassage { SpiritualPassageCatalog.todayScripture }
@@ -61,10 +64,12 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ABYFadingHeaderScrollView(
-            title: "Home",
-            subtitle: greeting,
-            trailing: {
+        ABYCustomFadingHeaderScrollView(
+            compactTitle: "Home",
+            inlineHeader: {
+                homeHeader
+            },
+            compactTrailing: {
                 if streakManager.currentStreak > 0 {
                     ABYFlameBadge(streak: streakManager.currentStreak, action: openStreakScreen)
                 }
@@ -116,6 +121,17 @@ struct HomeView: View {
                     .padding(.horizontal, ABY.Spacing.screen)
                     .padding(.bottom, 10)
                     .staggeredAppear(appeared, delay: 0.1)
+
+                if let verseCallback {
+                    AmbientVerseCallbackCard(
+                        callback: verseCallback,
+                        onOpen: { openVerseCallback(verseCallback) },
+                        onDismiss: { dismissVerseCallback(verseCallback) }
+                    )
+                    .padding(.horizontal, ABY.Spacing.screen)
+                    .padding(.bottom, 16)
+                    .staggeredAppear(appeared, delay: 0.105)
+                }
 
                 if let summary = streakManager.todaySummary, streakManager.isCompletedToday {
                     HomeDaySummaryCard(summary: summary)
@@ -216,6 +232,7 @@ struct HomeView: View {
                     onComplete: { highlight in
                         rhythmStore.markComplete(.eveningReflection)
                         journeyStore.logEvening(highlight: highlight)
+                        rhythmSheet = nil
                     },
                     onVoiceHandoff: { transcript in
                         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -253,16 +270,88 @@ struct HomeView: View {
     }
 
     private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Good morning" }
-        if hour < 17 { return "Good afternoon" }
-        return "Good evening"
+        ChaplainContextBuilder.greetingSalutation()
+    }
+
+    @ViewBuilder
+    private var homeHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Home")
+                    .font(ABY.Font.editorialLargeTitle)
+                    .foregroundStyle(palette.textPrimary)
+
+                Text(greeting)
+                    .font(ABY.Font.callout)
+                    .foregroundStyle(palette.textSecondary)
+
+                if let storyBrief {
+                    AmbientNoticingBrief(brief: storyBrief)
+                        .padding(.top, 6)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if streakManager.currentStreak > 0 {
+                ABYFlameBadge(streak: streakManager.currentStreak, action: openStreakScreen)
+            }
+        }
     }
 
     @MainActor
     private func refreshHomeState() {
         rhythmStore.syncFromExistingState()
         shieldManager.syncShieldState()
+        PersonalInsightStore.shared.refresh()
+        let snapshot = PersonalInsightStore.shared.snapshot
+        let profile = MorningProfile.shared
+        storyBrief = AmbientEmpathy.storyBrief(
+            snapshot: snapshot,
+            profile: profile,
+            streakDays: streakManager.currentStreak
+        )
+        verseCallback = AmbientEmpathy.verseCallback(
+            journey: journeyStore,
+            profile: profile,
+            snapshot: snapshot
+        )
+        Task { await refreshStoryNarrative() }
+    }
+
+    /// Pulls Morning Wrapped's weekly narrative into the Home brief when available.
+    @MainActor
+    private func refreshStoryNarrative() async {
+        let fallback = streakManager.wrappedStats()
+        let stats = await InsightService.shared.fetchWeeklyInsight(fallback: fallback)
+        guard let narrative = stats.weeklyNarrative?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !narrative.isEmpty else { return }
+
+        AmbientEmpathy.cacheWeeklyNarrative(narrative)
+        let snapshot = PersonalInsightStore.shared.snapshot
+        let profile = MorningProfile.shared
+        withAnimation(AppTheme.springGentle) {
+            storyBrief = AmbientEmpathy.storyBrief(
+                snapshot: snapshot,
+                profile: profile,
+                streakDays: streakManager.currentStreak,
+                narrative: narrative
+            )
+        }
+    }
+
+    private func openVerseCallback(_ callback: AmbientEmpathy.VerseCallback) {
+        AmbientEmpathy.markVerseCallbackShown(callback)
+        verseCallback = nil
+        scriptureSheet = .bible
+    }
+
+    private func dismissVerseCallback(_ callback: AmbientEmpathy.VerseCallback) {
+        AmbientEmpathy.dismissVerseCallback(callback)
+        withAnimation(AppTheme.springGentle) {
+            verseCallback = nil
+        }
     }
 }
 

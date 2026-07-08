@@ -244,31 +244,4 @@ enum SacredOrbResolver {
         )
     }
 
-    static func quickActions(
-        selectedTab: AppTab,
-        rhythmStore: DailyRhythmStore,
-        streakManager: StreakManager,
-        now: Date = Date()
-    ) -> [SacredOrbQuickAction] {
-        let hour = Calendar.current.component(.hour, from: now)
-        let isEvening = hour >= eveningHourStart
-        let devotionDone = rhythmStore.isComplete(.morningDevotion, on: now)
-            || streakManager.isCompletedToday
-        let eveningDone = rhythmStore.isComplete(.eveningReflection, on: now)
-
-        var actions: [SacredOrbQuickAction] = []
-        if !devotionDone {
-            actions.append(.morningDevotion)
-        }
-        actions.append(.journalCapture)
-        actions.append(.assistedWrite)
-        if FeatureFlags.voiceChatEnabled {
-            actions.append(.voiceNote)
-        }
-        if isEvening && !eveningDone {
-            actions.append(.eveningReflection)
-        }
-        actions.append(.chaplain)
-        return actions
-    }
 }

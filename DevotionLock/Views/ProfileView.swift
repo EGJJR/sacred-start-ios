@@ -51,6 +51,7 @@ struct ProfileView: View {
     #if DEBUG
     @AppStorage(PaywallBypass.storageKey) private var paywallBypass = false
     @AppStorage(DesignTour.storageKey) private var designTourEnabled = false
+    @AppStorage(CleanExperiment.storageKey) private var cleanHomeDesignEnabled = true
     #endif
 
     @State private var path = NavigationPath()
@@ -198,6 +199,13 @@ struct ProfileView: View {
                             title: "Design tour",
                             detail: "Jump to any screen for QA",
                             isOn: $designTourEnabled
+                        )
+                        ABYSettingsDivider()
+                        ABYSettingsToggleRow(
+                            icon: "sparkles",
+                            title: "Clean design experiment",
+                            detail: "Home, Chat, Journal, Profile + Open Runde",
+                            isOn: $cleanHomeDesignEnabled
                         )
                         ABYSettingsDivider()
                         ABYSettingsToggleRow(

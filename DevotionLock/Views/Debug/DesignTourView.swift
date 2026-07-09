@@ -78,6 +78,8 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
     case conversations
     case insights
     case profile
+    case cleanHome
+    case cleanStreak
     case journalMood
     case journalMadLibs
     case journalComplete
@@ -109,6 +111,8 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
         case .conversations: "Main · Journal list"
         case .insights: "Main · Chaplain"
         case .profile: "Main · Profile"
+        case .cleanHome: "Clean · Home"
+        case .cleanStreak: "Clean · Streak"
         case .journalMood: "Journal · Mood"
         case .journalMadLibs: "Journal · Mad-libs"
         case .journalComplete: "Journal · Complete"
@@ -130,6 +134,7 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
         case .authWelcome, .authSignUp, .authSignIn: "Auth"
         case .onboardingEntry, .onboardingGoal, .onboardingIntention, .onboardingVoice, .onboardingNotifications, .onboardingRecap: "Onboarding"
         case .home, .conversations, .insights, .profile: "Main tabs"
+        case .cleanHome, .cleanStreak: "Clean experiment"
         case .journalMood, .journalMadLibs, .journalComplete: "Guided journal"
         case .paywall, .devotionComplete, .splash, .streak, .weekInReview: "Other flows"
         case .prayerThreshold, .prayerLiturgyWeave, .prayerLiturgyWeaving, .sacredOrbWeavingLab, .morningLiturgyBranch: "Guided prayer prototypes"
@@ -137,7 +142,7 @@ enum DesignTourDestination: String, Identifiable, CaseIterable {
     }
 
     static var grouped: [(String, [DesignTourDestination])] {
-        let order = ["Auth", "Onboarding", "Main tabs", "Guided journal", "Guided prayer prototypes", "Other flows"]
+        let order = ["Auth", "Onboarding", "Main tabs", "Clean experiment", "Guided journal", "Guided prayer prototypes", "Other flows"]
         return order.map { section in
             (section, allCases.filter { $0.section == section })
         }
@@ -310,6 +315,13 @@ private struct DesignTourScreen: View {
 
         case .profile:
             ProfileView().designTourTabShell(tab: .profile)
+
+        case .cleanHome:
+            CleanHomeView()
+                .environment(\.streakManager, .shared)
+
+        case .cleanStreak:
+            CleanStreakView(streakManager: .shared)
 
         case .journalMood:
             journalTour(step: .mood)

@@ -123,13 +123,15 @@ struct GeminiChatGreeting: View {
         ChaplainContextBuilder.greetingSalutation()
     }
 
+    private var usesCleanChrome: Bool { palette == CleanDesign.palette }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(salutation), \(firstName)")
-                .font(ABY.Font.callout)
+                .font(usesCleanChrome ? CleanDesign.Font.body : ABY.Font.callout)
                 .foregroundStyle(palette.textSecondary)
             Text("Where should we start?")
-                .font(ABY.Font.editorialTitle)
+                .font(usesCleanChrome ? CleanDesign.Font.display : ABY.Font.editorialTitle)
                 .foregroundStyle(palette.textPrimary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -181,18 +183,29 @@ struct GeminiChatSuggestionRail: View {
 /// Flat off-white canvas — matches [Gemini chat](https://mobbin.com/screens/8cb0be56-3634-46eb-bc04-7fd121164726).
 struct ABYChatWashBackground: View {
     @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+    @AppStorage(CleanExperiment.storageKey) private var cleanHomeDesignEnabled = true
 
     private var mode: SanctuaryGradientMode {
         SanctuaryGradientMode.resolved(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
     }
 
+    private var usesCleanChrome: Bool {
+        UserDefaults.standard.object(forKey: CleanExperiment.storageKey) == nil
+            ? true
+            : cleanHomeDesignEnabled
+    }
+
     var body: some View {
         Group {
-            switch mode {
-            case .light:
-                ABY.Color.tabWashTop
-            case .night:
-                ABYNightSanctuaryBackground()
+            if usesCleanChrome {
+                CleanDesign.Color.background
+            } else {
+                switch mode {
+                case .light:
+                    ABY.Color.tabWashTop
+                case .night:
+                    ABYNightSanctuaryBackground()
+                }
             }
         }
         .ignoresSafeArea()

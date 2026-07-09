@@ -10,6 +10,7 @@ Central home for product design, design philosophy, changelog, and system archit
 | Document | Purpose |
 |----------|---------|
 | **[DESIGN-PHILOSOPHY.md](DESIGN-PHILOSOPHY.md)** | Design thought process — ABY aesthetic, Mobbin patterns, chat/journal/recap rules, what we avoid |
+| **[APPLE-DESIGN-AUDIT.md](APPLE-DESIGN-AUDIT.md)** | Audit vs [Apple Design skill](https://github.com/emilkowalski/skills/blob/main/skills/apple-design/SKILL.md) — gaps, ABY vs Clean differentiation |
 | **[CHANGELOG.md](CHANGELOG.md)** | Full product changelog by area (Design, Chaplain, Journal, Bible, Navigation, Backend) |
 
 ---

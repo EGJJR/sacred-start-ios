@@ -745,10 +745,16 @@ struct SanctuaryPalette: Equatable {
     var isNight: Bool { self == .night }
 
     /// Grouped list / explore card — white in light, opaque plum in night.
-    var cardFill: Color { isNight ? ABY.Color.eveningSurfaceElevated : .white }
+    var cardFill: Color {
+        if self == CleanDesign.palette { return CleanDesign.Color.surface }
+        return isNight ? ABY.Color.eveningSurfaceElevated : .white
+    }
 
     /// Floating composer pills and compact banners.
-    var composerFill: Color { isNight ? ABY.Color.eveningSurfaceElevated : Color.white.opacity(0.96) }
+    var composerFill: Color {
+        if self == CleanDesign.palette { return CleanDesign.Color.surface }
+        return isNight ? ABY.Color.eveningSurfaceElevated : Color.white.opacity(0.96)
+    }
 }
 
 private struct SanctuaryPaletteKey: EnvironmentKey {
@@ -765,18 +771,29 @@ extension EnvironmentValues {
 /// Soft, near-flat background for Home / Chaplain / Profile tabs — white cards stay the focus.
 struct ABYFlatTabWashBackground: View {
     @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+    @AppStorage(CleanExperiment.storageKey) private var cleanHomeDesignEnabled = true
 
     private var mode: SanctuaryGradientMode {
         SanctuaryGradientMode.resolved(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
     }
 
+    private var usesCleanChrome: Bool {
+        UserDefaults.standard.object(forKey: CleanExperiment.storageKey) == nil
+            ? true
+            : cleanHomeDesignEnabled
+    }
+
     var body: some View {
         Group {
-            switch mode {
-            case .light:
-                lightWash
-            case .night:
-                nightWash
+            if usesCleanChrome {
+                CleanDesign.Color.background
+            } else {
+                switch mode {
+                case .light:
+                    lightWash
+                case .night:
+                    nightWash
+                }
             }
         }
         .ignoresSafeArea()
@@ -1473,14 +1490,24 @@ struct ABYSectionHeader: View {
 
 private struct ABYScreenModifier: ViewModifier {
     @AppStorage(SanctuaryGradientMode.storageKey) private var modeRaw = SanctuaryGradientMode.light.rawValue
+    @AppStorage(CleanExperiment.storageKey) private var cleanHomeDesignEnabled = true
 
     private var mode: SanctuaryGradientMode {
         SanctuaryGradientMode.resolved(SanctuaryGradientMode(rawValue: modeRaw) ?? .light)
     }
 
+    private var usesCleanChrome: Bool {
+        UserDefaults.standard.object(forKey: CleanExperiment.storageKey) == nil
+            ? true
+            : cleanHomeDesignEnabled
+    }
+
     func body(content: Content) -> some View {
         content
-            .environment(\.sanctuaryPalette, SanctuaryPalette.forMode(mode))
-            .preferredColorScheme(mode == .night ? .dark : .light)
+            .environment(
+                \.sanctuaryPalette,
+                usesCleanChrome ? CleanDesign.palette : SanctuaryPalette.forMode(mode)
+            )
+            .preferredColorScheme(usesCleanChrome ? .light : (mode == .night ? .dark : .light))
     }
 }

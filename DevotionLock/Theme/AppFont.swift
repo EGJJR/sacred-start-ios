@@ -60,11 +60,19 @@ enum AppFont {
     }
 
     static func font(size: CGFloat, weight: Weight = .regular) -> Font {
-        Font(uiFont(size: size, weight: weight))
+        if CleanExperiment.isEnabled {
+            return CleanFont.font(size: size, weight: weight.cleanWeight)
+        }
+        return Font(uiFont(size: size, weight: weight))
     }
 
     /// Editorial serif for onboarding & welcome headlines (Instrument Serif).
+    /// Clean experiment swaps to Open Runde so the whole app shares one geometric face.
     static func serif(size: CGFloat, style: SerifStyle = .regular) -> Font {
+        if CleanExperiment.isEnabled {
+            return CleanFont.font(size: size, weight: .semibold)
+        }
+
         resolveIfNeeded()
 
         switch style {
@@ -85,6 +93,13 @@ enum AppFont {
     }
 
     static func uiFont(size: CGFloat, weight: Weight = .regular) -> UIFont {
+        if CleanExperiment.isEnabled {
+            let name = weight.cleanWeight.postScriptName
+            if let font = UIFont(name: name, size: size) {
+                return font
+            }
+        }
+
         resolveIfNeeded()
 
         if let name = resolvedNames[weight], let font = UIFont(name: name, size: size) {
@@ -162,6 +177,15 @@ enum AppFont {
 
 private extension AppFont.Weight {
     var uiWeight: UIFont.Weight {
+        switch self {
+        case .regular: .regular
+        case .medium: .medium
+        case .semibold: .semibold
+        case .bold: .bold
+        }
+    }
+
+    var cleanWeight: CleanFont.Weight {
         switch self {
         case .regular: .regular
         case .medium: .medium

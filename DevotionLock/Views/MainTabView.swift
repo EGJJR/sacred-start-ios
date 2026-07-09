@@ -24,20 +24,31 @@ struct MainTabView: View {
         "\(rhythmStore.revision)-\(journalStore.entries.count)-\(streakManager.isCompletedToday)"
     }
 
+    @AppStorage(CleanExperiment.storageKey) private var cleanHomeDesignEnabled = true
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            MainTabShellBackground(selectedTab: coordinator.selectedTab)
+            if cleanHomeDesignEnabled {
+                CleanDesign.Color.background.ignoresSafeArea()
+            } else {
+                MainTabShellBackground(selectedTab: coordinator.selectedTab)
+            }
 
             tabShell
                 .animation(AppTheme.springSnappy, value: coordinator.selectedTab)
 
-            BottomNavigationBar(
-                selectedTab: $coordinator.selectedTab,
-                orbState: sacredOrbState,
-                onOrbTap: performSacredOrbTap
-            )
-            .id(sacredOrbRefreshKey)
-            .zIndex(1)
+            if cleanHomeDesignEnabled {
+                CleanBottomNavigationBar(selectedTab: $coordinator.selectedTab)
+                    .zIndex(1)
+            } else {
+                BottomNavigationBar(
+                    selectedTab: $coordinator.selectedTab,
+                    orbState: sacredOrbState,
+                    onOrbTap: performSacredOrbTap
+                )
+                .id(sacredOrbRefreshKey)
+                .zIndex(1)
+            }
         }
         .abyScreen()
         .installMainTabEnvironment(coordinator: coordinator, streakManager: streakManager)
@@ -65,12 +76,26 @@ struct MainTabView: View {
         .handleDevotionDeepLinks { route in
             handleDeepLink(route)
         }
+        .onAppear {
+            // Experiment branch: enable Clean shell unless the user already opted out.
+            if UserDefaults.standard.object(forKey: CleanExperiment.storageKey) == nil {
+                cleanHomeDesignEnabled = true
+            }
+        }
     }
 
     @ViewBuilder
     private var tabShell: some View {
         ZStack {
-            tabLayer(.home) { HomeView().abyTabShell() }
+            tabLayer(.home) {
+                Group {
+                    if cleanHomeDesignEnabled {
+                        CleanHomeView()
+                    } else {
+                        HomeView().abyTabShell()
+                    }
+                }
+            }
             tabLayer(.conversations) { ConversationsListView().abyTabShell() }
             tabLayer(.insights) { AIInsightsView().abyTabShell() }
             tabLayer(.profile) { ProfileView().abyTabShell() }
@@ -324,9 +349,15 @@ private struct MainTabPresentationsModifier: ViewModifier {
         Group {
             switch presentation {
             case .streakScreen:
-                StreakScreenView(streakManager: streakManager)
+                Group {
+                    if CleanExperiment.isEnabled {
+                        CleanStreakView(streakManager: streakManager)
+                    } else {
+                        StreakScreenView(streakManager: streakManager)
+                    }
+                }
                     .presentationDragIndicator(.visible)
-                    .presentationCornerRadius(28)
+                    .presentationCornerRadius(CleanExperiment.isEnabled ? CleanDesign.radius : 28)
             case .conversation(let conversation):
                 ConversationDetailView(conversation: conversation)
                     .presentationDragIndicator(.visible)

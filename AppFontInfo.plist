@@ -7,6 +7,10 @@
 		<string>InterTight-VariableFont_wght.ttf</string>
 		<string>InstrumentSerif-Regular.ttf</string>
 		<string>InstrumentSerif-Italic.ttf</string>
+		<string>OpenRunde-Regular.otf</string>
+		<string>OpenRunde-Medium.otf</string>
+		<string>OpenRunde-Semibold.otf</string>
+		<string>OpenRunde-Bold.otf</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
